@@ -4,7 +4,7 @@
 
 The platform's first product: an **AI-powered hiring transformation** that turns a company's hiring from gut feeling into an evidence-based, Big-Tech-grade decision system — delivered through AI executives and specialist agents instead of a multi-year internal build.
 
-Source vision: `../../../context/Interview_Intelligence_INT2_Vision.md` (parent workspace; migrate de-branded into `docs/` here).
+**Reference only:** `../../../context/Interview_Intelligence_INT2_Vision.md` (parent workspace) informs the domain but is NOT the product definition. We will write our own: a SaaS platform of a few **specialized agents**, not the sequential workflows that doc describes. The rewrite lands in `docs/` here as the product is defined, agent by agent.
 
 ## Agent catalog (planned, ~5–6 sellable specialists)
 
