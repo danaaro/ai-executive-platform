@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -123,6 +124,9 @@ export default function Home() {
           <p style={styles.subtitle}>
             AI Executive Platform · interview-intelligence (internal name)
           </p>
+        </div>
+        <div style={{ marginLeft: "auto" }}>
+          <UserButton />
         </div>
       </header>
 

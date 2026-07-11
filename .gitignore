@@ -28,3 +28,6 @@ generated/*
 .idea/
 .vscode/
 *.log
+
+# clerk configuration (can include secrets)
+/.clerk/
