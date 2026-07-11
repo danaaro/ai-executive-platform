@@ -1,7 +1,13 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
+// /__clerk is Clerk's auto-proxy path — must pass through untouched or
+// Clerk's own auth machinery breaks.
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/__clerk(.*)",
+]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -22,5 +28,9 @@ export default clerkMiddleware(async (auth, req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)", "/(api|trpc)(.*)"],
+  matcher: [
+    "/((?!_next|.*\\..*).*)",
+    "/(api|trpc)(.*)",
+    "/__clerk/:path*",
+  ],
 };
