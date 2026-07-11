@@ -5,6 +5,7 @@ Thumbs.db
 # Env / secrets
 .env
 .env.*
+!.env.*.example
 *.pem
 *.key
 
@@ -15,6 +16,9 @@ build/
 __pycache__/
 *.pyc
 .venv/
+.next/
+next-env.d.ts
+*.tsbuildinfo
 
 # Generated artifacts (keep structure, ignore contents)
 generated/*

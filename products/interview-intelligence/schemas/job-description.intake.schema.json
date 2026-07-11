@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "job-description.intake.schema.json",
+  "title": "Job Description — Role Intake Record",
+  "description": "Full tagged record of a NEW JOB intake session. Durable artifact consumed by the JD agent's output renderer and by future downstream agents (competency-model, interview-kit, scorecard).",
+  "type": "object",
+  "required": ["roleTitle", "sessionDate", "openBrief", "answers", "companyInfo", "functionDescription"],
+  "properties": {
+    "roleTitle": { "type": "string", "description": "As given in A1; also drives output file naming." },
+    "sessionDate": { "type": "string", "format": "date" },
+    "openBrief": {
+      "type": "object",
+      "description": "The hiring manager's initial free-form description of the role.",
+      "properties": {
+        "form": { "type": "string", "enum": ["text", "recording-transcript"] },
+        "content": { "type": "string" }
+      },
+      "required": ["form", "content"]
+    },
+    "answers": {
+      "type": "array",
+      "description": "One entry per question-bank item (A1..I4) that was answered — either from the open brief or the interview.",
+      "items": {
+        "type": "object",
+        "required": ["questionId", "question", "answer", "tag", "source"],
+        "properties": {
+          "questionId": { "type": "string", "description": "Question bank ID, e.g. 'D2'." },
+          "question": { "type": "string" },
+          "answer": { "type": "string" },
+          "tag": { "type": "string", "enum": ["public", "internal"] },
+          "source": { "type": "string", "enum": ["open-brief", "interview"] }
+        }
+      }
+    },
+    "waivedQuestions": {
+      "type": "array",
+      "description": "Question-bank IDs the HM explicitly chose not to answer.",
+      "items": { "type": "string" }
+    },
+    "companyInfo": {
+      "type": "object",
+      "description": "Manual-entry block.",
+      "properties": {
+        "industry": { "type": "string" },
+        "size": { "type": "string" },
+        "benefits": { "type": "string" },
+        "deiPolicy": { "type": "string" },
+        "applicationProcess": { "type": "string" }
+      }
+    },
+    "functionDescription": {
+      "type": "string",
+      "description": "Manual-entry block."
+    }
+  }
+}

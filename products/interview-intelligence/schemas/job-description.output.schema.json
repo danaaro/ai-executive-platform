@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "job-description.output.schema.json",
+  "title": "Job Description — Output Structure",
+  "description": "Structural contract for the rendered JD. The agent's actual delivered artifact is Markdown (<Role-Title>-JD.md); this schema describes the section content it must be derivable from, for validation and future non-Markdown rendering.",
+  "type": "object",
+  "required": ["roleTitle", "locationAndWorkModel", "aboutCompany", "roleSummary", "responsibilities", "firstSixToTwelveMonths", "successMetrics", "whoYoullWorkWith", "requirements", "growth"],
+  "properties": {
+    "roleTitle": { "type": "string" },
+    "locationAndWorkModel": { "type": "string" },
+    "aboutCompany": { "type": "string" },
+    "roleSummary": { "type": "string", "description": "Purpose, why it exists / why now — public-safe only." },
+    "responsibilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 3,
+      "maxItems": 5
+    },
+    "firstSixToTwelveMonths": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "successMetrics": {
+      "type": "object",
+      "properties": {
+        "months12": { "type": "array", "items": { "type": "string" } },
+        "months24": { "type": "array", "items": { "type": "string" } },
+        "months36": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "whoYoullWorkWith": {
+      "type": "object",
+      "properties": {
+        "reportsTo": { "type": "string", "description": "Public-safe: title only, never the internal leadership-style notes." },
+        "team": { "type": "string" },
+        "stakeholders": { "type": "string" }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "properties": {
+        "mustHave": { "type": "array", "items": { "type": "string" } },
+        "traits": { "type": "array", "items": { "type": "string" } },
+        "niceToHave": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "growth": { "type": "string" },
+    "benefitsAndDei": { "type": "string" },
+    "howToApply": { "type": "string" }
+  }
+}
