@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { anthropic, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 
 /**
  * Loads the Job Description agent's declarative definition from
@@ -55,7 +55,7 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 export async function runJobDescriptionTurn(
   messages: ChatMessage[]
 ): Promise<string> {
-  const response = await anthropic.messages.create({
+  const response = await getAnthropicClient().messages.create({
     model: DEFAULT_MODEL,
     max_tokens: 2048,
     system: buildJobDescriptionSystemPrompt(),
