@@ -164,26 +164,26 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
       });
     }
 
-    const anthropicStream = await getAnthropicClient().messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: maxTokens,
-      system: buildVoiceSystemBlocks(),
-      messages: anthropicMessages,
-      stream: true,
-    });
-
     const encoder = new TextEncoder();
+    // The Anthropic call happens INSIDE the stream so the first SSE bytes
+    // (the role chunk) flush to ElevenLabs immediately — their per-attempt
+    // first-byte timeout otherwise races Claude's prompt-processing time.
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
+        const emit = (data: unknown) => controller.enqueue(encoder.encode(sse(data)));
+        emit(chunk(id, created, requestedModel, { role: "assistant", content: "" }, null));
+
+        let inputTokens = 0;
+        let outputTokens = 0;
+        let cachedTokens = 0;
         try {
-          controller.enqueue(
-            encoder.encode(
-              sse(chunk(id, created, requestedModel, { role: "assistant", content: "" }, null))
-            )
-          );
-          let inputTokens = 0;
-          let outputTokens = 0;
-          let cachedTokens = 0;
+          const anthropicStream = await getAnthropicClient().messages.create({
+            model: DEFAULT_MODEL,
+            max_tokens: maxTokens,
+            system: buildVoiceSystemBlocks(),
+            messages: anthropicMessages,
+            stream: true,
+          });
           for await (const event of anthropicStream) {
             if (event.type === "message_start") {
               const u = event.message.usage;
@@ -196,42 +196,43 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
               event.delta.type === "text_delta" &&
               event.delta.text
             ) {
-              controller.enqueue(
-                encoder.encode(
-                  sse(chunk(id, created, requestedModel, { content: event.delta.text }, null))
-                )
-              );
+              emit(chunk(id, created, requestedModel, { content: event.delta.text }, null));
             } else if (event.type === "message_delta") {
               outputTokens = event.usage.output_tokens;
             }
           }
-          controller.enqueue(
-            encoder.encode(sse(chunk(id, created, requestedModel, {}, "stop")))
-          );
-          if (includeUsage) {
-            controller.enqueue(
-              encoder.encode(
-                sse({
-                  id,
-                  object: "chat.completion.chunk",
-                  created,
-                  model: requestedModel,
-                  choices: [],
-                  usage: {
-                    prompt_tokens: inputTokens,
-                    prompt_tokens_details: { cached_tokens: cachedTokens },
-                    completion_tokens: outputTokens,
-                    total_tokens: inputTokens + outputTokens,
-                  },
-                })
-              )
-            );
-          }
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (err) {
-          controller.error(err);
-          return;
+          // Headers are already sent — fail the TURN gracefully, not the
+          // session: speak a short recovery line instead of surfacing an
+          // "LLM Cascade Error" that kills the whole conversation.
+          console.error("voice-llm upstream error:", err);
+          emit(
+            chunk(
+              id,
+              created,
+              requestedModel,
+              { content: "Sorry, I hit a brief hiccup on my side — could you say that again?" },
+              null
+            )
+          );
         }
+        emit(chunk(id, created, requestedModel, {}, "stop"));
+        if (includeUsage) {
+          emit({
+            id,
+            object: "chat.completion.chunk",
+            created,
+            model: requestedModel,
+            choices: [],
+            usage: {
+              prompt_tokens: inputTokens,
+              prompt_tokens_details: { cached_tokens: cachedTokens },
+              completion_tokens: outputTokens,
+              total_tokens: inputTokens + outputTokens,
+            },
+          });
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       },
     });
