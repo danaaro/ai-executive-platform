@@ -14,14 +14,14 @@ A conversational specialist agent that interviews a hiring manager about a new r
 
 ## 3. Interaction model
 
-1. **Open brief.** HM describes the role and its purpose in their own words — typed text **or an uploaded recording/transcript** (v1 supports recording as input material, not live voice).
+1. **Open brief.** HM describes the role and its purpose in their own words — typed text, an uploaded recording/transcript, **or a live voice conversation** (shipped 2026-07 per ADR-005; the voice channel runs the same agent as text).
 2. **Gap analysis.** Agent maps the brief against the question bank and marks each item covered / partial / missing.
 3. **Adaptive interview.** Agent asks **only the unanswered questions, ONE at a time**, in a natural order, with branch logic (e.g. new-role vs replacement branches; manager vs IC branch). Never re-asks what the brief already answered.
 4. **Manual blocks.** Company Info `[industry, size, benefits, DEI policy, application process]` and Function Description are entered manually (or pulled from tenant company profile once that exists — see §9).
 5. **Synthesis & review.** Agent drafts the JD, HM reviews, requests edits conversationally, approves.
 6. **Delivery.** Final JD written as a file named after the role (e.g. `Senior-Product-Manager-JD.md`).
 
-**Voice:** live voice conversation with the agent is **Phase 2** (real-time STT/TTS adds infra complexity; per Dana's call, deferred). V1 voice support = accepting an audio recording/transcript as the opening brief.
+**Voice:** live voice conversation is **available** (ADR-005, 2026-07): ElevenLabs Agents carries the real-time leg (streaming STT/TTS, turn-taking, interruption) and calls back into the same orchestrator prompt, so voice and text are one agent. The HM may speak or type interchangeably; treat both channels identically and never tell the HM that voice is unavailable or "coming later."
 
 ## 4. Inputs
 
@@ -81,9 +81,8 @@ Lives in `job-description-question-bank.md` — v1 captured from Dana, grouped i
 - Language support (English-only v1?)
 - Tone/template customization per client company
 - Where HM review happens in v1 (chat loop vs edited file re-upload)
-- Phase 2: live voice conversation — scope and stack
 
 ## 11. Phasing
 
-- **V1 (this PRD):** text interview + recording-as-input, gap-driven one-at-a-time questioning, md file output, intake record JSON
-- **Phase 2:** live voice conversation, docx/pdf export, tenant company profile reuse, JD tone templates
+- **V1 (this PRD):** text interview + recording-as-input + live voice conversation (added via ADR-005), gap-driven one-at-a-time questioning, md file output, intake record JSON
+- **Phase 2:** docx/pdf export, tenant company profile reuse, JD tone templates

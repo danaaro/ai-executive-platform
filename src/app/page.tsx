@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
+import { ConversationProvider, useConversation } from "@elevenlabs/react";
 
 type Message = { role: "user" | "assistant"; content: string };
+
+const INTAKE_START = "Start the NEW JOB intake session.";
 
 async function postTurn(messages: Message[]): Promise<string> {
   const res = await fetch("/api/job-description", {
@@ -16,32 +19,44 @@ async function postTurn(messages: Message[]): Promise<string> {
   return data.reply as string;
 }
 
-function speak(text: string) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1.02;
-  window.speechSynthesis.speak(utterance);
+export default function Home() {
+  return (
+    <ConversationProvider>
+      <JobDescriptionAgent />
+    </ConversationProvider>
+  );
 }
 
-export default function Home() {
+function JobDescriptionAgent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [voiceReplies, setVoiceReplies] = useState(false);
-  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceStarting, setVoiceStarting] = useState(false);
 
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const SpeechRecognitionCtor =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    setVoiceSupported(!!SpeechRecognitionCtor);
-  }, []);
+  // Live voice session (ElevenLabs Agents over WebRTC, ADR-005). The voice
+  // agent's brain is the same orchestrator prompt as text chat — ElevenLabs
+  // calls back into /api/job-description/voice-llm for every turn.
+  const conversation = useConversation({
+    onMessage: ({ message, role }) => {
+      if (!message) return;
+      setMessages((prev) => [
+        ...prev,
+        { role: role === "user" ? "user" : "assistant", content: message },
+      ]);
+    },
+    onError: (message) => setError(message),
+    onConnect: () => setVoiceStarting(false),
+    onDisconnect: () => setVoiceStarting(false),
+  });
+
+  const voiceLive =
+    voiceStarting ||
+    conversation.status === "connecting" ||
+    conversation.status === "connected";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -54,7 +69,6 @@ export default function Home() {
     try {
       const reply = await postTurn(next);
       setMessages([...next, { role: "assistant", content: reply }]);
-      if (voiceReplies) speak(reply);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -62,58 +76,51 @@ export default function Home() {
     }
   }
 
-  async function start() {
+  async function startTyped() {
     setStarted(true);
-    await sendTurn([{ role: "user", content: "Start the NEW JOB intake session." }]);
+    await sendTurn([{ role: "user", content: INTAKE_START }]);
   }
 
-  async function send(overrideText?: string) {
-    const text = overrideText ?? input;
-    if (!text.trim() || loading) return;
+  async function startVoice() {
+    setError(null);
+    setVoiceStarting(true);
+    try {
+      const res = await fetch("/api/job-description/voice-token");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not start voice session");
+      setStarted(true);
+      conversation.startSession({
+        conversationToken: data.token,
+        connectionType: "webrtc",
+      });
+    } catch (e) {
+      setVoiceStarting(false);
+      setError(e instanceof Error ? e.message : "Unknown error");
+    }
+  }
+
+  function endVoice() {
+    conversation.endSession();
+    setVoiceStarting(false);
+  }
+
+  async function send() {
+    if (!input.trim() || loading || voiceLive) return;
+    const text = input;
     setInput("");
     await sendTurn([...messages, { role: "user", content: text }]);
   }
 
-  function toggleListening() {
-    const SpeechRecognitionCtor =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognitionCtor) return;
-
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
-    }
-
-    const recognition = new SpeechRecognitionCtor();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    recognition.onresult = (event) => {
-      let transcript = "";
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      setInput(transcript);
-    };
-    recognition.onend = () => {
-      setListening(false);
-      setVoiceReplies(true);
-      setInput((current) => {
-        if (current.trim()) send(current);
-        return current;
-      });
-    };
-    recognition.onerror = () => setListening(false);
-
-    recognitionRef.current = recognition;
-    setListening(true);
-    recognition.start();
-  }
-
   const visibleMessages = messages.filter(
-    (m) => !(m.role === "user" && m.content === "Start the NEW JOB intake session.")
+    (m) => !(m.role === "user" && m.content === INTAKE_START)
   );
+
+  const voiceStatusLabel =
+    conversation.status === "connected"
+      ? conversation.isSpeaking
+        ? "Agent is speaking — you can interrupt"
+        : "Listening…"
+      : "Connecting…";
 
   return (
     <main style={styles.page}>
@@ -134,12 +141,25 @@ export default function Home() {
         {!started ? (
           <div style={styles.emptyState}>
             <p style={{ color: "var(--text-muted)", marginBottom: 20 }}>
-              Start a NEW JOB intake session. Answer by typing or speaking — the
-              agent asks one question at a time.
+              Start a NEW JOB intake session — have a live voice conversation,
+              or type. The agent asks one question at a time.
             </p>
-            <button onClick={start} style={styles.primaryButton} disabled={loading}>
-              Start NEW JOB intake
-            </button>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={startVoice}
+                style={styles.primaryButton}
+                disabled={loading || voiceStarting}
+              >
+                {voiceStarting ? "Connecting…" : "🎙 Start voice conversation"}
+              </button>
+              <button
+                onClick={startTyped}
+                style={styles.secondaryButton}
+                disabled={loading || voiceStarting}
+              >
+                Start by typing
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -180,56 +200,65 @@ export default function Home() {
               <div ref={bottomRef} />
             </div>
 
-            <div style={styles.inputBar}>
-              <button
-                onClick={toggleListening}
-                disabled={!voiceSupported || loading}
-                title={
-                  voiceSupported
-                    ? listening
-                      ? "Stop listening"
-                      : "Speak your answer"
-                    : "Voice input not supported in this browser"
-                }
-                style={{
-                  ...styles.micButton,
-                  background: listening ? "var(--danger)" : "var(--card)",
-                  color: listening ? "#fff" : "var(--text)",
-                }}
-              >
-                {listening ? "●" : "🎤"}
-              </button>
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && send()}
-                placeholder={listening ? "Listening…" : "Type your answer…"}
-                style={styles.input}
-                disabled={loading}
-              />
-              <button
-                onClick={() => send()}
-                style={styles.primaryButton}
-                disabled={loading || !input.trim()}
-              >
-                Send
-              </button>
-            </div>
+            {voiceLive ? (
+              <div style={styles.voiceBar}>
+                <span
+                  style={{
+                    ...styles.voiceDot,
+                    background:
+                      conversation.status === "connected"
+                        ? conversation.isSpeaking
+                          ? "var(--accent)"
+                          : "var(--danger)"
+                        : "var(--text-muted)",
+                  }}
+                />
+                <span style={styles.voiceStatus}>{voiceStatusLabel}</span>
+                <button
+                  onClick={() => conversation.setMuted(!conversation.isMuted)}
+                  style={styles.secondaryButton}
+                  disabled={conversation.status !== "connected"}
+                >
+                  {conversation.isMuted ? "Unmute mic" : "Mute mic"}
+                </button>
+                <button onClick={endVoice} style={styles.dangerButton}>
+                  End voice chat
+                </button>
+              </div>
+            ) : (
+              <div style={styles.inputBar}>
+                <button
+                  onClick={startVoice}
+                  disabled={loading || voiceStarting}
+                  title="Switch to a live voice conversation"
+                  style={styles.micButton}
+                >
+                  🎙
+                </button>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && send()}
+                  placeholder="Type your answer…"
+                  style={styles.input}
+                  disabled={loading}
+                />
+                <button
+                  onClick={() => send()}
+                  style={styles.primaryButton}
+                  disabled={loading || !input.trim()}
+                >
+                  Send
+                </button>
+              </div>
+            )}
 
             <div style={styles.footerRow}>
-              <label style={styles.voiceToggle}>
-                <input
-                  type="checkbox"
-                  checked={voiceReplies}
-                  onChange={(e) => setVoiceReplies(e.target.checked)}
-                />
-                Read replies aloud
-              </label>
-              {!voiceSupported && (
-                <span style={styles.hint}>
-                  Voice input needs Chrome or Edge (not supported in this browser).
-                </span>
-              )}
+              <span style={styles.hint}>
+                {voiceLive
+                  ? "Live voice session — speak naturally, interrupt any time."
+                  : "🎙 switches to a live voice conversation (mic permission required)."}
+              </span>
             </div>
           </>
         )}
@@ -324,6 +353,25 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
   },
   inputBar: { display: "flex", gap: 8 },
+  voiceBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+  },
+  voiceDot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  voiceStatus: {
+    flex: 1,
+    fontSize: 14,
+    color: "var(--text-muted)",
+  },
   micButton: {
     width: 42,
     height: 42,
@@ -332,6 +380,8 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid var(--border)",
     fontSize: 16,
     cursor: "pointer",
+    background: "var(--card)",
+    color: "var(--text)",
   },
   input: {
     flex: 1,
@@ -352,6 +402,26 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 550,
     cursor: "pointer",
   },
+  secondaryButton: {
+    padding: "10px 18px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--card)",
+    color: "var(--text)",
+    fontSize: 14.5,
+    fontWeight: 550,
+    cursor: "pointer",
+  },
+  dangerButton: {
+    padding: "10px 18px",
+    borderRadius: 10,
+    border: "none",
+    background: "var(--danger)",
+    color: "#fff",
+    fontSize: 14.5,
+    fontWeight: 550,
+    cursor: "pointer",
+  },
   footerRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -359,6 +429,5 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12.5,
     color: "var(--text-muted)",
   },
-  voiceToggle: { display: "flex", alignItems: "center", gap: 6 },
   hint: { fontStyle: "italic" },
 };

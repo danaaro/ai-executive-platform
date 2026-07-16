@@ -3,10 +3,14 @@ import { NextResponse } from "next/server";
 
 // /__clerk is Clerk's auto-proxy path — must pass through untouched or
 // Clerk's own auth machinery breaks.
+// /api/job-description/voice-llm is called server-to-server by ElevenLabs
+// (no Clerk session exists for that caller); it authenticates itself with
+// the ELEVENLABS_CUSTOM_LLM_SECRET bearer token inside the handler (ADR-005).
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/__clerk(.*)",
+  "/api/job-description/voice-llm(.*)",
 ]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 

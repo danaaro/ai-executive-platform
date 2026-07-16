@@ -58,7 +58,17 @@ export async function runJobDescriptionTurn(
   const response = await getAnthropicClient().messages.create({
     model: DEFAULT_MODEL,
     max_tokens: 2048,
-    system: buildJobDescriptionSystemPrompt(),
+    // cache_control: the ~6K-token agent definition is identical every turn
+    // (and shared with the voice channel, which appends its note as a
+    // separate block AFTER this breakpoint) — cached, it costs ~0.1x and
+    // cuts time-to-first-token. 5-min TTL refreshes on each use.
+    system: [
+      {
+        type: "text",
+        text: buildJobDescriptionSystemPrompt(),
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     messages,
   });
 
