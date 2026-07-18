@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "success-blueprint.input.schema.json",
+  "title": "Manager's Success Blueprint \u2014 Input",
+  "description": "Per-candidate onboarding inputs; all pasted. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "candidateProfile",
+    "interviewEvaluations",
+    "jobDescription"
+  ],
+  "properties": {
+    "candidateName": {
+      "type": "string"
+    },
+    "candidateProfile": {
+      "type": "string"
+    },
+    "interviewEvaluations": {
+      "type": "string"
+    },
+    "jobDescription": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hiring-rationale.output.schema.json",
+  "title": "Hiring Rationale Generator \u2014 Output (Rationale Report)",
+  "description": "One-page decision-ready report; human decision fields intentionally absent/blank. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "executiveSummary",
+    "assessmentConfidence",
+    "competencyEvidence",
+    "patternAnalysis",
+    "decisionConsiderations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "executiveSummary": {
+      "type": "string",
+      "description": "Max 4 sentences."
+    },
+    "assessmentConfidence": {
+      "type": "string",
+      "enum": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    },
+    "competencyEvidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "competency",
+          "assessment",
+          "evidenceQuality"
+        ],
+        "properties": {
+          "competency": {
+            "type": "string",
+            "description": "Exact name."
+          },
+          "assessment": {
+            "type": "string"
+          },
+          "evidenceQuality": {
+            "type": "string",
+            "enum": [
+              "Strong",
+              "Moderate",
+              "Limited",
+              "Conflicting"
+            ]
+          }
+        }
+      }
+    },
+    "patternAnalysis": {
+      "type": "object",
+      "properties": {
+        "consistentEvidence": {
+          "type": "string"
+        },
+        "materialVarianceOrGaps": {
+          "type": "string"
+        }
+      }
+    },
+    "criticalSuccessFactors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "factor": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "gapOrRisk": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decisionConsiderations": {
+      "type": "object",
+      "properties": {
+        "strengthsToLeverage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keyRisks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mitigation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

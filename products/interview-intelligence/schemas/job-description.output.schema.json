@@ -2,50 +2,55 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "job-description.output.schema.json",
   "title": "Job Description — Output Structure",
-  "description": "Structural contract for the rendered JD. The agent's actual delivered artifact is Markdown (<Role-Title>-JD.md); this schema describes the section content it must be derivable from, for validation and future non-Markdown rendering.",
+  "description": "v2 (2026-07-18). Structural contract for the rendered JD, aligned to Susan's production structure (prompts/01-job-description.md). The delivered artifact is Markdown in-chat; this schema describes the sections it must be derivable from, for validation and future non-Markdown rendering. 500-700 words total.",
   "type": "object",
-  "required": ["roleTitle", "locationAndWorkModel", "aboutCompany", "roleSummary", "responsibilities", "firstSixToTwelveMonths", "successMetrics", "whoYoullWorkWith", "requirements", "growth"],
+  "required": ["title", "companyName", "location", "ourTeamAndYou", "scopeAndWhyOpen", "successPlan306090", "whatWeveAchieved", "aLittleBitAboutYou"],
   "properties": {
-    "roleTitle": { "type": "string" },
-    "locationAndWorkModel": { "type": "string" },
-    "aboutCompany": { "type": "string" },
-    "roleSummary": { "type": "string", "description": "Purpose, why it exists / why now — public-safe only." },
-    "responsibilities": {
-      "type": "array",
-      "items": { "type": "string" },
-      "minItems": 3,
-      "maxItems": 5
-    },
-    "firstSixToTwelveMonths": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "successMetrics": {
+    "schemaVersion": { "type": "string", "const": "2.0" },
+    "title": { "type": "string" },
+    "companyName": { "type": "string" },
+    "location": {
       "type": "object",
+      "required": ["workModel"],
       "properties": {
-        "months12": { "type": "array", "items": { "type": "string" } },
-        "months24": { "type": "array", "items": { "type": "string" } },
-        "months36": { "type": "array", "items": { "type": "string" } }
+        "place": { "type": "string" },
+        "workModel": { "type": "string", "enum": ["on-site", "hybrid", "remote"] }
       }
     },
-    "whoYoullWorkWith": {
+    "ourTeamAndYou": {
       "type": "object",
+      "description": "Section 4 of the JD structure.",
       "properties": {
-        "reportsTo": { "type": "string", "description": "Public-safe: title only, never the internal leadership-style notes." },
-        "team": { "type": "string" },
-        "stakeholders": { "type": "string" }
+        "teamMissionAndImpact": { "type": "string" },
+        "roleContribution": { "type": "string" },
+        "strategicImportance": { "type": "string" },
+        "keyCollaborations": { "type": "string" }
       }
     },
-    "requirements": {
+    "scopeAndWhyOpen": { "type": "string", "description": "The Scope of the Role and Why It's Open — public-safe only." },
+    "successPlan306090": {
       "type": "object",
+      "description": "30/60/90-day success plan using the ATR framework.",
+      "required": ["day30", "day60", "day90"],
       "properties": {
-        "mustHave": { "type": "array", "items": { "type": "string" } },
-        "traits": { "type": "array", "items": { "type": "string" } },
-        "niceToHave": { "type": "array", "items": { "type": "string" } }
+        "day30": { "$ref": "#/$defs/atr" },
+        "day60": { "$ref": "#/$defs/atr" },
+        "day90": { "$ref": "#/$defs/atr" }
       }
     },
-    "growth": { "type": "string" },
-    "benefitsAndDei": { "type": "string" },
-    "howToApply": { "type": "string" }
+    "whatWeveAchieved": { "type": "string", "description": "What We've Achieved and What We'll Do With You." },
+    "aLittleBitAboutYou": { "type": "string", "description": "One paragraph, max 100 words: evidence-based predictors of success — behaviours, competencies, measurable achievements, contextual fit." },
+    "language": { "type": "string", "description": "Language the JD is written in (default 'en')." }
+  },
+  "$defs": {
+    "atr": {
+      "type": "object",
+      "description": "ATR framework block.",
+      "properties": {
+        "action": { "type": "string", "description": "Ownership." },
+        "tasks": { "type": "array", "items": { "type": "string" }, "description": "Key activities." },
+        "results": { "type": "array", "items": { "type": "string" }, "description": "Measurable outcomes." }
+      }
+    }
   }
 }

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "recruiter-evaluation-report.input.schema.json",
+  "title": "Recruiter Evaluation Report \u2014 Input",
+  "description": "Independent assistant; per-candidate. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "transcription"
+  ],
+  "properties": {
+    "transcription": {
+      "type": "string",
+      "description": "Interview/screening transcription."
+    },
+    "candidateProfile": {
+      "type": "string"
+    },
+    "recruiterNotes": {
+      "type": "string"
+    },
+    "jobTitle": {
+      "type": "string"
+    },
+    "companyName": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

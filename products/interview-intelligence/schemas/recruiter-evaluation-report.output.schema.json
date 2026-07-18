@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "recruiter-evaluation-report.output.schema.json",
+  "title": "Recruiter Evaluation Report \u2014 Output",
+  "description": "Executive-search-grade evaluation report; no hiring recommendations. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "executiveSummary",
+    "professionalSnapshot",
+    "careerTrajectory",
+    "competencyAssessment",
+    "motivationalDrivers"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "executiveSummary": {
+      "type": "object",
+      "properties": {
+        "backgroundOverview": {
+          "type": "string"
+        },
+        "keyStrengths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "areasOfConcern": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "overallFit": {
+          "type": "string",
+          "description": "No recommendation."
+        }
+      }
+    },
+    "professionalSnapshot": {
+      "type": "object",
+      "properties": {
+        "currentRole": {
+          "type": "string"
+        },
+        "reportsTo": {
+          "type": "string"
+        },
+        "keyPreviousRoles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "earlyCareer": {
+          "type": "string"
+        },
+        "education": {
+          "type": "string"
+        },
+        "scopeOfResponsibility": {
+          "type": "string"
+        },
+        "currentCompensation": {
+          "type": "string",
+          "description": "Only if known."
+        }
+      }
+    },
+    "careerTrajectory": {
+      "type": "string"
+    },
+    "competencyAssessment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "competency": {
+            "type": "string"
+          },
+          "behavioralEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "motivationalDrivers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "driver": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "recruitersNote": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "screening-guide.output.schema.json",
+  "title": "Recruiter Screening Guide Generator \u2014 Output",
+  "description": "5-step screening guide; each section: intent, questions, evidence to look for. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "sections"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "roleTitle": {
+      "type": "string"
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "intent",
+          "questions",
+          "evidenceToLookFor"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "Introduction",
+              "Career Context",
+              "Critical Skills Assessment",
+              "Motivational Fit & Alignment",
+              "Logistics & Closing"
+            ]
+          },
+          "intent": {
+            "type": "string"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string"
+                },
+                "probes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "evidenceToLookFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

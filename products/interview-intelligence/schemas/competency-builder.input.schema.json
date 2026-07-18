@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "competency-builder.input.schema.json",
+  "title": "Predictive Competency Builder \u2014 Input",
+  "description": "v1 (2026-07-18). JD required; company context optional. In chat the user pastes these; via API they arrive as fields.",
+  "type": "object",
+  "required": [
+    "jobDescription"
+  ],
+  "properties": {
+    "jobDescription": {
+      "type": "string",
+      "description": "Full JD text or Markdown (ideally from the JD agent)."
+    },
+    "companyContext": {
+      "type": "string",
+      "description": "Optional company/operating-environment context."
+    },
+    "language": {
+      "type": "string",
+      "description": "Output language, default 'en'."
+    }
+  }
+}

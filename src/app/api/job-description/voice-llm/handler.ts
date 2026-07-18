@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import { getVoiceHandoff } from "@/shared/voice-handoff";
 
 /**
  * Appended only on the voice channel: the same agent brain, but replies are
@@ -84,16 +85,25 @@ function toAnthropicMessages(
   messages: OpenAIMessage[]
 ): { role: "user" | "assistant"; content: string }[] {
   const turns: { role: "user" | "assistant"; content: string }[] = [];
+  // Context handoff: prior chat history (text and/or earlier voice sessions)
+  // stashed when the voice token was minted — prepended so the voice brain
+  // continues the same conversation instead of restarting the interview.
+  const push = (role: "user" | "assistant", text: string) => {
+    const prev = turns[turns.length - 1];
+    if (prev && prev.role === role) {
+      prev.content += "\n" + text;
+    } else {
+      turns.push({ role, content: text });
+    }
+  };
+  for (const m of getVoiceHandoff()) {
+    push(m.role, m.content);
+  }
   for (const m of messages) {
     if (m.role !== "user" && m.role !== "assistant") continue;
     const text = contentToText(m.content).trim();
     if (!text) continue;
-    const prev = turns[turns.length - 1];
-    if (prev && prev.role === m.role) {
-      prev.content += "\n" + text;
-    } else {
-      turns.push({ role: m.role, content: text });
-    }
+    push(m.role, text);
   }
   if (turns.length === 0 || turns[0].role !== "user") {
     turns.unshift({ role: "user", content: "Start the NEW JOB intake session." });
@@ -142,6 +152,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
       const response = await getAnthropicClient().messages.create({
         model: DEFAULT_MODEL,
         max_tokens: maxTokens,
+        thinking: { type: "disabled" },
         system: buildVoiceSystemBlocks(),
         messages: anthropicMessages,
       });
@@ -180,6 +191,11 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
           const anthropicStream = await getAnthropicClient().messages.create({
             model: DEFAULT_MODEL,
             max_tokens: maxTokens,
+            // Voice is latency-critical: claude-sonnet-5 runs adaptive thinking
+            // by default, and its (discarded) deliberation delays the first
+            // audible sentence past ElevenLabs' per-attempt cutoff. Disabled
+            // here; the text channel keeps the default for quality.
+            thinking: { type: "disabled" },
             system: buildVoiceSystemBlocks(),
             messages: anthropicMessages,
             stream: true,

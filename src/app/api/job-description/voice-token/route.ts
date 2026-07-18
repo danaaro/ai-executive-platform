@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import { setVoiceHandoff } from "@/shared/voice-handoff";
 
 /**
  * Fire-and-forget cache pre-warm (see shared prompt-caching guidance):
@@ -34,6 +35,29 @@ function prewarmPromptCache() {
  * never reaches the client, and the agent itself stays private.
  */
 export async function GET() {
+  return mintToken([]);
+}
+
+/**
+ * POST carries the chat history so a voice session continues the existing
+ * conversation instead of starting cold (context handoff — see
+ * src/shared/voice-handoff.ts).
+ */
+export async function POST(req: NextRequest) {
+  let messages: { role: "user" | "assistant"; content: string }[] = [];
+  try {
+    const body = await req.json();
+    if (Array.isArray(body?.messages)) messages = body.messages;
+  } catch {
+    // no body — treat as a fresh session
+  }
+  return mintToken(messages);
+}
+
+async function mintToken(
+  messages: { role: "user" | "assistant"; content: string }[]
+) {
+  setVoiceHandoff(messages);
   prewarmPromptCache();
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const agentId = process.env.ELEVENLABS_AGENT_ID;

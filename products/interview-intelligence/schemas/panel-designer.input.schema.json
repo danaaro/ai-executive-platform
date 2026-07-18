@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "panel-designer.input.schema.json",
+  "title": "Strategic Interview Panel Designer \u2014 Input",
+  "description": "v1 (2026-07-18). Competency framework required (verbatim from competency-builder output); JD recommended.",
+  "type": "object",
+  "required": [
+    "competencyFramework"
+  ],
+  "properties": {
+    "competencyFramework": {
+      "type": "string",
+      "description": "The full competency framework (Markdown tables or JSON) \u2014 names are copied exactly, never altered."
+    },
+    "jobDescription": {
+      "type": "string"
+    },
+    "knownInterviewers": {
+      "type": "string",
+      "description": "Optional: real people/roles available to interview, if the user wants them mapped."
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

@@ -17,6 +17,10 @@ function readProductFile(relativePath: string): string {
   return fs.readFileSync(path.join(PRODUCT_ROOT, relativePath), "utf-8");
 }
 
+function readPlatformFile(relativePath: string): string {
+  return fs.readFileSync(path.join(process.cwd(), relativePath), "utf-8");
+}
+
 function stripFrontmatter(markdown: string): string {
   return markdown.replace(/^---\n[\s\S]*?\n---\n/, "");
 }
@@ -26,25 +30,24 @@ let cachedSystemPrompt: string | null = null;
 export function buildJobDescriptionSystemPrompt(): string {
   if (cachedSystemPrompt) return cachedSystemPrompt;
 
-  const agentDefinition = stripFrontmatter(
-    readProductFile("agents/specialists/job-description.md")
+  const guardrails = readPlatformFile("prompts/system/guardrails.md");
+  const operativePrompt = stripFrontmatter(
+    readProductFile("prompts/01-job-description.md")
   );
   const questionBank = readProductFile("docs/job-description-question-bank.md");
-  const prd = readProductFile("docs/job-description-PRD.md");
 
   cachedSystemPrompt = [
-    agentDefinition,
-    "\n\n---\n\n# Reference: Question Bank\n\n",
+    guardrails,
+    "\n\n",
+    operativePrompt,
+    "\n\n---\n\n# Reference: Question Bank (Job Discovery Questionnaire)\n\n",
     questionBank,
-    "\n\n---\n\n# Reference: PRD\n\n",
-    prd,
     "\n\n---\n\n# Runtime note\n\n" +
-      "You are running as a chat API, not inside Claude Code. You cannot read files " +
-      "yourself — the definition, question bank, and PRD above are already loaded for you. " +
-      "You also cannot write files to disk. When the interview concludes and the hiring " +
-      "manager approves the draft, output the final job description directly in your chat " +
-      "reply as clean Markdown, clearly marked as the final version, followed by the " +
-      "structured intake record as a JSON code block. Do not claim you wrote files.",
+      "You are running as a chat API. You cannot read or write files — the guardrails, " +
+      "instructions, and questionnaire above are already loaded for you. Deliver the final " +
+      "job description directly in your chat reply as clean Markdown, clearly marked as the " +
+      "final version, followed by the Intake & Coverage Record as a JSON code block. " +
+      "Do not claim you wrote files; the platform saves artifacts when the user chooses to.",
   ].join("");
 
   return cachedSystemPrompt;

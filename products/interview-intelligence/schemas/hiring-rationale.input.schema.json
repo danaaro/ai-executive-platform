@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hiring-rationale.input.schema.json",
+  "title": "Hiring Rationale Generator \u2014 Input",
+  "description": "Per-candidate synthesis inputs; all pasted. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "candidateName",
+    "positionTitle",
+    "jobDescription",
+    "candidateCv",
+    "interviewFeedback"
+  ],
+  "properties": {
+    "candidateName": {
+      "type": "string"
+    },
+    "positionTitle": {
+      "type": "string"
+    },
+    "jobDescription": {
+      "type": "string"
+    },
+    "candidateCv": {
+      "type": "string"
+    },
+    "interviewFeedback": {
+      "type": "string",
+      "description": "All interviewers' feedback, concatenated or structured."
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

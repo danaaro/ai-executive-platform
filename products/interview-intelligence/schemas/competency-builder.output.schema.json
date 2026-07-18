@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "competency-builder.output.schema.json",
+  "title": "Predictive Competency Builder \u2014 Output (Competency Framework)",
+  "description": "v1 (2026-07-18). Exactly 8 competencies: 4 execution + 4 operating. Delivered as two Markdown tables in chat; this is the structural contract.",
+  "type": "object",
+  "required": [
+    "executionCompetencies",
+    "operatingCompetencies"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "roleTitle": {
+      "type": "string"
+    },
+    "executionCompetencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "whyItPredictsSuccess",
+          "strongSignals",
+          "redFlags"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Concise ESCO-aligned capability name."
+          },
+          "whyItPredictsSuccess": {
+            "type": "string",
+            "description": "One short sentence."
+          },
+          "strongSignals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 3
+          },
+          "redFlags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 3
+          }
+        }
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "operatingCompetencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "whyItPredictsSuccess",
+          "strongSignals",
+          "redFlags"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Concise ESCO-aligned capability name."
+          },
+          "whyItPredictsSuccess": {
+            "type": "string",
+            "description": "One short sentence."
+          },
+          "strongSignals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 3
+          },
+          "redFlags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 3
+          }
+        }
+      },
+      "minItems": 4,
+      "maxItems": 4
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "success-blueprint.output.schema.json",
+  "title": "Manager's Success Blueprint \u2014 Output",
+  "description": "One-page action-oriented blueprint. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "keyStrengths",
+    "developmentAreas",
+    "onboardingPlan30Days",
+    "managementEssentials"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "keyStrengths": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "properties": {
+          "strength": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "managementTip": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "developmentAreas": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "properties": {
+          "area": {
+            "type": "string"
+          },
+          "gap": {
+            "type": "string"
+          },
+          "supportTip": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "onboardingPlan30Days": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": {
+        "type": "string"
+      }
+    },
+    "managementEssentials": {
+      "type": "object",
+      "properties": {
+        "communicationPreferences": {
+          "type": "string"
+        },
+        "motivationalDrivers": {
+          "type": "string"
+        },
+        "recommendedApproaches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

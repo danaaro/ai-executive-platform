@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "interview-system-builder.output.schema.json",
+  "title": "Structured Interview System Builder \u2014 Output (Interview System)",
+  "description": "v1 (2026-07-18). The 5-part structured interview system. Delivered as Markdown; this is the structural contract.",
+  "type": "object",
+  "required": [
+    "overview",
+    "interviewGuides",
+    "coverageTable",
+    "evaluationGuide",
+    "biasMitigation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "roleTitle": {
+      "type": "string"
+    },
+    "overview": {
+      "type": "string",
+      "description": "Objective, flow, responsibilities, evidence principles (max half page)."
+    },
+    "interviewGuides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "interviewerRole",
+          "interviewPurpose",
+          "competencies"
+        ],
+        "properties": {
+          "interviewerRole": {
+            "type": "string"
+          },
+          "interviewPurpose": {
+            "type": "string"
+          },
+          "competencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "competency",
+                "behavioralQuestion",
+                "probes"
+              ],
+              "properties": {
+                "competency": {
+                  "type": "string",
+                  "description": "Exact name from the framework."
+                },
+                "behavioralQuestion": {
+                  "type": "string",
+                  "description": "Starts with 'Tell me about a time...'; targets this competency only."
+                },
+                "probes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 3
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "coverageTable": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "competency",
+          "primaryInterviewer"
+        ],
+        "properties": {
+          "competency": {
+            "type": "string"
+          },
+          "primaryInterviewer": {
+            "type": "string"
+          },
+          "secondaryInterviewer": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evaluationGuide": {
+      "type": "object",
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scale": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "score",
+              "meaning",
+              "evidence"
+            ],
+            "properties": {
+              "score": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "meaning": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "biasMitigation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

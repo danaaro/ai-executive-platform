@@ -1,13 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "job-description.intake.schema.json",
-  "title": "Job Description — Role Intake Record",
-  "description": "Full tagged record of a NEW JOB intake session. Durable artifact consumed by the JD agent's output renderer and by future downstream agents (competency-model, interview-kit, scorecard).",
+  "title": "Job Description — Intake & Coverage Record",
+  "description": "v2 (2026-07-18). Full record of a NEW JOB intake session against the Job Discovery Questionnaire (question bank v2, IDs 'section.question' e.g. '2.3'). Durable artifact consumed by downstream agents (competency-builder, panel-designer, interview-system, feedback, rationale). Coverage lists EVERY questionnaire ID with a final status.",
   "type": "object",
-  "required": ["roleTitle", "sessionDate", "openBrief", "answers", "companyInfo", "functionDescription"],
+  "required": ["roleTitle", "sessionDate", "openBrief", "answers", "coverage"],
   "properties": {
-    "roleTitle": { "type": "string", "description": "As given in A1; also drives output file naming." },
+    "schemaVersion": { "type": "string", "const": "2.0" },
+    "roleTitle": { "type": "string" },
+    "companyName": { "type": "string" },
     "sessionDate": { "type": "string", "format": "date" },
+    "language": { "type": "string", "description": "Output language of the session/JD (default 'en')." },
     "openBrief": {
       "type": "object",
       "description": "The hiring manager's initial free-form description of the role.",
@@ -19,27 +22,34 @@
     },
     "answers": {
       "type": "array",
-      "description": "One entry per question-bank item (A1..I4) that was answered — either from the open brief or the interview.",
+      "description": "One entry per questionnaire item that received a real answer — from the open brief, the interview, or credited from elsewhere in the conversation.",
       "items": {
         "type": "object",
         "required": ["questionId", "question", "answer", "tag", "source"],
         "properties": {
-          "questionId": { "type": "string", "description": "Question bank ID, e.g. 'D2'." },
+          "questionId": { "type": "string", "pattern": "^\\d{1,2}\\.\\d{1,2}$", "description": "Question bank v2 ID, e.g. '5.2'." },
           "question": { "type": "string" },
           "answer": { "type": "string" },
           "tag": { "type": "string", "enum": ["public", "internal"] },
-          "source": { "type": "string", "enum": ["open-brief", "interview"] }
+          "source": { "type": "string", "enum": ["open-brief", "interview", "inferred"] }
         }
       }
     },
-    "waivedQuestions": {
+    "coverage": {
       "type": "array",
-      "description": "Question-bank IDs the HM explicitly chose not to answer.",
-      "items": { "type": "string" }
+      "description": "Exactly one entry per question ID in question bank v2 — the completion proof. Every ID must appear.",
+      "items": {
+        "type": "object",
+        "required": ["questionId", "status"],
+        "properties": {
+          "questionId": { "type": "string", "pattern": "^\\d{1,2}\\.\\d{1,2}$" },
+          "status": { "type": "string", "enum": ["answered", "inferred", "unknown", "not_yet_decided", "skipped"] }
+        }
+      }
     },
     "companyInfo": {
       "type": "object",
-      "description": "Manual-entry block.",
+      "description": "Manual-entry block (pasted by the HM).",
       "properties": {
         "industry": { "type": "string" },
         "size": { "type": "string" },
@@ -48,9 +58,6 @@
         "applicationProcess": { "type": "string" }
       }
     },
-    "functionDescription": {
-      "type": "string",
-      "description": "Manual-entry block."
-    }
+    "functionDescription": { "type": "string", "description": "Manual-entry block (pasted by the HM)." }
   }
 }

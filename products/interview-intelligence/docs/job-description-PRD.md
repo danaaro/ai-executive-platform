@@ -1,88 +1,81 @@
 # PRD — Job Description Agent
 
-> STATUS: 🟡 DRAFT v1 — from Dana's intake logic (2026-07-11). Owner: Dana.
-> Spec base: `../../../docs/agent-specifications/Specialist-Template.md` · Question bank: `job-description-question-bank.md` (v1, will be enhanced)
+> STATUS: 🟡 DRAFT v2 (2026-07-18) — aligned to Susan's imported production prompt. Owner: Dana.
+> Spec base: `../../../docs/agent-specifications/Specialist-Template.md` · Operative prompt: `../prompts/01-job-description.md` (v1.0) · Question bank: `job-description-question-bank.md` (v2 — Job Discovery Questionnaire, 20 sections)
+> Note: since v2 this PRD is documentation only — it is **not** loaded into the runtime system prompt (the operative prompt + question bank are).
 
 ## 1. Purpose
 
-A conversational specialist agent that interviews a hiring manager about a new role and produces a complete, evidence-based **job description**, delivered as a file named after the role. First sellable agent of the product; its intake record also becomes the seed input for every downstream agent (competency model, interview kit, scorecard).
+A conversational specialist agent that interviews a hiring manager through the Job Discovery Questionnaire and produces an Executive Search-quality **job description** plus an **Intake & Coverage Record**. First sellable agent of the product; the intake record seeds every downstream agent (competency builder, panel designer, interview system, feedback, rationale).
 
 ## 2. Users & trigger
 
-- **Primary user:** the hiring manager (HM) opening a role.
+- **Primary user:** the hiring manager (HM) opening a role (recruiter may drive the session).
 - **Trigger:** "NEW JOB" — HM starts a session and provides an initial role description.
 
-## 3. Interaction model
+## 3. Interaction model (v2)
 
-1. **Open brief.** HM describes the role and its purpose in their own words — typed text, an uploaded recording/transcript, **or a live voice conversation** (shipped 2026-07 per ADR-005; the voice channel runs the same agent as text).
-2. **Gap analysis.** Agent maps the brief against the question bank and marks each item covered / partial / missing.
-3. **Adaptive interview.** Agent asks **only the unanswered questions, ONE at a time**, in a natural order, with branch logic (e.g. new-role vs replacement branches; manager vs IC branch). Never re-asks what the brief already answered.
-4. **Manual blocks.** Company Info `[industry, size, benefits, DEI policy, application process]` and Function Description are entered manually (or pulled from tenant company profile once that exists — see §9).
-5. **Synthesis & review.** Agent drafts the JD, HM reviews, requests edits conversationally, approves.
-6. **Delivery.** Final JD written as a file named after the role (e.g. `Senior-Product-Manager-JD.md`).
+1. **Open brief.** HM describes the role in their own words — typed, pasted transcript, **or live voice** (ADR-005; voice runs the same agent).
+2. **Silent crediting.** Agent maps the brief against the questionnaire and credits every question it already answers.
+3. **Conversational interview.** Agent works through the 20 sections **bundling 2–4 related questions per turn** — a conversation, not a form. Follow-ups until answers are concrete. `[internal]` sections come with an explicit "this stays internal" framing.
+4. **Completion.** Every question ID ends with a status: `answered / inferred / unknown / not_yet_decided / skipped`. HM may fast-forward a section (recorded as skipped). Aim: most questions genuinely answered.
+5. **Automatic generation.** The JD is generated immediately after the checklist resolves — no permission-asking.
+6. **Review loop.** HM requests edits conversationally until approved.
 
-**Voice:** live voice conversation is **available** (ADR-005, 2026-07): ElevenLabs Agents carries the real-time leg (streaming STT/TTS, turn-taking, interruption) and calls back into the same orchestrator prompt, so voice and text are one agent. The HM may speak or type interchangeably; treat both channels identically and never tell the HM that voice is unavailable or "coming later."
+**Voice:** unchanged from v1 — ElevenLabs leg calls the same orchestrator prompt; never tell the HM voice is unavailable.
 
 ## 4. Inputs
 
 | Input | Form | Required |
 |---|---|---|
-| HM conversation (brief + interview answers) | text / recording→transcript | yes |
-| Company Info: industry, size, benefits, DEI policy, application process | manual entry | yes |
-| Function Description | manual entry | yes |
+| HM conversation (brief + interview answers) | text / transcript / voice | yes |
+| Company Info: industry, size, benefits, DEI policy, application process | pasted when relevant | recommended |
+| Function Description | pasted when relevant | recommended |
 
-## 5. Outputs
+## 5. Outputs (v2 — chat-delivered, server-persisted)
 
-1. **Primary — the Job Description file**, named `<Role-Title>-JD.<ext>` (format md first; docx/pdf export = open question §10). Draft section structure:
-   - Role title · location & work model
-   - About the company (from Company Info + mission/values answers)
-   - The role — purpose, why it exists / why now
-   - What you'll do — top responsibilities + day-to-day scope
-   - First 6–12 months — goals & projects owned
-   - What success looks like (public-safe rendering of the success-definition answers)
-   - Who you'll work with — manager, team, key stakeholders (public-safe)
-   - What we're looking for — must-have skills/competencies/experience + traits/mindset
-   - Nice to have
-   - Growth & development — career path, L&D
-   - Benefits · DEI statement · how to apply
-2. **Secondary — the Role Intake Record** (structured JSON per `../schemas/job-description.intake.schema.json`): every question-bank answer, tagged public/internal. This is the durable artifact downstream agents consume; the JD is a *rendering* of it.
+1. **Job Description** (Markdown, in-chat) — Susan's exact structure, no additional sections, 500–700 words:
+   Title · Company Name · Location (on-site/hybrid/remote) · **Our Team and You** (Team Mission & Impact, Role Contribution, Strategic Importance, Key Collaborations) · **The Scope of the Role and Why It's Open** · **30/60/90-day success plan (ATR: Action/Tasks/Results)** · **What We've Achieved and What We'll Do With You** · **A Little Bit About You** (≤100 words, evidence-based predictors).
+2. **Intake & Coverage Record** (JSON code block per `../schemas/job-description.intake.schema.json` v2): all answers (tagged public/internal, with source) + **coverage entry for every question ID**.
+
+Persistence: the agent delivers in chat only; the user saves via the app's Save action → server writes to `generated/outputs/` (DB later). The agent never writes files or claims to.
 
 ## 6. Hard rules (guardrails)
 
-- **Public/internal separation.** The interview deliberately collects candid internal material — what didn't work with the previous person, manager's real leadership style, honest team culture, excellent-vs-acceptable bar. This informs tone and emphasis but **never appears verbatim in the JD**. Every intake item carries a `public | internal` tag; the JD renderer may only use `public` content directly.
-- **No invention.** Every claim in the JD traces to the intake record or Company Info. Missing input ⇒ ask (during interview) or flag a gap — never fabricate.
-- **One question at a time.** Never batch questions; keep the interview conversational.
-- **Candor prompts stay.** Where the bank asks the HM to be candid (manager style, team culture), the agent explicitly encourages honesty and explains it stays internal.
+- **Platform guardrails v1** (`prompts/system/guardrails.md`, prepended at runtime): scope lockdown, hard refusal line, non-disclosure, integrity.
+- **Public/internal separation.** `[internal]` answers (manager style, failure profile, benchmarking, candor material) inform tone and screening but never appear verbatim in the JD.
+- **No invention.** Every JD claim traces to the intake. Missing input ⇒ ask or record a gap status — never fabricate.
+- **Conversational bundling** (replaces v1's one-at-a-time): related questions grouped naturally; never re-ask what's already answered.
+- **Candor framing stays** for internal sections.
 - **Brand rule:** outputs carry no product brand until ADR-002 is decided.
 
 ## 7. Question bank
 
-Lives in `job-description-question-bank.md` — v1 captured from Dana, grouped into themes A–I with branch logic and public/internal tags. Versioned separately from this PRD because it will be enhanced independently.
+`job-description-question-bank.md` **v2** — Susan's 20-section Job Discovery Questionnaire (~128 questions, IDs `section.question`), imported 2026-07-18. Versioned independently; the agent executes it as its workflow.
 
 ## 8. Quality bar (eval dimensions — golden set to follow in `../evals/`)
 
-1. **Coverage** — all bank themes answered or explicitly waived by HM
+1. **Coverage** — every questionnaire ID carries a status; most genuinely answered
 2. **Fidelity** — no unsupported claims; no internal-tagged content leaked
-3. **Interview quality** — no redundant questions (asked something the brief already answered = fail)
-4. **JD craft** — clear, specific, jargon-free, sells the role honestly
-5. **Measurability** — success section contains the 12/24/36-month measurable outcomes
+3. **Interview quality** — no redundant questions; natural bundling; follow-ups on vague answers
+4. **JD craft** — Susan's structure exactly; 500–700 words; executive tone; inclusive, cliché-free
+5. **Record integrity** — intake JSON validates against schema v2; coverage complete
+6. **Guardrail compliance** — off-scope and disclosure probes get the exact refusal line
 
 ## 9. Dependencies & platform touchpoints
 
-- `src/orchestrator` — session/state for a multi-turn interview (first real runtime requirement)
-- `src/api` — session start, file retrieval
-- `src/memory` — per-tenant company profile (lets Company Info be remembered, not re-typed) — later
-- `src/evaluation` — runs `../evals/` golden set
-- Downstream consumers of the intake record: competency-model, interview-kit, scorecard agents (planned)
+- `src/orchestrator` — JD orchestrator assembles guardrails + operative prompt + question bank (PRD no longer included)
+- `src/app/api/agents/[slug]/save` — artifact persistence to `generated/outputs/` (DB later)
+- `src/memory` — per-tenant company profile — later
+- Downstream consumers: competency-builder (02), panel-designer (03), interview-system (04), feedback (05), rationale (06)
 
 ## 10. Open questions
 
-- Output file format(s): md only vs docx/pdf export in v1
-- Language support (English-only v1?)
+- docx/pdf export in v1 (currently export buttons are UX-design only)
+- Language support default (prompt supports any language natively)
 - Tone/template customization per client company
-- Where HM review happens in v1 (chat loop vs edited file re-upload)
 
 ## 11. Phasing
 
-- **V1 (this PRD):** text interview + recording-as-input + live voice conversation (added via ADR-005), gap-driven one-at-a-time questioning, md file output, intake record JSON
-- **Phase 2:** docx/pdf export, tenant company profile reuse, JD tone templates
+- **V2 (this PRD):** Susan's production prompt + questionnaire v2, conversational bundling, coverage record, chat delivery + server-side save
+- **Next:** evals golden set; docx/pdf export; tenant company profile reuse

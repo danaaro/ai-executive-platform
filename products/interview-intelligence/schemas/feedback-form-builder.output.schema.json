@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "feedback-form-builder.output.schema.json",
+  "title": "Interview Feedback Form Builder \u2014 Output (Evidence Report)",
+  "description": "One-page evidence report; labels describe evidence quality only, never scores. Human sections are absent by design. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "executiveSummary",
+    "competencyEvidence",
+    "evidenceGaps"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "executiveSummary": {
+      "type": "string",
+      "description": "3-4 sentences; no overall candidate assessment."
+    },
+    "competencyEvidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "competency",
+          "keyEvidence",
+          "evidenceStrength"
+        ],
+        "properties": {
+          "competency": {
+            "type": "string",
+            "description": "Exact name from the framework."
+          },
+          "keyEvidence": {
+            "type": "string"
+          },
+          "evidenceStrength": {
+            "type": "string",
+            "enum": [
+              "Strong Evidence",
+              "Moderate Evidence",
+              "Limited Evidence",
+              "Cannot Assess"
+            ]
+          },
+          "supportingEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "2-4 observable-evidence bullets."
+          }
+        }
+      }
+    },
+    "candidateQuestions": {
+      "type": "string",
+      "description": "Factual summary only."
+    },
+    "evidenceGaps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

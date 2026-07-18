@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "screening-guide.input.schema.json",
+  "title": "Recruiter Screening Guide Generator \u2014 Input",
+  "description": "Role-scoped (no personal data). v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "jobDescription",
+    "competencyFramework"
+  ],
+  "properties": {
+    "jobDescription": {
+      "type": "string"
+    },
+    "competencyFramework": {
+      "type": "string",
+      "description": "Names used verbatim."
+    },
+    "callLengthMinutes": {
+      "type": "integer",
+      "description": "Default 30."
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

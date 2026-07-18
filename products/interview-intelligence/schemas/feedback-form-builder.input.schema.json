@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "feedback-form-builder.input.schema.json",
+  "title": "Interview Feedback Form Builder \u2014 Input",
+  "description": "Per-candidate, per-interviewer. Transcript + guide are pasted; competencies are THIS interviewer's assignment only. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "transcript",
+    "interviewGuide",
+    "interviewerName",
+    "competenciesAssessed"
+  ],
+  "properties": {
+    "transcript": {
+      "type": "string",
+      "description": "Full interview transcript."
+    },
+    "interviewGuide": {
+      "type": "string",
+      "description": "Interview guide / competency framework \u2014 sole source of truth for competencies."
+    },
+    "interviewerName": {
+      "type": "string"
+    },
+    "interviewerRole": {
+      "type": "string"
+    },
+    "competenciesAssessed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Exact competency names assigned to this interviewer."
+    },
+    "questionsAsked": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "candidateCv": {
+      "type": "string",
+      "description": "Optional."
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "panel-designer.output.schema.json",
+  "title": "Strategic Interview Panel Designer \u2014 Output (Panel Design)",
+  "description": "v1 (2026-07-18). Max 5 interviewers; competency coverage must exactly match the input framework.",
+  "type": "object",
+  "required": [
+    "interviewers"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "roleTitle": {
+      "type": "string"
+    },
+    "interviewers": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "primaryPurpose",
+          "competenciesOwned",
+          "evidenceToCollect",
+          "whatToAvoid",
+          "candidateValue"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "primaryPurpose": {
+            "type": "string",
+            "enum": [
+              "Assessment",
+              "Engagement",
+              "Info sharing"
+            ]
+          },
+          "competenciesOwned": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "evidenceToCollect": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 3,
+            "maxItems": 5
+          },
+          "whatToAvoid": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 3
+          },
+          "candidateValue": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "doubleCoveredCompetencies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The 3-5 critical competencies covered by two interviewers."
+    }
+  }
+}

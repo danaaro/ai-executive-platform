@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "interview-system-builder.input.schema.json",
+  "title": "Structured Interview System Builder \u2014 Input",
+  "description": "v1 (2026-07-18). Both inputs required; competency names and panel are consumed verbatim.",
+  "type": "object",
+  "required": [
+    "competencyFramework",
+    "interviewPanel"
+  ],
+  "properties": {
+    "competencyFramework": {
+      "type": "string"
+    },
+    "interviewPanel": {
+      "type": "string",
+      "description": "Panel design from the panel-designer agent."
+    },
+    "jobDescription": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

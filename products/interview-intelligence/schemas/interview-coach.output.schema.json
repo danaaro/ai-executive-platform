@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "interview-coach.output.schema.json",
+  "title": "Interview Excellence Coach \u2014 Output (Interviewer Feedback Report)",
+  "description": "Scores the INTERVIEWER (0-100), never the candidate. v1 (2026-07-18).",
+  "type": "object",
+  "required": [
+    "effectivenessScore",
+    "scoreJustification",
+    "effectiveTechniques",
+    "missedOpportunities",
+    "improvementTips"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "effectivenessScore": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "scoreJustification": {
+      "type": "string",
+      "description": "1-2 sentences; weighted: probing 40 / evidence 30 / engagement 30."
+    },
+    "effectiveTechniques": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "transcriptExcerpt": {
+            "type": "string",
+            "description": "Verbatim."
+          },
+          "whyEffective": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "missedOpportunities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "transcriptExcerpt": {
+            "type": "string",
+            "description": "Verbatim."
+          },
+          "whatWasMissing": {
+            "type": "string"
+          },
+          "suggestedAlternatives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "2-3 follow-up questions."
+          }
+        }
+      }
+    },
+    "improvementTips": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "exampleWording": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

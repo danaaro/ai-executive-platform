@@ -4,8 +4,8 @@
 
 ## Executive Summary
 
-- **Repository Version:** `0.1.0` (package.json) · git `main` @ `d2057aa`, 9 commits + uncommitted voice-integration work, remote `github.com/danaaro/ai-executive-platform` (private)
-- **Last Updated:** 2026-07-12
+- **Repository Version:** `0.1.0` (package.json) · git `main` @ `7143958`, 12 commits, remote `github.com/danaaro/ai-executive-platform` (private). Uncommitted: voice `thinking: disabled` fix in `voice-llm/handler.ts` (described below, verified live), this dashboard's 07-16/07-17 updates, new `pitch-deck-feature-map.md`
+- **Last Updated:** 2026-07-18 — **agent-prompt import sprint**: Susan's 10 production prompts normalized into `products/interview-intelligence/prompts/` (+ definitions + 20 I/O schemas); platform guardrails layer (`prompts/system/guardrails.md` — scope lockdown, hard refusal, non-disclosure) prepended to every agent; JD upgraded to v2 (20-section Job Discovery Questionnaire, coverage record, conversational bundling); **generic agent runtime** (`agent-orchestrator.ts`, `/api/agents/[slug]`, UI agent picker) — pays down debt #3; **save-artifact flow** (`/api/agents/[slug]/save` → `generated/outputs/` with DB-ready JSON envelope); debt #1 (file-writing agent definition) resolved
 - **Current Sprint:** F — SaaS-first build: Job Description agent vertical slice (parent `TODO.md` §F, CLAUDE.md "Current focus")
 - **Current Goal:** experience the Job Description agent as a real, browser-accessible, login-protected SaaS app end-to-end — now including a natural real-time voice conversation (ADR-005)
 - **Overall Completion:** ~25% — one authenticated, working E2E vertical (JD agent) with real-time voice architecture built and verified server-side; no persistence, no deployment, no tests/evals, business docs still placeholders
@@ -18,13 +18,15 @@ Capabilities are the product catalog of `products/interview-intelligence/` (inte
 
 | Capability | Status | Backend | UI | Conversation | API | Tests | Notes |
 |---|---|---|---|---|---|---|---|
-| Job Description | 🟢 Working prototype | ✅ Orchestrator + Anthropic call | ✅ Chat UI w/ live voice mode | ✅ Multi-turn intake; text + real-time voice (ElevenLabs, ADR-005) | ✅ `POST /api/job-description` + `voice-llm` + `voice-token` | ❌ None (no tests, no evals) | Full vertical slice: PRD v1 → question bank v1 → schemas → agent def → runtime → 1 golden example (CIO). Voice code verified by simulating ElevenLabs' callback; live call pending one-time dashboard setup + reachable URL. Output delivered in chat only — not persisted or downloadable |
-| Competency Model | ⚪ Named only | ❌ | ❌ | ❌ | ❌ | ❌ | Listed in product README catalog; no artifacts |
-| Interview Kit / Panel Design (Interview Guide) | ⚪ Named only | ❌ | ❌ | ❌ | ❌ | ❌ | Listed in catalog; no artifacts |
-| Scorecard & Debrief | ⚪ Named only | ❌ | ❌ | ❌ | ❌ | ❌ | Listed in catalog; no artifacts. Intake record schema already reserves fields to feed it |
-| Screening (Candidate Evaluation) | ⚪ Named only | ❌ | ❌ | ❌ | ❌ | ❌ | Listed in catalog; no artifacts |
-| AI Head of Talent Acquisition (executive layer) | ⚪ Named only | ❌ | ❌ | ❌ | ❌ | ❌ | JD agent runs standalone; executive parent is "planned" in its definition |
-| Susan Brain | ⚫ Not defined | ❌ | ❌ | ❌ | ❌ | ❌ | No artifact anywhere in this repo; belongs (if anywhere) to the parked internal-agents track in the parent workspace |
+| Job Description | 🟢 Working prototype (v2 2026-07-18) | ✅ Orchestrator: guardrails + Susan's prompt + questionnaire | ✅ Chat UI w/ live voice mode + Save artifact | ✅ Conversational bundling over 20-section questionnaire; text + voice | ✅ `POST /api/job-description` + `voice-llm` + `voice-token` + save | ❌ No evals | Susan's production prompt imported; coverage record (per-question status) in intake schema v2; PRD no longer in runtime prompt |
+| Competency Builder (2) | 🟡 Runnable, untested | ✅ Generic orchestrator | ✅ Via agent picker | ✅ Paste-JD → framework | ✅ `POST /api/agents/competency-builder` (+ save) | ❌ | Prompt+def+schemas imported 2026-07-18; awaiting Dana's conversation tests |
+| Panel Designer (3) | 🟡 Runnable, untested | ✅ Generic orchestrator | ✅ Via agent picker | ✅ | ✅ `/api/agents/panel-designer` | ❌ | Same import batch |
+| Interview System Builder (4) | 🟡 Runnable, untested | ✅ Generic orchestrator (4096 tokens) | ✅ Via agent picker | ✅ | ✅ `/api/agents/interview-system-builder` | ❌ | Same import batch |
+| Feedback Form Builder (5) · Hiring Rationale (6) · Success Blueprint (7) · Interview Coach (8) | 🟡 Runnable, untested — Phase 2 (personal data) | ✅ Generic orchestrator | ✅ Via agent picker | ✅ | ✅ `/api/agents/<slug>` | ❌ | Prompts enforce human-decision boundaries (no scores/recommendations for candidates; coach scores interviewers) |
+| Recruiter Evaluation Report (A1) | 🟡 Runnable, untested — Phase 2 | ✅ | ✅ | ✅ | ✅ | ❌ | Independent assistant |
+| Recruiter Screening Guide (A2) | 🟠 Draft prompt (v0.9) | ✅ | ✅ | ✅ | ✅ | ❌ | Source was a prompt *description* — needs Susan's actual prompt (flagged in frontmatter + picker) |
+| AI Head of Talent Acquisition (executive layer) | ⚪ Named only | ❌ | ❌ | ❌ | ❌ | ❌ | Planned |
+| Susan Brain | ⚫ Not defined | ❌ | ❌ | ❌ | ❌ | ❌ | Belongs (if anywhere) to the parent workspace track |
 
 ---
 
@@ -36,7 +38,7 @@ Capabilities are the product catalog of `products/interview-intelligence/` (inte
 | Authorization | 🔴 Not started | Login-only. No roles, permissions, or per-resource access control anywhere |
 | Organizations (Tenants) | 🔴 Not started | Clerk Organizations unused; no tenant concept in code, no per-tenant data (there is no data layer at all) |
 | Dashboard | 🔴 Not started | Single-purpose chat page is the whole app |
-| Conversation UI | 🟢 Working | `src/app/page.tsx`: session start, bubbles, typing indicator, error surface, auto-scroll. Non-streaming (full-reply turns) |
+| Conversation UI | 🟢 Working | `src/app/page.tsx`: agent picker (all 10 agents), session start, bubbles, error surface, auto-scroll, Save artifact. **Four input modes (2026-07-18):** 📎 document upload (PDF/DOCX/MD/TXT via `/api/upload-parse`, mammoth + pdf-parse) · typed chat · 🎤 dictation (Web Speech API → text in the box) · 🎙 live voice (JD only). Non-streaming text turns |
 | Voice Interface | 🟢 Working (via ngrok tunnel) | Real-time conversation via ElevenLabs Agents over WebRTC (ADR-005): streaming STT, turn-taking, barge-in, streaming TTS; Claude stays the brain via OpenAI-compatible custom-LLM callback (`/api/job-description/voice-llm`, shared-secret auth) reusing the orchestrator's system prompt + a voice-channel note (speak naturally, no markdown). **First live spoken intake completed 2026-07-16.** Adapter is OpenAI-spec compliant incl. the `stream_options.include_usage` usage chunk (its absence caused "LLM Cascade Error" turn failures). Depends on a rotating ngrok URL until deployed |
 | History | 🔴 Not started | Conversation lives in React state; refresh loses everything. No database exists |
 | Downloads | 🔴 Not started | Final JD + intake JSON are emitted as chat text (runtime note explicitly forbids the agent claiming file writes). No export/download path |
@@ -113,13 +115,15 @@ Detected from `package.json`, config, and code — all actually installed and in
 - Intake + output schemas; agent definition file; one golden example (CIO JD + intake)
 - Real-time voice architecture (ADR-005, 2026-07-12): docs first (`Voice.md` 🟢), then ElevenLabs custom-LLM SSE adapter + Clerk-gated token route + live voice mode in the UI, replacing the Web Speech bolt-on; server side verified with simulated ElevenLabs callbacks (auth 401s, SSE stream, non-stream JSON)
 
-- Voice activated E2E (2026-07-16): ElevenLabs agent configured + published, ngrok tunnel, first live spoken intake session completed. Debugging trail: text-only mode flag, secret mismatch, missing OpenAI usage chunk ("LLM Cascade Error"), and a stale PRD that made the agent deny voice support — all fixed, PRD updated to match reality
+- Voice activated E2E (2026-07-16): ElevenLabs agent configured + published, ngrok tunnel, first live spoken intake session completed. Debugging trail: text-only mode flag, secret mismatch, missing OpenAI usage chunk ("LLM Cascade Error"), stale PRD making the agent deny voice support, and turn-latency failures (claude-sonnet-5's default adaptive thinking pushed first-sentence time past ElevenLabs' ~4s per-attempt cutoff → 3x retry storms → dropped sessions). Fixed by: instant SSE flush, prompt caching, cache pre-warm on session start, and `thinking: disabled` on voice turns. **Verified by an automated E2E harness** (`scratchpad/e2e-voice-qa.mjs` pattern — WebSocket conversation driver sending text turns through the full ElevenLabs→tunnel→handler→Claude→TTS loop): 4 consecutive 3-turn conversations, 16/16 turns answered in 2.2–3.4s, one LLM call per turn (no retries), zero errors. Harness should be productized into `products/interview-intelligence/evals/` in the eval sprint
+
+- Market context ingested (2026-07-17): the original INT² pitch deck (Sept 2025) extracted to parent `context/INT2_Pitch_Deck_Sep2025.md`; `products/interview-intelligence/docs/pitch-deck-feature-map.md` maps its four product pillars → candidate agent catalog, splits unique moats (context-based skills definition, red flags + continuity, skill-by-skill evidence, rationale + ask-LLM) from table-stakes, and lists validated buyer asks (competency definition, evidence, ATS integration, GDPR). Direct input to the product-definition rewrite and agent-catalog items below. Pricing prior for the SaaS: per-interview tiered ($299 / $899 / Enterprise)
 
 **Remaining:**
 - Evals: golden set + rubric in `products/interview-intelligence/evals/` — the repo's own workflow says nothing is "done" without this
 - Persist/export the outputs (currently chat-only text)
 - ADR-002: public brand decision (open)
-- Product definition rewrite + agent catalog (~5–6 specialists) — parent TODO §F
+- Product definition rewrite + agent catalog (~5–6 specialists) — parent TODO §F; seed now exists (`pitch-deck-feature-map.md`)
 - Finalize the ADS spec (templates still Draft while the first agent already ships against them)
 
 **Blockers:**
@@ -134,11 +138,11 @@ Detected from `package.json`, config, and code — all actually installed and in
 **Why this one:** the repo's own definition of done (README workflow step 5, PRD §8, CLAUDE.md) says an agent isn't finished until it's evaluated — and the JD agent is one step short of being the platform's first *complete* proof of the ADR-001 model. Simultaneously, ADR-003's stated purpose ("experience it as a real SaaS") is unfulfilled while the app only runs on localhost:3010, and the deploy is now doubly load-bearing: ElevenLabs' custom-LLM callback (ADR-005) needs a publicly reachable URL, so the voice conversation cannot go live without it. The first deploy also flushes out the biggest hidden technical risk (runtime `fs` reads of `products/` under Vercel's serverless bundling — see Risks). Building agent #2 or filling blueprint docs before this would stack new work on an unvalidated foundation.
 
 **Expected deliverables:**
-1. `products/interview-intelligence/evals/` — golden intake set (3–5 role briefs incl. the CIO example) + scoring rubric implementing PRD §8 dimensions (coverage, fidelity, interview quality, JD craft, measurability)
+1. `products/interview-intelligence/evals/` — golden intake set (3–5 role briefs incl. the CIO example) + scoring rubric implementing PRD §8 dimensions (coverage, fidelity, interview quality, JD craft, measurability). Include the parked **split-model A/B** (2026-07-16, Dana's call): Sonnet 5 for live conversation turns vs. Opus 4.8 for the final JD synthesis step — let the rubric decide if the split earns its cost
 2. Minimal eval runner in `scripts/` (or `src/evaluation/`) that replays a golden brief through the orchestrator and reports against the rubric
 3. Live Vercel deployment with env vars configured, `products/` confirmed readable at runtime (`outputFileTracingIncludes` if needed), auth working on the deployed URL
 4. Voice activated end-to-end against the deployed URL: ElevenLabs agent created, custom LLM pointed at `<deploy-url>/api/job-description/voice-llm`, first real spoken intake session completed
-5. This dashboard updated; `Repository-Inventory.md` refreshed or retired (it is stale — see Technical Debt)
+5. This dashboard updated (~~`Repository-Inventory.md` refresh~~ — done 2026-07-17)
 
 ---
 
@@ -155,7 +159,7 @@ Temporary implementations, hardcoded values, missing abstractions, and known iss
 7. **No streaming in text chat** — full-turn responses make long syntheses (the final JD) feel slow; UI shows a fake typing indicator with `animation: "none"` (dots don't actually animate). Ironically the voice adapter already streams SSE; the text UI doesn't.
 8. **Whole PRD + question bank stuffed into every system prompt** — mitigated by Anthropic prompt caching (2026-07-16: ~97% of prompt tokens now read from cache at ~0.1x cost, cutting turn TTFB ~4x), but still unversioned and monolithic; `prompts/` trees exist for exactly this and are empty. Note the cache is prefix-keyed: any byte change to the agent def/question bank/PRD invalidates it (fine — 5-min TTL, self-heals).
 9. **No prompt/schema version fields** anywhere; versioning is by markdown STATUS headers and git only.
-10. **`Repository-Inventory.md` is stale** — still says "0 source-code files", "3 commits", "no package.json"; it predates ADR-003/004 and now contradicts reality in an "authoritative" root doc.
+10. ~~`Repository-Inventory.md` is stale~~ — **resolved 2026-07-17**: regenerated against the current repo (12 commits, runtime + voice + auth reflected).
 11. **Placeholder debt:** 25 placeholder docs (12 blueprint + 7 architecture + 6 handbook); `00-Roadmap.md` is referenced by CLAUDE.md as the roadmap and is empty.
 12. **`.clerk/.tmp/keyless.json` contains keys** from Clerk's keyless bootstrap; superseded by `.env.local` — should be cleaned and confirmed gitignored. `tsconfig.tsbuildinfo` is also loose in the repo root.
 13. **No lint/format config, no test runner installed** — no `npm test` exists at all.
@@ -164,6 +168,8 @@ Temporary implementations, hardcoded values, missing abstractions, and known iss
 16. **Voice transcripts are display-only** — turns arrive via `onMessage` into React state; the canonical conversation lives on ElevenLabs' side during the session and is lost on refresh, same as text (no persistence layer).
 17. **Voice reachability is a laptop-bound ngrok tunnel** — the ElevenLabs custom-LLM URL points at a rotating free-tier ngrok address served by a dev server on Dana's Mac; tunnel restart silently breaks voice until the dashboard URL is updated. Resolved by the Vercel deploy.
 18. **Voice-token route is also unusable without the tunnel host being up** — same root cause as #17; listed separately because the failure surfaces client-side (502 on session start) vs. mid-conversation.
+19. **Voice context handoff is a module-level singleton** (`src/shared/voice-handoff.ts`, 2026-07-18): fixes the text↔voice context wipe by stashing chat history at token mint and prepending it on every voice turn — but it's single-process and effectively single-concurrent-voice-user (the custom-LLM callback carries no user identity to correlate on). Proper per-session correlation lands with the database/session layer.
+20. **Dictation uses the browser Web Speech API** — Chrome/Safari only, `en-US` hardcoded; no server-side transcription fallback.
 
 ---
 

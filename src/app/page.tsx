@@ -6,10 +6,93 @@ import { ConversationProvider, useConversation } from "@elevenlabs/react";
 
 type Message = { role: "user" | "assistant"; content: string };
 
+// Minimal Web Speech API surface (not in TS's DOM lib on all configs).
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: {
+    results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } } & ArrayLike<{ transcript: string }>>;
+  }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
 const INTAKE_START = "Start the NEW JOB intake session.";
 
-async function postTurn(messages: Message[]): Promise<string> {
-  const res = await fetch("/api/job-description", {
+// Mirrors AGENT_REGISTRY in src/orchestrator/agent-orchestrator.ts.
+// job-description keeps its dedicated route (voice depends on it).
+const AGENTS = [
+  {
+    slug: "job-description",
+    title: "1 · Job Description",
+    hint: "Start a NEW JOB intake session — have a live voice conversation, or type. The agent works through the Job Discovery Questionnaire conversationally.",
+    voice: true,
+  },
+  {
+    slug: "competency-builder",
+    title: "2 · Competency Builder",
+    hint: "Paste the Job Description (plus any company context) as your first message. Output: 8 predictive competencies (4 execution + 4 operating).",
+    voice: false,
+  },
+  {
+    slug: "panel-designer",
+    title: "3 · Panel Designer",
+    hint: "Paste the Competency Framework (and ideally the JD) as your first message. Output: an interview panel of up to 5 interviewers with owned competencies.",
+    voice: false,
+  },
+  {
+    slug: "interview-system-builder",
+    title: "4 · Interview System Builder",
+    hint: "Paste the Competency Framework AND the Interview Panel as your first message. Output: per-interviewer guides, questions, probes, scoring and bias checklist.",
+    voice: false,
+  },
+  {
+    slug: "feedback-form-builder",
+    title: "5 · Feedback Form Builder (Phase 2)",
+    hint: "Per candidate. Paste the interview transcript, the interview guide, and this interviewer's assigned competencies. Output: one-page evidence report — no scores, human decides.",
+    voice: false,
+  },
+  {
+    slug: "hiring-rationale",
+    title: "6 · Hiring Rationale (Phase 2)",
+    hint: "Per candidate. Paste candidate name, position, JD, CV, and ALL interview feedback. Output: one-page evidence-based rationale — committee decides.",
+    voice: false,
+  },
+  {
+    slug: "success-blueprint",
+    title: "7 · Success Blueprint (Phase 2)",
+    hint: "Per candidate. Paste the candidate profile, interview evaluations, and JD. Output: one-page Manager's Success Blueprint for onboarding.",
+    voice: false,
+  },
+  {
+    slug: "interview-coach",
+    title: "8 · Interview Coach (Phase 2)",
+    hint: "Paste the interviewer guide (role, competencies, questions) and the transcript. Output: coaching report scoring the INTERVIEWER (0–100), not the candidate.",
+    voice: false,
+  },
+  {
+    slug: "recruiter-evaluation-report",
+    title: "A1 · Recruiter Evaluation Report (Phase 2)",
+    hint: "Independent assistant. Paste the interview transcription (+ CV, notes, role/company). Output: executive-search-grade evaluation report — no recommendations.",
+    voice: false,
+  },
+  {
+    slug: "screening-guide",
+    title: "A2 · Screening Guide (draft)",
+    hint: "Independent assistant. Paste the JD and the competency framework. Output: 5-step recruiter screening guide. (Prompt drafted from Susan's description — needs her review.)",
+    voice: false,
+  },
+] as const;
+
+type AgentSlug = (typeof AGENTS)[number]["slug"];
+
+async function postTurn(agent: AgentSlug, messages: Message[]): Promise<string> {
+  const url =
+    agent === "job-description" ? "/api/job-description" : `/api/agents/${agent}`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages }),
@@ -28,14 +111,119 @@ export default function Home() {
 }
 
 function JobDescriptionAgent() {
+  const [agent, setAgent] = useState<AgentSlug>("job-description");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [started, setStarted] = useState(false);
   const [voiceStarting, setVoiceStarting] = useState(false);
+  const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const agentMeta = AGENTS.find((a) => a.slug === agent)!;
+
+  // --- Dictation (speech-to-text into the input box; Web Speech API) ---
+  const [dictating, setDictating] = useState(false);
+  const recogRef = useRef<{ stop: () => void } | null>(null);
+  const dictationBaseRef = useRef("");
+
+  function stopDictation() {
+    recogRef.current?.stop();
+    recogRef.current = null;
+    setDictating(false);
+  }
+
+  function toggleDictation() {
+    if (dictating) {
+      stopDictation();
+      return;
+    }
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SR) {
+      setError("Dictation is not supported in this browser — try Chrome, or use the live voice conversation.");
+      return;
+    }
+    setError(null);
+    dictationBaseRef.current = input ? input.trimEnd() + " " : "";
+    const recog = new SR();
+    recog.continuous = true;
+    recog.interimResults = true;
+    recog.lang = "en-US";
+    recog.onresult = (event) => {
+      let finalText = "";
+      let interim = "";
+      for (let i = 0; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput(dictationBaseRef.current + finalText + interim);
+    };
+    recog.onend = () => setDictating(false);
+    recog.onerror = () => setDictating(false);
+    recogRef.current = recog;
+    setDictating(true);
+    recog.start();
+  }
+
+  // --- Document upload → parsed text enters the conversation ---
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload-parse", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      const note = data.truncated ? " (truncated — document was very long)" : "";
+      const docMessage = `[Uploaded document: ${data.name}${note}]\n\n${data.text}`;
+      await sendTurn([...messages, { role: "user", content: docMessage }]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  function switchAgent(next: AgentSlug) {
+    stopDictation();
+    setAgent(next);
+    setMessages([]);
+    setError(null);
+    setSavedPath(null);
+  }
+
+  async function saveArtifact() {
+    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!lastAssistant) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agent}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: lastAssistant.content, label: agent }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Save failed");
+      setSavedPath(data.path);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Live voice session (ElevenLabs Agents over WebRTC, ADR-005). The voice
   // agent's brain is the same orchestrator prompt as text chat — ElevenLabs
@@ -67,7 +255,7 @@ function JobDescriptionAgent() {
     setLoading(true);
     setError(null);
     try {
-      const reply = await postTurn(next);
+      const reply = await postTurn(agent, next);
       setMessages([...next, { role: "assistant", content: reply }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -76,19 +264,20 @@ function JobDescriptionAgent() {
     }
   }
 
-  async function startTyped() {
-    setStarted(true);
-    await sendTurn([{ role: "user", content: INTAKE_START }]);
-  }
-
   async function startVoice() {
     setError(null);
     setVoiceStarting(true);
+    stopDictation();
     try {
-      const res = await fetch("/api/job-description/voice-token");
+      // POST the chat so far — the voice session continues this conversation
+      // instead of starting cold (context handoff, src/shared/voice-handoff.ts).
+      const res = await fetch("/api/job-description/voice-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start voice session");
-      setStarted(true);
       conversation.startSession({
         conversationToken: data.token,
         connectionType: "webrtc",
@@ -106,8 +295,10 @@ function JobDescriptionAgent() {
 
   async function send() {
     if (!input.trim() || loading || voiceLive) return;
+    stopDictation();
     const text = input;
     setInput("");
+    if (taRef.current) taRef.current.style.height = "auto";
     await sendTurn([...messages, { role: "user", content: text }]);
   }
 
@@ -124,46 +315,60 @@ function JobDescriptionAgent() {
 
   return (
     <main style={styles.page}>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".pdf,.docx,.md,.markdown,.txt"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+      />
       <header style={styles.header}>
-        <div style={styles.logo}>JD</div>
+        <div style={styles.logo}>{agent === "job-description" ? "JD" : agentMeta.title.slice(0, 1)}</div>
         <div>
-          <h1 style={styles.title}>Job Description Agent</h1>
+          <h1 style={styles.title}>{agentMeta.title.replace(/^\d+ · /, "")}</h1>
           <p style={styles.subtitle}>
             AI Executive Platform · interview-intelligence (internal name)
           </p>
         </div>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
+          <select
+            value={agent}
+            onChange={(e) => switchAgent(e.target.value as AgentSlug)}
+            style={styles.agentSelect}
+            aria-label="Choose agent"
+          >
+            {AGENTS.map((a) => (
+              <option key={a.slug} value={a.slug}>
+                {a.title}
+              </option>
+            ))}
+          </select>
           <UserButton />
         </div>
       </header>
 
       <div style={styles.card}>
-        {!started ? (
-          <div style={styles.emptyState}>
-            <p style={{ color: "var(--text-muted)", marginBottom: 20 }}>
-              Start a NEW JOB intake session — have a live voice conversation,
-              or type. The agent asks one question at a time.
-            </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={startVoice}
-                style={styles.primaryButton}
-                disabled={loading || voiceStarting}
-              >
-                {voiceStarting ? "Connecting…" : "🎙 Start voice conversation"}
-              </button>
-              <button
-                onClick={startTyped}
-                style={styles.secondaryButton}
-                disabled={loading || voiceStarting}
-              >
-                Start by typing
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
+        <>
             <div style={styles.messages}>
+              {visibleMessages.length === 0 && !voiceLive && !loading && (
+                <div style={styles.emptyState}>
+                  <p style={{ color: "var(--text-muted)", marginBottom: 16, maxWidth: 480 }}>
+                    {agentMeta.hint}
+                  </p>
+                  {agent === "job-description" && (
+                    <button
+                      onClick={() => sendTurn([{ role: "user", content: INTAKE_START }])}
+                      style={styles.chip}
+                      disabled={loading || voiceStarting}
+                    >
+                      ▶ Let the agent lead — start the intake
+                    </button>
+                  )}
+                </div>
+              )}
               {visibleMessages.map((m, i) => (
                 <div
                   key={i}
@@ -226,29 +431,71 @@ function JobDescriptionAgent() {
                 </button>
               </div>
             ) : (
-              <div style={styles.inputBar}>
+              <div style={styles.composer}>
                 <button
-                  onClick={startVoice}
-                  disabled={loading || voiceStarting}
-                  title="Switch to a live voice conversation"
-                  style={styles.micButton}
+                  onClick={() => fileRef.current?.click()}
+                  disabled={loading || voiceStarting || uploading}
+                  title="Add a document (PDF, DOCX, MD, TXT)"
+                  aria-label="Add a document"
+                  style={styles.iconBtn}
                 >
-                  🎙
+                  {uploading ? "…" : "+"}
                 </button>
-                <input
+                <textarea
+                  ref={taRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && send()}
-                  placeholder="Type your answer…"
-                  style={styles.input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    e.target.style.height = "auto";
+                    e.target.style.height = Math.min(e.target.scrollHeight, 180) + "px";
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send();
+                    }
+                  }}
+                  placeholder={dictating ? "Listening — speak now…" : "Message the agent…"}
+                  style={styles.composerInput}
+                  rows={1}
                   disabled={loading}
                 />
                 <button
-                  onClick={() => send()}
-                  style={styles.primaryButton}
-                  disabled={loading || !input.trim()}
+                  onClick={toggleDictation}
+                  disabled={loading || voiceStarting}
+                  title={dictating ? "Stop dictating" : "Dictate — your speech becomes text here"}
+                  aria-label="Dictate"
+                  style={{
+                    ...styles.iconBtn,
+                    ...(dictating
+                      ? { background: "var(--danger)", color: "#fff" }
+                      : {}),
+                  }}
                 >
-                  Send
+                  🎤
+                </button>
+                {agentMeta.voice && (
+                  <button
+                    onClick={startVoice}
+                    disabled={loading || voiceStarting}
+                    title="Live voice conversation (keeps the conversation so far)"
+                    aria-label="Start live voice conversation"
+                    style={styles.iconBtn}
+                  >
+                    {voiceStarting ? "…" : "🎙"}
+                  </button>
+                )}
+                <button
+                  onClick={() => send()}
+                  style={{
+                    ...styles.sendBtn,
+                    ...(input.trim() && !loading ? {} : styles.sendBtnDisabled),
+                  }}
+                  disabled={loading || !input.trim()}
+                  aria-label="Send"
+                  title="Send"
+                >
+                  ↑
                 </button>
               </div>
             )}
@@ -256,12 +503,30 @@ function JobDescriptionAgent() {
             <div style={styles.footerRow}>
               <span style={styles.hint}>
                 {voiceLive
-                  ? "Live voice session — speak naturally, interrupt any time."
-                  : "🎙 switches to a live voice conversation (mic permission required)."}
+                  ? "Live voice session — speak naturally, interrupt any time. Ending it keeps the conversation."
+                  : agentMeta.voice
+                    ? "+ add a document · 🎤 dictate · 🎙 live conversation — context carries across all of them. Shift+Enter for a new line."
+                    : "+ add a document · 🎤 dictate · or paste artifacts directly. Shift+Enter for a new line."}
               </span>
+              {messages.some((m) => m.role === "assistant") && (
+                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {savedPath && (
+                    <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                      Saved: {savedPath}
+                    </span>
+                  )}
+                  <button
+                    onClick={saveArtifact}
+                    style={styles.secondaryButton}
+                    disabled={saving || loading}
+                    title="Save the latest agent output to generated/outputs/ (database later)"
+                  >
+                    {saving ? "Saving…" : "💾 Save artifact"}
+                  </button>
+                </span>
+              )}
             </div>
-          </>
-        )}
+        </>
       </div>
     </main>
   );
@@ -312,13 +577,81 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: 480,
   },
   emptyState: {
-    flex: 1,
+    margin: "auto",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
     padding: "40px 20px",
+  },
+  chip: {
+    padding: "8px 16px",
+    borderRadius: 99,
+    border: "1px solid var(--border)",
+    background: "var(--card)",
+    color: "var(--accent)",
+    fontSize: 13.5,
+    fontWeight: 550,
+    cursor: "pointer",
+  },
+  composer: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: 6,
+    border: "1px solid var(--border)",
+    borderRadius: 24,
+    padding: "8px 10px",
+    background: "var(--card)",
+    boxShadow: "0 1px 3px rgba(16,24,40,0.06)",
+  },
+  composerInput: {
+    flex: 1,
+    border: "none",
+    outline: "none",
+    resize: "none",
+    background: "transparent",
+    color: "var(--text)",
+    fontSize: 14.5,
+    lineHeight: 1.5,
+    padding: "7px 4px",
+    maxHeight: 180,
+    fontFamily: "inherit",
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    flexShrink: 0,
+    borderRadius: "50%",
+    border: "none",
+    background: "transparent",
+    color: "var(--text-muted)",
+    fontSize: 17,
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendBtn: {
+    width: 34,
+    height: 34,
+    flexShrink: 0,
+    borderRadius: "50%",
+    border: "none",
+    background: "var(--accent)",
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: 700,
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendBtnDisabled: {
+    opacity: 0.35,
+    cursor: "default",
   },
   messages: {
     flex: 1,
@@ -391,6 +724,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14.5,
     background: "var(--card)",
     color: "var(--text)",
+  },
+  agentSelect: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    fontSize: 13.5,
+    background: "var(--card)",
+    color: "var(--text)",
+    maxWidth: 260,
+    cursor: "pointer",
   },
   primaryButton: {
     padding: "10px 18px",
