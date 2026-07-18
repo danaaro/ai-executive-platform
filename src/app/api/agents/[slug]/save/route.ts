@@ -40,6 +40,19 @@ export async function POST(
     return NextResponse.json({ error: "content is required" }, { status: 400 });
   }
 
+  // Hosted preview: the serverless filesystem is ephemeral — files written
+  // here would vanish after the request. Be honest instead of pretending.
+  // Real persistence arrives with the database layer.
+  if (process.env.VERCEL) {
+    return NextResponse.json(
+      {
+        error:
+          "Saving artifacts isn't available on the hosted preview yet — copy the output from the chat. (File/database persistence is coming.)",
+      },
+      { status: 501 }
+    );
+  }
+
   try {
     const now = new Date();
     const stamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
