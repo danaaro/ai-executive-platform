@@ -1,8 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { asc, and, eq, lt } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
-import { getVoiceHandoff } from "@/shared/voice-handoff";
+import { extractVoiceGrant } from "@/shared/voice-grant";
+import { dbEnabled } from "@/shared/current-user";
+import { db, tables } from "@/db";
 
 /**
  * Appended only on the voice channel: the same agent brain, but replies are
@@ -80,14 +83,17 @@ function contentToText(content: OpenAIMessage["content"]): string {
  * (Anthropic requires strict alternation), and guarantee the conversation
  * starts with a user turn — using the same intake-start sentinel as the
  * text chat UI so a voice session opens the interview identically.
+ *
+ * `prefix` is the pre-session context hydrated from the DB (voice-continuity
+ * fix 2026-07-19): everything persisted before this voice session started —
+ * earlier text chat and earlier (possibly dropped) voice sessions. In-session
+ * turns arrive in `messages` from ElevenLabs, so the two never overlap.
  */
-function toAnthropicMessages(
-  messages: OpenAIMessage[]
+export function toAnthropicMessages(
+  messages: OpenAIMessage[],
+  prefix: { role: "user" | "assistant"; content: string }[]
 ): { role: "user" | "assistant"; content: string }[] {
   const turns: { role: "user" | "assistant"; content: string }[] = [];
-  // Context handoff: prior chat history (text and/or earlier voice sessions)
-  // stashed when the voice token was minted — prepended so the voice brain
-  // continues the same conversation instead of restarting the interview.
   const push = (role: "user" | "assistant", text: string) => {
     const prev = turns[turns.length - 1];
     if (prev && prev.role === role) {
@@ -96,8 +102,8 @@ function toAnthropicMessages(
       turns.push({ role, content: text });
     }
   };
-  for (const m of getVoiceHandoff()) {
-    push(m.role, m.content);
+  for (const m of prefix) {
+    if (m.content.trim()) push(m.role, m.content);
   }
   for (const m of messages) {
     if (m.role !== "user" && m.role !== "assistant") continue;
@@ -109,6 +115,39 @@ function toAnthropicMessages(
     turns.unshift({ role: "user", content: "Start the NEW JOB intake session." });
   }
   return turns;
+}
+
+/**
+ * Loads pre-session context for a verified voice grant: messages persisted
+ * before the session's baseSeq. Failure here must never fail the voice turn.
+ */
+export async function loadVoicePrefix(
+  body: Record<string, unknown>
+): Promise<{ role: "user" | "assistant"; content: string }[]> {
+  if (!dbEnabled()) return [];
+  const grant = extractVoiceGrant(body);
+  if (!grant) return [];
+  try {
+    const rows = await db()
+      .select({ role: tables.messages.role, content: tables.messages.content })
+      .from(tables.messages)
+      .where(
+        and(
+          eq(tables.messages.conversationId, grant.conversationId),
+          lt(tables.messages.seq, grant.baseSeq)
+        )
+      )
+      .orderBy(asc(tables.messages.seq));
+    if (rows.length > 0) {
+      console.log(
+        `[voice-llm] hydrated ${rows.length} pre-session turns for conversation ${grant.conversationId}`
+      );
+    }
+    return rows;
+  } catch (err) {
+    console.error("[voice-llm] prefix hydration failed (turn continues):", err);
+    return [];
+  }
 }
 
 function sse(data: unknown): string {
@@ -138,7 +177,8 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
 
   const body = await req.json();
   const requestedModel: string = body.model ?? "job-description-agent";
-  const anthropicMessages = toAnthropicMessages(body.messages ?? []);
+  const prefix = await loadVoicePrefix(body);
+  const anthropicMessages = toAnthropicMessages(body.messages ?? [], prefix);
   const id = `chatcmpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const created = Math.floor(Date.now() / 1000);
   const maxTokens = Math.min(Number(body.max_tokens) || 2048, 8192);

@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev -p 3010",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "evals": "tsx scripts/run-evals.ts",
+    "test:voice": "tsx scripts/test-voice-continuity.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

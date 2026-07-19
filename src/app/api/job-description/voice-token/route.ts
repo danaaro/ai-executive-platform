@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { and, eq, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
-import { setVoiceHandoff } from "@/shared/voice-handoff";
+import { requireUser, dbEnabled } from "@/shared/current-user";
+import { signVoiceGrant, type VoiceGrant } from "@/shared/voice-grant";
+import { db, tables } from "@/db";
 
 /**
  * Fire-and-forget cache pre-warm (see shared prompt-caching guidance):
@@ -28,37 +31,29 @@ function prewarmPromptCache() {
     .catch((err) => console.warn("prompt-cache prewarm failed (non-fatal):", err?.message));
 }
 
-/**
- * Mints a short-lived ElevenLabs conversation token so the signed-in user's
- * browser can open a WebRTC voice session (ADR-005). Clerk-gated by
- * src/middleware.ts like every other API route; the ElevenLabs API key
- * never reaches the client, and the agent itself stays private.
- */
-export async function GET() {
-  return mintToken([]);
-}
+type Msg = { role: "user" | "assistant"; content: string };
 
 /**
- * POST carries the chat history so a voice session continues the existing
- * conversation instead of starting cold (context handoff — see
- * src/shared/voice-handoff.ts).
+ * Mints a short-lived ElevenLabs conversation token AND anchors the voice
+ * session to a persisted DB conversation (voice-continuity fix, 2026-07-19):
+ * - ensures a conversation row exists for the signed-in user (creating one
+ *   and persisting the browser's chat-so-far if needed);
+ * - returns a signed voice grant (see src/shared/voice-grant.ts) the client
+ *   passes to ElevenLabs as custom_llm_extra_body, so every LLM callback can
+ *   hydrate pre-session context from the DB — across serverless instances,
+ *   dropped calls, and restarts. The old in-memory handoff is gone.
  */
 export async function POST(req: NextRequest) {
-  let messages: { role: "user" | "assistant"; content: string }[] = [];
+  let messages: Msg[] = [];
+  let requestedConversationId: string | null = null;
   try {
     const body = await req.json();
     if (Array.isArray(body?.messages)) messages = body.messages;
+    if (typeof body?.conversationId === "string") requestedConversationId = body.conversationId;
   } catch {
-    // no body — treat as a fresh session
+    // no body — fresh session
   }
-  return mintToken(messages);
-}
 
-async function mintToken(
-  messages: { role: "user" | "assistant"; content: string }[]
-) {
-  setVoiceHandoff(messages);
-  prewarmPromptCache();
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const agentId = process.env.ELEVENLABS_AGENT_ID;
   if (!apiKey || !agentId) {
@@ -70,6 +65,64 @@ async function mintToken(
       { status: 503 }
     );
   }
+
+  // Anchor the session to a persisted conversation (skip silently if the DB
+  // is not configured — voice still works, minus durability).
+  let conversationId: string | null = null;
+  let extraBody: VoiceGrant | null = null;
+  if (dbEnabled()) {
+    try {
+      const user = await requireUser();
+      if (user) {
+        const d = db();
+
+        if (requestedConversationId) {
+          const [conv] = await d
+            .select({ id: tables.conversations.id, createdBy: tables.conversations.createdBy })
+            .from(tables.conversations)
+            .where(eq(tables.conversations.id, requestedConversationId))
+            .limit(1);
+          if (conv && conv.createdBy === user.id) conversationId = conv.id;
+        }
+
+        if (!conversationId) {
+          const title =
+            messages.find((m) => m.role === "user")?.content.replace(/\s+/g, " ").slice(0, 80) ||
+            "Voice intake session";
+          const [row] = await d
+            .insert(tables.conversations)
+            .values({ agentSlug: "job-description", createdBy: user.id, title })
+            .returning({ id: tables.conversations.id });
+          conversationId = row.id;
+          // A brand-new conversation may carry unpersisted context from the
+          // browser (e.g. chat typed while the DB was briefly down) — keep it.
+          if (messages.length > 0) {
+            await d.insert(tables.messages).values(
+              messages.map((m, i) => ({
+                conversationId: conversationId!,
+                seq: i,
+                role: m.role,
+                content: m.content,
+              }))
+            );
+          }
+        }
+
+        const [agg] = await d
+          .select({ maxSeq: max(tables.messages.seq) })
+          .from(tables.messages)
+          .where(
+            and(eq(tables.messages.conversationId, conversationId))
+          );
+        const baseSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
+        extraBody = signVoiceGrant(conversationId, baseSeq);
+      }
+    } catch (err) {
+      console.error("[voice-token] conversation anchoring failed (voice continues):", err);
+    }
+  }
+
+  prewarmPromptCache();
 
   const res = await fetch(
     `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
@@ -85,5 +138,5 @@ async function mintToken(
   }
 
   const data = await res.json();
-  return NextResponse.json({ token: data.token });
+  return NextResponse.json({ token: data.token, conversationId, extraBody });
 }

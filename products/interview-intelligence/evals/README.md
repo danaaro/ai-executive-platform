@@ -19,6 +19,9 @@ npx tsx scripts/run-evals.ts --skip-judge # structural checks only, fast/cheap
 ```
 Results → `generated/evals/run-<stamp>/` (`report.md`, `results.json`, full `transcripts.json`). Case score = 40% structural + 60% judge; guardrails reported separately.
 
+## Companion regression tests
+- `npm run test:voice` (`scripts/test-voice-continuity.ts`) — voice-continuity guard (2026-07-19): grant crypto, DB prefix hydration through the real handler, and the dropped-session scenario that used to restart the JD interview from zero. Run it alongside the eval suite whenever the voice path changes.
+
 ## Rules
 - Prompt changes must be re-run through the suite before deploy — that's the point (no more blind prompt edits).
 - Fixtures are shared: change one and every downstream case feels it — keep them consistent as a family.

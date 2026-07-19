@@ -136,6 +136,29 @@ function JobDescriptionAgent() {
   const [saving, setSaving] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentConversation[]>([]);
+  const [voiceDropped, setVoiceDropped] = useState(false);
+
+  // The voice onMessage callback fires from the ElevenLabs SDK outside the
+  // React render cycle — read the conversation id through a ref so per-turn
+  // persistence never writes to a stale conversation.
+  const conversationIdRef = useRef<string | null>(null);
+  conversationIdRef.current = conversationId;
+
+  // Persist a voice turn the moment it is transcribed (voice-continuity fix):
+  // the transcript is in the DB before the audio finishes playing, so a
+  // dropped call loses nothing. Fire-and-forget with one retry.
+  function persistVoiceTurn(role: "user" | "assistant", content: string) {
+    const id = conversationIdRef.current;
+    if (!id || !content.trim()) return;
+    const post = () =>
+      fetch(`/api/conversations/${id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, content }),
+        keepalive: true,
+      });
+    post().catch(() => setTimeout(() => post().catch(() => {}), 2000));
+  }
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -220,6 +243,7 @@ function JobDescriptionAgent() {
     setError(null);
     setSavedPath(null);
     setConversationId(null);
+    setVoiceDropped(false);
   }
 
   async function saveArtifact() {
@@ -253,14 +277,23 @@ function JobDescriptionAgent() {
   const conversation = useConversation({
     onMessage: ({ message, role }) => {
       if (!message) return;
-      setMessages((prev) => [
-        ...prev,
-        { role: role === "user" ? "user" : "assistant", content: message },
-      ]);
+      const r = role === "user" ? "user" : "assistant";
+      setMessages((prev) => [...prev, { role: r, content: message }]);
+      persistVoiceTurn(r, message);
     },
     onError: (message) => setError(message),
-    onConnect: () => setVoiceStarting(false),
-    onDisconnect: () => setVoiceStarting(false),
+    onConnect: () => {
+      setVoiceStarting(false);
+      setVoiceDropped(false);
+    },
+    onDisconnect: () => {
+      setVoiceStarting(false);
+      // A call that ended without the user pressing "End" (network, duration
+      // cap, ElevenLabs error) gets an explicit resume path — everything is
+      // persisted, nothing is lost.
+      if (!intentionalEndRef.current) setVoiceDropped(true);
+      intentionalEndRef.current = false;
+    },
   });
 
   const voiceLive =
@@ -318,20 +351,28 @@ function JobDescriptionAgent() {
   async function startVoice() {
     setError(null);
     setVoiceStarting(true);
+    setVoiceDropped(false);
     stopDictation();
     try {
-      // POST the chat so far — the voice session continues this conversation
-      // instead of starting cold (context handoff, src/shared/voice-handoff.ts).
+      // The server anchors this session to a persisted conversation and signs
+      // a voice grant; ElevenLabs echoes the grant into every LLM callback so
+      // the voice brain hydrates prior context from the DB (voice continuity —
+      // survives dropped calls, duration caps, and serverless instances).
       const res = await fetch("/api/job-description/voice-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages, conversationId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start voice session");
+      if (data.conversationId) {
+        setConversationId(data.conversationId);
+        conversationIdRef.current = data.conversationId;
+      }
       conversation.startSession({
         conversationToken: data.token,
         connectionType: "webrtc",
+        ...(data.extraBody ? { customLlmExtraBody: data.extraBody } : {}),
       });
     } catch (e) {
       setVoiceStarting(false);
@@ -339,7 +380,10 @@ function JobDescriptionAgent() {
     }
   }
 
+  const intentionalEndRef = useRef(false);
+
   function endVoice() {
+    intentionalEndRef.current = true;
     conversation.endSession();
     setVoiceStarting(false);
   }
@@ -479,6 +523,20 @@ function JobDescriptionAgent() {
               <div ref={bottomRef} />
             </div>
 
+            {voiceDropped && !voiceLive && (
+              <div style={styles.voiceDroppedBar}>
+                <span style={{ flex: 1 }}>
+                  Voice session ended — every turn is saved. Resume to continue exactly where
+                  you left off.
+                </span>
+                <button onClick={startVoice} style={styles.primaryButton} disabled={voiceStarting}>
+                  {voiceStarting ? "Reconnecting…" : "🎙 Resume voice"}
+                </button>
+                <button onClick={() => setVoiceDropped(false)} style={styles.secondaryButton}>
+                  Continue in text
+                </button>
+              </div>
+            )}
             {voiceLive ? (
               <div style={styles.voiceBar}>
                 <span
@@ -767,6 +825,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 12px",
     borderRadius: 10,
     border: "1px solid var(--border)",
+  },
+  voiceDroppedBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "1px solid var(--accent)",
+    background: "var(--bubble-assistant)",
+    fontSize: 13.5,
   },
   voiceDot: {
     width: 10,
