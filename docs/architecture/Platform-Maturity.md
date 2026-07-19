@@ -49,7 +49,7 @@ Capabilities are the product catalog of `products/interview-intelligence/` (inte
 | Evaluation | 🔴 Not started | `src/evaluation/` and `products/interview-intelligence/evals/` are empty scaffolds; eval dimensions are defined in the JD PRD §8 but nothing runs them |
 | Logging | 🔴 Not started | No structured logging, no log schema |
 | Monitoring | 🔴 Not started | Nothing deployed, nothing monitored |
-| Deployment | 🟠 Rolled back (2026-07-18) | First deploy went to the WRONG Vercel account (`crispyisland` = the separate AVIV project; CLI was logged in as aviv1404-2231) — project deleted same day, secrets removed, local link cleaned. Deploy-readiness work is done and committed (`outputFileTracingIncludes` for `products/**`+`prompts/**`, save-route 501 guard, prod build passes); **redeploy pending Dana's own Vercel account** (login or `--token`). RULE: verify `vercel whoami` before any deploy — see parent memory `aviv-susandana-separation` |
+| Deployment | 🟢 LIVE (2026-07-19) | **https://susies-brain.vercel.app** — project `susies-brain`, Dana's own Vercel account (`danaaronovich-5847` / team `danasusie`), **Git-linked to `danaaro/SusiesBrain` → pushes to `main` auto-deploy**. Ten prod env vars set via CLI (`--token`, Aviv session untouched). History: first deploy (2026-07-18) went to the WRONG account (`crispyisland` = AVIV) — deleted same day; RULE: verify `vercel whoami` before any deploy (memory `aviv-susandana-separation`). Clerk dev-instance keys; save-artifact 501 on Vercel (ephemeral fs); voice callback still points at ngrok, not the deploy |
 
 ---
 
@@ -209,8 +209,8 @@ Knowledge
 Memory
 ░░░░░░░░░░ 0%
 
-Deployment (build+config deploy-ready; awaiting Dana's Vercel account)
-████░░░░░░ 40%
+Deployment (live + Git auto-deploy; dev keys, no custom domain, voice not repointed)
+███████░░░ 70%
 
 Testing / Evaluation
 ░░░░░░░░░░ 0%
