@@ -37,6 +37,10 @@ export const AGENT_REGISTRY: AgentEntry[] = [
       },
     ],
     phase: 1,
+    // Phase 2/3 deliverable = JD + 20-section coverage JSON (+ thinking):
+    // truncates at 8192 (evals 2026-07-19). Keep in sync with the dedicated
+    // JD orchestrator's 16384.
+    maxTokens: 16384,
   },
   {
     slug: "competency-builder",
@@ -55,7 +59,6 @@ export const AGENT_REGISTRY: AgentEntry[] = [
     title: "4 · Structured Interview System Builder",
     promptFile: "prompts/04-interview-system-builder.md",
     phase: 1,
-    maxTokens: 4096,
   },
   {
     slug: "feedback-form-builder",
@@ -153,19 +156,41 @@ export async function runAgentTurn(
   const agent = getAgent(slug);
   if (!agent) throw new Error(`Unknown agent: ${slug}`);
 
-  const response = await getAnthropicClient().messages.create({
-    model: DEFAULT_MODEL,
-    max_tokens: agent.maxTokens ?? 2048,
-    system: [
-      {
-        type: "text",
-        text: buildAgentSystemPrompt(slug),
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages,
-  });
+  // max_tokens must budget for BOTH adaptive thinking and the visible answer:
+  // at 2048, thinking alone consumed the budget on heavy inputs and users got
+  // an empty or truncated reply (found by evals 2026-07-19).
+  const doTurn = (thinking: boolean) =>
+    getAnthropicClient().messages.create({
+      model: DEFAULT_MODEL,
+      max_tokens: agent.maxTokens ?? 8192,
+      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      system: [
+        {
+          type: "text",
+          text: buildAgentSystemPrompt(slug),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages,
+    });
 
-  const textBlock = response.content.find((block) => block.type === "text");
-  return textBlock && textBlock.type === "text" ? textBlock.text : "";
+  let response = await doTurn(true);
+  let textBlock = response.content.find((block) => block.type === "text");
+  let text = textBlock && textBlock.type === "text" ? textBlock.text : "";
+
+  // Self-healing guard: adaptive thinking's length varies run to run and can
+  // starve or truncate the visible reply at max_tokens (claude-sonnet-5 has
+  // no thinking budget parameter). On truncation, retry once with thinking
+  // disabled so the entire budget goes to the answer.
+  if (response.stop_reason === "max_tokens") {
+    console.warn(`[orchestrator/${slug}] reply hit max_tokens — retrying without thinking`);
+    response = await doTurn(false);
+    textBlock = response.content.find((block) => block.type === "text");
+    const retryText = textBlock && textBlock.type === "text" ? textBlock.text : "";
+    if (retryText.trim()) text = retryText;
+    if (response.stop_reason === "max_tokens") {
+      console.warn(`[orchestrator/${slug}] still truncated at max_tokens (${agent.maxTokens ?? 8192})`);
+    }
+  }
+  return text;
 }

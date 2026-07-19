@@ -72,6 +72,21 @@ export async function appendTurns(opts: {
   const d = db();
   let convId = opts.conversationId;
 
+  // Never trust a client-supplied conversation id: writing into a
+  // conversation requires owning it (admins included — resuming someone
+  // else's session in the UI is read-only today). On mismatch, fork into
+  // a fresh conversation instead of failing the turn.
+  if (convId) {
+    const [conv] = await d
+      .select({ createdBy: tables.conversations.createdBy, agentSlug: tables.conversations.agentSlug })
+      .from(tables.conversations)
+      .where(eq(tables.conversations.id, convId))
+      .limit(1);
+    if (!conv || conv.createdBy !== opts.userId || conv.agentSlug !== opts.agentSlug) {
+      convId = null;
+    }
+  }
+
   if (!convId) {
     const title =
       opts.userText.replace(/\s+/g, " ").slice(0, 80) || `${opts.agentSlug} session`;

@@ -5,6 +5,10 @@ import {
 } from "@/orchestrator/job-description-orchestrator";
 import { requireUser, appendTurns, dbEnabled } from "@/shared/current-user";
 
+// The Phase 2/3 deliverable (JD + coverage record) is a long non-streaming
+// generation — needs more than Vercel's default function window.
+export const maxDuration = 120;
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const messages: ChatMessage[] = body.messages;

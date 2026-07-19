@@ -58,23 +58,42 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 export async function runJobDescriptionTurn(
   messages: ChatMessage[]
 ): Promise<string> {
-  const response = await getAnthropicClient().messages.create({
-    model: DEFAULT_MODEL,
-    max_tokens: 2048,
-    // cache_control: the ~6K-token agent definition is identical every turn
-    // (and shared with the voice channel, which appends its note as a
-    // separate block AFTER this breakpoint) — cached, it costs ~0.1x and
-    // cuts time-to-first-token. 5-min TTL refreshes on each use.
-    system: [
-      {
-        type: "text",
-        text: buildJobDescriptionSystemPrompt(),
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages,
-  });
+  // 16384, not 2048: the budget covers adaptive thinking + the full Phase 2/3
+  // deliverable (700-word JD + 20-section coverage JSON with per-question
+  // entries). Evals 2026-07-19: thinking starved the reply at 2048, and the
+  // full deliverable still truncated at 8192.
+  const doTurn = (thinking: boolean) =>
+    getAnthropicClient().messages.create({
+      model: DEFAULT_MODEL,
+      max_tokens: 16384,
+      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      // cache_control: the ~6K-token agent definition is identical every turn
+      // (and shared with the voice channel, which appends its note as a
+      // separate block AFTER this breakpoint) — cached, it costs ~0.1x and
+      // cuts time-to-first-token. 5-min TTL refreshes on each use.
+      system: [
+        {
+          type: "text",
+          text: buildJobDescriptionSystemPrompt(),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages,
+    });
 
-  const textBlock = response.content.find((block) => block.type === "text");
-  return textBlock && textBlock.type === "text" ? textBlock.text : "";
+  let response = await doTurn(true);
+  let textBlock = response.content.find((block) => block.type === "text");
+  let text = textBlock && textBlock.type === "text" ? textBlock.text : "";
+
+  // Same self-healing guard as the generic orchestrator: adaptive thinking's
+  // variable length can truncate the deliverable at max_tokens — retry once
+  // with thinking disabled so the whole budget goes to the answer.
+  if (response.stop_reason === "max_tokens") {
+    console.warn("[job-description] reply hit max_tokens — retrying without thinking");
+    response = await doTurn(false);
+    textBlock = response.content.find((block) => block.type === "text");
+    const retryText = textBlock && textBlock.type === "text" ? textBlock.text : "";
+    if (retryText.trim()) text = retryText;
+  }
+  return text;
 }

@@ -6,6 +6,10 @@ import {
 } from "@/orchestrator/agent-orchestrator";
 import { requireUser, appendTurns, dbEnabled } from "@/shared/current-user";
 
+// Long-form generations (8K+ output tokens) exceed Vercel's default function
+// window — give LLM turns an explicit budget.
+export const maxDuration = 120;
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
