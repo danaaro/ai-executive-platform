@@ -49,7 +49,7 @@ Capabilities are the product catalog of `products/interview-intelligence/` (inte
 | Evaluation | 🔴 Not started | `src/evaluation/` and `products/interview-intelligence/evals/` are empty scaffolds; eval dimensions are defined in the JD PRD §8 but nothing runs them |
 | Logging | 🔴 Not started | No structured logging, no log schema |
 | Monitoring | 🔴 Not started | Nothing deployed, nothing monitored |
-| Deployment | 🔴 Not started | Vercel chosen in ADR-003 (accepted) but no deployment exists — no `vercel.json`, no CI, app runs only via `npm run dev` on port 3010 |
+| Deployment | 🟠 Rolled back (2026-07-18) | First deploy went to the WRONG Vercel account (`crispyisland` = the separate AVIV project; CLI was logged in as aviv1404-2231) — project deleted same day, secrets removed, local link cleaned. Deploy-readiness work is done and committed (`outputFileTracingIncludes` for `products/**`+`prompts/**`, save-route 501 guard, prod build passes); **redeploy pending Dana's own Vercel account** (login or `--token`). RULE: verify `vercel whoami` before any deploy — see parent memory `aviv-susandana-separation` |
 
 ---
 
@@ -209,8 +209,8 @@ Knowledge
 Memory
 ░░░░░░░░░░ 0%
 
-Deployment
-░░░░░░░░░░ 0%
+Deployment (build+config deploy-ready; awaiting Dana's Vercel account)
+████░░░░░░ 40%
 
 Testing / Evaluation
 ░░░░░░░░░░ 0%
