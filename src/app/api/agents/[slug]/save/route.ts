@@ -1,25 +1,14 @@
-import fs from "node:fs";
-import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { and, eq, desc } from "drizzle-orm";
 import { getAgent } from "@/orchestrator/agent-orchestrator";
+import { requireUser, dbEnabled } from "@/shared/current-user";
+import { db, tables } from "@/db";
 
 /**
- * Persists a finished agent artifact to generated/outputs/<slug>/ as a
- * Markdown file plus a JSON envelope. The envelope is the exact shape a
- * future `artifacts` database table ingests (DB decision still open) —
- * file persistence now, database later.
+ * Saves a finished agent artifact into the versioned artifacts table
+ * (ADR-006 §4): one slot per (owner, agent), version = latest + 1,
+ * status starts as "draft" (approve flow = build-queue step 4).
  */
-
-function slugify(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60) || "artifact"
-  );
-}
 
 export async function POST(
   req: NextRequest,
@@ -30,61 +19,60 @@ export async function POST(
   if (!agent) {
     return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
   }
+  if (!dbEnabled()) {
+    return NextResponse.json(
+      { error: "Persistence is not configured (DATABASE_URL missing)." },
+      { status: 503 }
+    );
+  }
 
-  const { userId } = await auth();
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
   const content: string = body.content;
-  const label: string = body.label || "artifact";
-
   if (!content || typeof content !== "string") {
     return NextResponse.json({ error: "content is required" }, { status: 400 });
   }
 
-  // Hosted preview: the serverless filesystem is ephemeral — files written
-  // here would vanish after the request. Be honest instead of pretending.
-  // Real persistence arrives with the database layer.
-  if (process.env.VERCEL) {
-    return NextResponse.json(
-      {
-        error:
-          "Saving artifacts isn't available on the hosted preview yet — copy the output from the chat. (File/database persistence is coming.)",
-      },
-      { status: 501 }
-    );
-  }
-
   try {
-    const now = new Date();
-    const stamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const base = `${stamp}-${slugify(label)}`;
-    const dir = path.join(process.cwd(), "generated/outputs", slug);
-    fs.mkdirSync(dir, { recursive: true });
+    const d = db();
+    const [latest] = await d
+      .select({ version: tables.artifacts.version })
+      .from(tables.artifacts)
+      .where(
+        and(
+          eq(tables.artifacts.createdBy, user.id),
+          eq(tables.artifacts.agentSlug, slug)
+        )
+      )
+      .orderBy(desc(tables.artifacts.version))
+      .limit(1);
+    const version = (latest?.version ?? 0) + 1;
 
-    const mdPath = path.join(dir, `${base}.md`);
-    fs.writeFileSync(mdPath, content, "utf-8");
-
-    // DB-ready envelope: future `artifacts` table row.
-    const envelope = {
-      agent: slug,
-      agentTitle: agent.title,
-      promptVersion: "1.0",
-      artifactType: body.artifactType ?? "final-output",
-      label,
-      createdBy: userId ?? "unknown",
-      createdAt: now.toISOString(),
-      inputsSummary: body.inputsSummary ?? null,
-      contentFile: `${base}.md`,
-      content,
-    };
-    fs.writeFileSync(
-      path.join(dir, `${base}.json`),
-      JSON.stringify(envelope, null, 2),
-      "utf-8"
-    );
+    const [row] = await d
+      .insert(tables.artifacts)
+      .values({
+        agentSlug: slug,
+        version,
+        label: body.label || agent.title,
+        artifactType: body.artifactType ?? "final-output",
+        content,
+        envelope: {
+          agentTitle: agent.title,
+          promptVersion: "1.0",
+          inputsSummary: body.inputsSummary ?? null,
+        },
+        conversationId: body.conversationId ?? null,
+        createdBy: user.id,
+      })
+      .returning({ id: tables.artifacts.id, version: tables.artifacts.version });
 
     return NextResponse.json({
       saved: true,
-      path: `generated/outputs/${slug}/${base}.md`,
+      id: row.id,
+      version: row.version,
+      path: `artifacts/${slug} · v${row.version}`,
     });
   } catch (err) {
     console.error(`[agents/${slug}/save]`, err);

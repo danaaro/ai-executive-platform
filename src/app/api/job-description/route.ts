@@ -3,6 +3,7 @@ import {
   runJobDescriptionTurn,
   type ChatMessage,
 } from "@/orchestrator/job-description-orchestrator";
+import { requireUser, appendTurns, dbEnabled } from "@/shared/current-user";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -14,7 +15,26 @@ export async function POST(req: NextRequest) {
 
   try {
     const reply = await runJobDescriptionTurn(messages);
-    return NextResponse.json({ reply });
+
+    let conversationId: string | null = body.conversationId ?? null;
+    if (dbEnabled()) {
+      try {
+        const user = await requireUser();
+        if (user) {
+          conversationId = await appendTurns({
+            conversationId,
+            agentSlug: "job-description",
+            userId: user.id,
+            userText: messages[messages.length - 1]?.content ?? "",
+            assistantText: reply,
+          });
+        }
+      } catch (err) {
+        console.error("[job-description] persistence failed (turn served):", err);
+      }
+    }
+
+    return NextResponse.json({ reply, conversationId });
   } catch (err) {
     console.error(err);
     const message = err instanceof Error ? err.message : "Unknown error";

@@ -89,18 +89,33 @@ const AGENTS = [
 
 type AgentSlug = (typeof AGENTS)[number]["slug"];
 
-async function postTurn(agent: AgentSlug, messages: Message[]): Promise<string> {
+async function postTurn(
+  agent: AgentSlug,
+  messages: Message[],
+  conversationId: string | null
+): Promise<{ reply: string; conversationId: string | null }> {
   const url =
     agent === "job-description" ? "/api/job-description" : `/api/agents/${agent}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, conversationId }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Request failed");
-  return data.reply as string;
+  return {
+    reply: data.reply as string,
+    conversationId: (data.conversationId as string | null) ?? conversationId,
+  };
 }
+
+type RecentConversation = {
+  id: string;
+  title: string | null;
+  updatedAt: string;
+  createdBy: string;
+  own: boolean;
+};
 
 export default function Home() {
   return (
@@ -119,6 +134,8 @@ function JobDescriptionAgent() {
   const [voiceStarting, setVoiceStarting] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [recent, setRecent] = useState<RecentConversation[]>([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -202,6 +219,7 @@ function JobDescriptionAgent() {
     setMessages([]);
     setError(null);
     setSavedPath(null);
+    setConversationId(null);
   }
 
   async function saveArtifact() {
@@ -213,7 +231,11 @@ function JobDescriptionAgent() {
       const res = await fetch(`/api/agents/${agent}/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: lastAssistant.content, label: agent }),
+        body: JSON.stringify({
+          content: lastAssistant.content,
+          label: agent,
+          conversationId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Save failed");
@@ -255,12 +277,41 @@ function JobDescriptionAgent() {
     setLoading(true);
     setError(null);
     try {
-      const reply = await postTurn(agent, next);
-      setMessages([...next, { role: "assistant", content: reply }]);
+      const out = await postTurn(agent, next, conversationId);
+      setMessages([...next, { role: "assistant", content: out.reply }]);
+      if (out.conversationId) setConversationId(out.conversationId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Recent sessions for the selected agent (persistable agents only).
+  useEffect(() => {
+    let alive = true;
+    setRecent([]);
+    fetch(`/api/conversations?agent=${agent}`)
+      .then((r) => (r.ok ? r.json() : { conversations: [] }))
+      .then((d) => {
+        if (alive) setRecent(d.conversations ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [agent]);
+
+  async function resumeConversation(id: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/conversations/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load session");
+      setMessages(data.messages);
+      setConversationId(data.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load session");
     }
   }
 
@@ -334,6 +385,9 @@ function JobDescriptionAgent() {
           </p>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
+          <a href="/artifacts" style={styles.navLink}>
+            Artifacts
+          </a>
           <select
             value={agent}
             onChange={(e) => switchAgent(e.target.value as AgentSlug)}
@@ -366,6 +420,26 @@ function JobDescriptionAgent() {
                     >
                       ▶ Let the agent lead — start the intake
                     </button>
+                  )}
+                  {recent.length > 0 && (
+                    <div style={styles.recentBox}>
+                      <div style={styles.recentHead}>Resume a session</div>
+                      {recent.slice(0, 6).map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => resumeConversation(c.id)}
+                          style={styles.recentItem}
+                        >
+                          <span style={styles.recentTitle}>
+                            {c.title || "Untitled session"}
+                          </span>
+                          <span style={styles.recentMeta}>
+                            {new Date(c.updatedAt).toLocaleDateString()}
+                            {!c.own && ` · ${c.createdBy}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
@@ -735,6 +809,52 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 260,
     cursor: "pointer",
   },
+  navLink: {
+    fontSize: 13.5,
+    fontWeight: 550,
+    color: "var(--accent)",
+    textDecoration: "none",
+  },
+  recentBox: {
+    marginTop: 22,
+    width: "100%",
+    maxWidth: 440,
+    textAlign: "left",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  recentHead: {
+    fontSize: 11,
+    fontWeight: 650,
+    letterSpacing: ".08em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+    padding: "9px 14px",
+    borderBottom: "1px solid var(--border)",
+    background: "var(--card)",
+  },
+  recentItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    width: "100%",
+    textAlign: "left",
+    padding: "9px 14px",
+    background: "none",
+    border: "none",
+    borderBottom: "1px solid var(--border)",
+    cursor: "pointer",
+    color: "var(--text)",
+    fontSize: 13.5,
+  },
+  recentTitle: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    flex: 1,
+  },
+  recentMeta: { color: "var(--text-muted)", fontSize: 12, flexShrink: 0 },
   primaryButton: {
     padding: "10px 18px",
     borderRadius: 10,

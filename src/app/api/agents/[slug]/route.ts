@@ -4,6 +4,7 @@ import {
   runAgentTurn,
   type ChatMessage,
 } from "@/orchestrator/agent-orchestrator";
+import { requireUser, appendTurns, dbEnabled } from "@/shared/current-user";
 
 export async function POST(
   req: NextRequest,
@@ -22,7 +23,28 @@ export async function POST(
 
   try {
     const reply = await runAgentTurn(slug, messages);
-    return NextResponse.json({ reply });
+
+    // Persist the turn for role-scoped agents (ADR-006 §5). Never let a
+    // persistence hiccup break the conversation itself.
+    let conversationId: string | null = body.conversationId ?? null;
+    if (dbEnabled()) {
+      try {
+        const user = await requireUser();
+        if (user) {
+          conversationId = await appendTurns({
+            conversationId,
+            agentSlug: slug,
+            userId: user.id,
+            userText: messages[messages.length - 1]?.content ?? "",
+            assistantText: reply,
+          });
+        }
+      } catch (err) {
+        console.error(`[agents/${slug}] persistence failed (turn served):`, err);
+      }
+    }
+
+    return NextResponse.json({ reply, conversationId });
   } catch (err) {
     console.error(`[agents/${slug}]`, err);
     return NextResponse.json({ error: "Agent request failed" }, { status: 500 });
