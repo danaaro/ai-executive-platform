@@ -35,12 +35,13 @@ Capabilities are the product catalog of `products/interview-intelligence/` (inte
 | Component | Status | Notes |
 |---|---|---|
 | Authentication | 🟢 Working | Clerk (ADR-004, accepted). `ClerkProvider` in layout, `/sign-in` + `/sign-up` pages, `UserButton`, real dev keys in `.env.local`. Middleware protects everything: pages redirect to `/sign-in`, APIs return deterministic 401 JSON |
-| Authorization | 🔴 Not started | Login-only. No roles, permissions, or per-resource access control anywhere |
+| Authorization | 🟡 Basic RBAC (2026-07-19) | Two roles via Clerk publicMetadata: `admin` (Dana, Susan — see everyone's data) / `member` (own data only), enforced in every read API. No per-resource permissions yet |
 | Organizations (Tenants) | 🔴 Not started | Clerk Organizations unused; no tenant concept in code, no per-tenant data (there is no data layer at all) |
 | Dashboard | 🔴 Not started | Single-purpose chat page is the whole app |
 | Conversation UI | 🟢 Working | `src/app/page.tsx`: agent picker (all 10 agents), session start, bubbles, error surface, auto-scroll, Save artifact. **Four input modes (2026-07-18):** 📎 document upload (PDF/DOCX/MD/TXT via `/api/upload-parse`, mammoth + pdf-parse) · typed chat · 🎤 dictation (Web Speech API → text in the box) · 🎙 live voice (JD only). Non-streaming text turns |
 | Voice Interface | 🟢 Working (via ngrok tunnel) | Real-time conversation via ElevenLabs Agents over WebRTC (ADR-005): streaming STT, turn-taking, barge-in, streaming TTS; Claude stays the brain via OpenAI-compatible custom-LLM callback (`/api/job-description/voice-llm`, shared-secret auth) reusing the orchestrator's system prompt + a voice-channel note (speak naturally, no markdown). **First live spoken intake completed 2026-07-16.** Adapter is OpenAI-spec compliant incl. the `stream_options.include_usage` usage chunk (its absence caused "LLM Cascade Error" turn failures). Depends on a rotating ngrok URL until deployed |
-| History | 🔴 Not started | Conversation lives in React state; refresh loses everything. No database exists |
+| Persistence (DB) | 🟢 LIVE (2026-07-19, ADR-006) | Supabase Postgres (eu-central-1) + Drizzle. Tables: users (Clerk mirror + admin/member role), conversations, messages, artifacts (versioned slots, draft/approved pre-wired). Role-scoped agents persist sessions; candidate-scoped stay ephemeral (no personal data in DB). Verified: live CRUD + cascade cycle |
+| History | 🟢 Working | Conversations persist for agents 1–4 + A2; resume-a-session list in chat; admins see all users' sessions |
 | Downloads | 🔴 Not started | Final JD + intake JSON are emitted as chat text (runtime note explicitly forbids the agent claiming file writes). No export/download path |
 | Settings | 🔴 Not started | Nothing user-configurable beyond the voice toggle |
 | Knowledge Base | 🔴 Not started | `src/knowledge/` is README + `.gitkeep`; architecture doc is a placeholder |
