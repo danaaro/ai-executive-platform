@@ -138,6 +138,33 @@ function JobDescriptionAgent() {
   const [recent, setRecent] = useState<RecentConversation[]>([]);
   const [voiceDropped, setVoiceDropped] = useState(false);
 
+  // Intake-progress meter (JD agent): covered/partial/missing per
+  // questionnaire section, refreshed (debounced) as the conversation grows.
+  type CoverageSection = { id: number; name: string; status: "covered" | "partial" | "missing" };
+  const [coverage, setCoverage] = useState<CoverageSection[] | null>(null);
+  const coverageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coverageBusyRef = useRef(false);
+
+  function refreshCoverage(delayMs = 0) {
+    if (coverageTimerRef.current) clearTimeout(coverageTimerRef.current);
+    coverageTimerRef.current = setTimeout(async () => {
+      const id = conversationIdRef.current;
+      if (!id || coverageBusyRef.current) return;
+      coverageBusyRef.current = true;
+      try {
+        const res = await fetch(`/api/conversations/${id}/coverage`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.sections)) setCoverage(data.sections);
+        }
+      } catch {
+        // meter is best-effort — never disturb the conversation
+      } finally {
+        coverageBusyRef.current = false;
+      }
+    }, delayMs);
+  }
+
   // The voice onMessage callback fires from the ElevenLabs SDK outside the
   // React render cycle — read the conversation id through a ref so per-turn
   // persistence never writes to a stale conversation.
@@ -158,6 +185,8 @@ function JobDescriptionAgent() {
         keepalive: true,
       });
     post().catch(() => setTimeout(() => post().catch(() => {}), 2000));
+    // Voice turns arrive rapidly — refresh the meter at most every ~8s.
+    refreshCoverage(8000);
   }
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -244,6 +273,7 @@ function JobDescriptionAgent() {
     setSavedPath(null);
     setConversationId(null);
     setVoiceDropped(false);
+    setCoverage(null);
   }
 
   async function saveArtifact() {
@@ -312,7 +342,11 @@ function JobDescriptionAgent() {
     try {
       const out = await postTurn(agent, next, conversationId);
       setMessages([...next, { role: "assistant", content: out.reply }]);
-      if (out.conversationId) setConversationId(out.conversationId);
+      if (out.conversationId) {
+        setConversationId(out.conversationId);
+        conversationIdRef.current = out.conversationId;
+      }
+      if (agent === "job-description") refreshCoverage(300);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -343,6 +377,8 @@ function JobDescriptionAgent() {
       if (!res.ok) throw new Error(data.error ?? "Could not load session");
       setMessages(data.messages);
       setConversationId(data.id);
+      conversationIdRef.current = data.id;
+      if (agent === "job-description") refreshCoverage(300);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load session");
     }
@@ -447,6 +483,49 @@ function JobDescriptionAgent() {
           <UserButton />
         </div>
       </header>
+
+      {agent === "job-description" && coverage && (
+        <div style={styles.meterBox}>
+          <div style={styles.meterHead}>
+            <span style={{ fontWeight: 650 }}>
+              Intake progress: {coverage.filter((s) => s.status === "covered").length}/
+              {coverage.length} sections covered
+              {coverage.some((s) => s.status === "partial") &&
+                ` · ${coverage.filter((s) => s.status === "partial").length} partial`}
+            </span>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+              updates as you talk, type, or upload
+            </span>
+          </div>
+          <div style={styles.meterBar}>
+            {coverage.map((s) => (
+              <span
+                key={s.id}
+                title={`${s.id}. ${s.name} — ${s.status}`}
+                style={{
+                  ...styles.meterSeg,
+                  background:
+                    s.status === "covered"
+                      ? "var(--accent)"
+                      : s.status === "partial"
+                        ? "var(--accent)"
+                        : "var(--border)",
+                  opacity: s.status === "partial" ? 0.45 : 1,
+                }}
+              />
+            ))}
+          </div>
+          {coverage.some((s) => s.status !== "covered") && (
+            <div style={styles.meterMissing}>
+              Still needed:{" "}
+              {coverage
+                .filter((s) => s.status !== "covered")
+                .map((s) => `${s.name}${s.status === "partial" ? " (partial)" : ""}`)
+                .join(" · ")}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={styles.card}>
         <>
@@ -826,6 +905,28 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 10,
     border: "1px solid var(--border)",
   },
+  meterBox: {
+    width: "100%",
+    maxWidth: 720,
+    marginBottom: 12,
+    padding: "10px 14px",
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    display: "flex",
+    flexDirection: "column",
+    gap: 7,
+  },
+  meterHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 10,
+    fontSize: 13,
+  },
+  meterBar: { display: "flex", gap: 3 },
+  meterSeg: { flex: 1, height: 7, borderRadius: 3 },
+  meterMissing: { fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 },
   voiceDroppedBar: {
     display: "flex",
     alignItems: "center",

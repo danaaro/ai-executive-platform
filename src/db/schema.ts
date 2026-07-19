@@ -37,6 +37,11 @@ export const conversations = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Intake-progress meter (2026-07-19): cached per-section coverage
+    // {sections: [{id, name, status}]}, valid while coverageSeq equals the
+    // conversation's message count — recomputed on demand when stale.
+    coverage: jsonb("coverage"),
+    coverageSeq: integer("coverage_seq"),
   },
   (t) => [index("conversations_owner_idx").on(t.createdBy, t.agentSlug)]
 );
