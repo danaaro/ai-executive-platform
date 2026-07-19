@@ -3,8 +3,26 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Job Description Agent — AI Executive Platform",
-  description: "Internal test harness for the Job Description agent.",
+  title: "SusieBrain",
+  description: "AI hiring intelligence — evidence-based hiring, agent by agent.",
+};
+
+// "SusieBrain" is the working app name (public product brand still ADR-002).
+// The localization override fixes the Clerk card saying "My Application"
+// regardless of the Clerk dashboard app name.
+const clerkLocalization = {
+  signIn: {
+    start: {
+      title: "Sign in to SusieBrain",
+      subtitle: "Welcome back! Please sign in to continue",
+    },
+  },
+  signUp: {
+    start: {
+      title: "Create your SusieBrain account",
+      subtitle: "Invitation-only while we're in early testing",
+    },
+  },
 };
 
 export default function RootLayout({
@@ -15,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ClerkProvider>{children}</ClerkProvider>
+        <ClerkProvider localization={clerkLocalization}>{children}</ClerkProvider>
       </body>
     </html>
   );
