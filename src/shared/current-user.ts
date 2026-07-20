@@ -55,14 +55,34 @@ export async function getUserNames(ids: string[]): Promise<Record<string, string
 export function isPersistableAgent(slug: string): boolean {
   // ADR-006 §5: only candidate-agnostic agents persist conversations —
   // candidate-scoped chats (CVs, transcripts) stay ephemeral until Phase 2.
+  // These are exactly the agents that live inside a project (ADR-007).
   return ["job-description", "competency-builder", "panel-designer", "interview-system-builder", "screening-guide"].includes(slug);
 }
 
 export const dbEnabled = () => Boolean(process.env.DATABASE_URL);
 
+/**
+ * Confirms `userId` may write into `projectId` (owns it, or is admin).
+ * Every persistable-agent conversation and every artifact requires a real,
+ * accessible project (ADR-007) — this is the one place that's checked.
+ */
+export async function assertProjectAccess(
+  projectId: string,
+  user: CurrentUser
+): Promise<boolean> {
+  const [project] = await db()
+    .select({ createdBy: tables.projects.createdBy })
+    .from(tables.projects)
+    .where(eq(tables.projects.id, projectId))
+    .limit(1);
+  if (!project) return false;
+  return project.createdBy === user.id || user.role === "admin";
+}
+
 // Conversation helpers shared by the chat routes.
 export async function appendTurns(opts: {
   conversationId: string | null;
+  projectId: string;
   agentSlug: string;
   userId: string;
   userText: string;
@@ -74,15 +94,25 @@ export async function appendTurns(opts: {
 
   // Never trust a client-supplied conversation id: writing into a
   // conversation requires owning it (admins included — resuming someone
-  // else's session in the UI is read-only today). On mismatch, fork into
-  // a fresh conversation instead of failing the turn.
+  // else's session in the UI is read-only today) AND matching the project
+  // it was opened under. On mismatch, fork into a fresh conversation
+  // instead of failing the turn.
   if (convId) {
     const [conv] = await d
-      .select({ createdBy: tables.conversations.createdBy, agentSlug: tables.conversations.agentSlug })
+      .select({
+        createdBy: tables.conversations.createdBy,
+        agentSlug: tables.conversations.agentSlug,
+        projectId: tables.conversations.projectId,
+      })
       .from(tables.conversations)
       .where(eq(tables.conversations.id, convId))
       .limit(1);
-    if (!conv || conv.createdBy !== opts.userId || conv.agentSlug !== opts.agentSlug) {
+    if (
+      !conv ||
+      conv.createdBy !== opts.userId ||
+      conv.agentSlug !== opts.agentSlug ||
+      conv.projectId !== opts.projectId
+    ) {
       convId = null;
     }
   }
@@ -92,7 +122,7 @@ export async function appendTurns(opts: {
       opts.userText.replace(/\s+/g, " ").slice(0, 80) || `${opts.agentSlug} session`;
     const [row] = await d
       .insert(tables.conversations)
-      .values({ agentSlug: opts.agentSlug, createdBy: opts.userId, title })
+      .values({ projectId: opts.projectId, agentSlug: opts.agentSlug, createdBy: opts.userId, title })
       .returning({ id: tables.conversations.id });
     convId = row.id;
   }

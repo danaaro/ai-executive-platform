@@ -5,6 +5,7 @@ import { UserButton } from "@clerk/nextjs";
 
 type ArtifactRow = {
   id: string;
+  projectId: string;
   agentSlug: string;
   version: number;
   label: string;
@@ -14,20 +15,27 @@ type ArtifactRow = {
 };
 
 type ArtifactFull = ArtifactRow & { content: string };
+type ProjectSummary = { id: string; title: string };
 
 export default function ArtifactsPage() {
   const [rows, setRows] = useState<ArtifactRow[]>([]);
+  const [projects, setProjects] = useState<Record<string, string>>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [selected, setSelected] = useState<ArtifactFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/artifacts")
-      .then((r) => r.json())
-      .then((d) => {
-        setRows(d.artifacts ?? []);
-        setIsAdmin(Boolean(d.isAdmin));
+    Promise.all([
+      fetch("/api/artifacts").then((r) => r.json()),
+      fetch("/api/projects").then((r) => r.json()),
+    ])
+      .then(([artifactsData, projectsData]) => {
+        setRows(artifactsData.artifacts ?? []);
+        setIsAdmin(Boolean(artifactsData.isAdmin));
+        const map: Record<string, string> = {};
+        for (const p of (projectsData.projects ?? []) as ProjectSummary[]) map[p.id] = p.title;
+        setProjects(map);
       })
       .catch(() => setError("Could not load artifacts"))
       .finally(() => setLoading(false));
@@ -44,14 +52,19 @@ export default function ArtifactsPage() {
     setSelected(data.artifact);
   }
 
-  // Group by agent slug; latest version first within each group.
-  const groups = new Map<string, ArtifactRow[]>();
+  // Group by project first (ADR-007 — the unique key everything hangs off),
+  // then by agent slug within each project; latest version first.
+  const byProject = new Map<string, Map<string, ArtifactRow[]>>();
   for (const r of rows) {
-    const g = groups.get(r.agentSlug) ?? [];
-    g.push(r);
-    groups.set(r.agentSlug, g);
+    const pg = byProject.get(r.projectId) ?? new Map<string, ArtifactRow[]>();
+    const ag = pg.get(r.agentSlug) ?? [];
+    ag.push(r);
+    pg.set(r.agentSlug, ag);
+    byProject.set(r.projectId, pg);
   }
-  for (const g of groups.values()) g.sort((a, b) => b.version - a.version);
+  for (const pg of byProject.values()) {
+    for (const ag of pg.values()) ag.sort((a, b) => b.version - a.version);
+  }
 
   return (
     <main style={s.page}>
@@ -60,11 +73,12 @@ export default function ArtifactsPage() {
         <div>
           <h1 style={s.title}>Artifacts</h1>
           <p style={s.subtitle}>
-            Saved agent outputs · versioned per agent{isAdmin ? " · admin view (all users)" : ""}
+            Saved agent outputs · versioned per project{isAdmin ? " · admin view (all users)" : ""}
           </p>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
           <a href="/" style={s.navLink}>← Back to chat</a>
+          <a href="/projects" style={s.navLink}>Projects</a>
           <UserButton />
         </div>
       </header>
@@ -78,29 +92,36 @@ export default function ArtifactsPage() {
               it will appear here, versioned.
             </p>
           )}
-          {[...groups.entries()].map(([slug, items]) => (
-            <div key={slug} style={{ marginBottom: 18 }}>
-              <div style={s.groupHead}>{slug}</div>
-              {items.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => open(r.id)}
-                  style={{
-                    ...s.item,
-                    ...(selected?.id === r.id ? s.itemActive : {}),
-                  }}
-                >
-                  <span style={s.itemLabel}>
-                    v{r.version} · {r.label}
-                  </span>
-                  <span style={s.itemMeta}>
-                    <span style={{ ...s.pill, ...(r.status === "approved" ? s.pillOk : s.pillDraft) }}>
-                      {r.status}
-                    </span>
-                    {new Date(r.createdAt).toLocaleDateString()}
-                    {isAdmin && ` · ${r.createdBy}`}
-                  </span>
-                </button>
+          {[...byProject.entries()].map(([projectId, agentGroups]) => (
+            <div key={projectId} style={{ marginBottom: 24 }}>
+              <a href={`/projects/${projectId}`} style={s.projectHead}>
+                📁 {projects[projectId] ?? "Project"}
+              </a>
+              {[...agentGroups.entries()].map(([slug, items]) => (
+                <div key={slug} style={{ marginBottom: 14, marginLeft: 8 }}>
+                  <div style={s.groupHead}>{slug}</div>
+                  {items.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => open(r.id)}
+                      style={{
+                        ...s.item,
+                        ...(selected?.id === r.id ? s.itemActive : {}),
+                      }}
+                    >
+                      <span style={s.itemLabel}>
+                        v{r.version} · {r.label}
+                      </span>
+                      <span style={s.itemMeta}>
+                        <span style={{ ...s.pill, ...(r.status === "approved" ? s.pillOk : s.pillDraft) }}>
+                          {r.status}
+                        </span>
+                        {new Date(r.createdAt).toLocaleDateString()}
+                        {isAdmin && ` · ${r.createdBy}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           ))}
@@ -142,6 +163,7 @@ const s: Record<string, React.CSSProperties> = {
   navLink: { fontSize: 13.5, fontWeight: 550, color: "var(--accent)", textDecoration: "none" },
   layout: { display: "grid", gridTemplateColumns: "340px 1fr", gap: 16, alignItems: "start" },
   list: { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: 14, maxHeight: "72vh", overflowY: "auto" },
+  projectHead: { display: "block", fontSize: 13, fontWeight: 650, color: "var(--accent)", textDecoration: "none", marginBottom: 8 },
   groupHead: { fontSize: 11, fontWeight: 650, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-muted)", margin: "4px 0 6px" },
   item: { display: "flex", flexDirection: "column", gap: 2, width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 8, border: "1px solid transparent", background: "none", cursor: "pointer", color: "var(--text)", fontSize: 13.5 },
   itemActive: { borderColor: "var(--accent)", background: "var(--bubble-assistant)" },

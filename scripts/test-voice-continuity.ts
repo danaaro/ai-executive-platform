@@ -47,9 +47,13 @@ async function main() {
   const d = db();
   const testUserId = "test-voice-continuity-user";
   await d.insert(tables.users).values({ id: testUserId, role: "member" }).onConflictDoNothing();
+  const [project] = await d
+    .insert(tables.projects)
+    .values({ title: "voice-continuity test project", createdBy: testUserId })
+    .returning({ id: tables.projects.id });
   const [conv] = await d
     .insert(tables.conversations)
-    .values({ agentSlug: "job-description", createdBy: testUserId, title: "continuity test" })
+    .values({ projectId: project.id, agentSlug: "job-description", createdBy: testUserId, title: "continuity test" })
     .returning({ id: tables.conversations.id });
   try {
     const priorTurns = [
@@ -102,6 +106,7 @@ async function main() {
     check("no-grant fresh session opens the intake", bare[0].content === INTAKE_START);
   } finally {
     await d.delete(tables.conversations).where(eq(tables.conversations.id, conv.id));
+    await d.delete(tables.projects).where(eq(tables.projects.id, project.id));
     await d.delete(tables.users).where(eq(tables.users.id, testUserId));
   }
 

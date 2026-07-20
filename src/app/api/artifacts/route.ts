@@ -28,9 +28,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ artifact: row });
   }
 
+  const project = req.nextUrl.searchParams.get("project");
   let q = d
     .select({
       id: tables.artifacts.id,
+      projectId: tables.artifacts.projectId,
       agentSlug: tables.artifacts.agentSlug,
       version: tables.artifacts.version,
       label: tables.artifacts.label,
@@ -45,7 +47,8 @@ export async function GET(req: NextRequest) {
   if (user.role !== "admin") {
     q = q.where(eq(tables.artifacts.createdBy, user.id));
   }
-  const rows = await q;
+  let rows = await q;
+  if (project) rows = rows.filter((r) => r.projectId === project);
   const names = await getUserNames(rows.map((r) => r.createdBy));
 
   return NextResponse.json({

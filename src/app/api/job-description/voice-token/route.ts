@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, max } from "drizzle-orm";
+import { eq, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
-import { requireUser, dbEnabled } from "@/shared/current-user";
+import { requireUser, dbEnabled, assertProjectAccess } from "@/shared/current-user";
 import { signVoiceGrant, type VoiceGrant } from "@/shared/voice-grant";
 import { db, tables } from "@/db";
 
@@ -46,10 +46,12 @@ type Msg = { role: "user" | "assistant"; content: string };
 export async function POST(req: NextRequest) {
   let messages: Msg[] = [];
   let requestedConversationId: string | null = null;
+  let projectId: string | null = null;
   try {
     const body = await req.json();
     if (Array.isArray(body?.messages)) messages = body.messages;
     if (typeof body?.conversationId === "string") requestedConversationId = body.conversationId;
+    if (typeof body?.projectId === "string") projectId = body.projectId;
   } catch {
     // no body — fresh session
   }
@@ -66,6 +68,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Job description is a project-scoped agent (ADR-007) — voice sessions
+  // need a project the same way text turns do.
+  if (dbEnabled()) {
+    if (!projectId) {
+      return NextResponse.json({ error: "projectId is required to start a voice session" }, { status: 400 });
+    }
+    const user = await requireUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await assertProjectAccess(projectId, user))) {
+      return NextResponse.json({ error: "Project not found or not accessible" }, { status: 403 });
+    }
+  }
+
   // Anchor the session to a persisted conversation (skip silently if the DB
   // is not configured — voice still works, minus durability).
   let conversationId: string | null = null;
@@ -76,22 +91,26 @@ export async function POST(req: NextRequest) {
       if (user) {
         const d = db();
 
-        if (requestedConversationId) {
+        if (requestedConversationId && projectId) {
           const [conv] = await d
-            .select({ id: tables.conversations.id, createdBy: tables.conversations.createdBy })
+            .select({
+              id: tables.conversations.id,
+              createdBy: tables.conversations.createdBy,
+              projectId: tables.conversations.projectId,
+            })
             .from(tables.conversations)
             .where(eq(tables.conversations.id, requestedConversationId))
             .limit(1);
-          if (conv && conv.createdBy === user.id) conversationId = conv.id;
+          if (conv && conv.createdBy === user.id && conv.projectId === projectId) conversationId = conv.id;
         }
 
-        if (!conversationId) {
+        if (!conversationId && projectId) {
           const title =
             messages.find((m) => m.role === "user")?.content.replace(/\s+/g, " ").slice(0, 80) ||
             "Voice intake session";
           const [row] = await d
             .insert(tables.conversations)
-            .values({ agentSlug: "job-description", createdBy: user.id, title })
+            .values({ projectId, agentSlug: "job-description", createdBy: user.id, title })
             .returning({ id: tables.conversations.id });
           conversationId = row.id;
           // A brand-new conversation may carry unpersisted context from the
@@ -108,14 +127,14 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const [agg] = await d
-          .select({ maxSeq: max(tables.messages.seq) })
-          .from(tables.messages)
-          .where(
-            and(eq(tables.messages.conversationId, conversationId))
-          );
-        const baseSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
-        extraBody = signVoiceGrant(conversationId, baseSeq);
+        if (conversationId) {
+          const [agg] = await d
+            .select({ maxSeq: max(tables.messages.seq) })
+            .from(tables.messages)
+            .where(eq(tables.messages.conversationId, conversationId));
+          const baseSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
+          extraBody = signVoiceGrant(conversationId, baseSeq);
+        }
       }
     } catch (err) {
       console.error("[voice-token] conversation anchoring failed (voice continues):", err);

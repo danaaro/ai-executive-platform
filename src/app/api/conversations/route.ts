@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const agent = req.nextUrl.searchParams.get("agent");
+  const project = req.nextUrl.searchParams.get("project");
   const d = db();
   let q = d
     .select()
@@ -22,12 +23,14 @@ export async function GET(req: NextRequest) {
   }
   let rows = await q;
   if (agent) rows = rows.filter((r) => r.agentSlug === agent);
+  if (project) rows = rows.filter((r) => r.projectId === project);
 
   const names = await getUserNames(rows.map((r) => r.createdBy));
   return NextResponse.json({
     isAdmin: user.role === "admin",
     conversations: rows.map((r) => ({
       id: r.id,
+      projectId: r.projectId,
       agentSlug: r.agentSlug,
       title: r.title,
       updatedAt: r.updatedAt,

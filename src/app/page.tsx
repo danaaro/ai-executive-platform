@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
 
@@ -24,66 +25,78 @@ const INTAKE_START = "Start the NEW JOB intake session.";
 
 // Mirrors AGENT_REGISTRY in src/orchestrator/agent-orchestrator.ts.
 // job-description keeps its dedicated route (voice depends on it).
+// projectScoped mirrors isPersistableAgent() server-side (ADR-006 §5 /
+// ADR-007): these five live inside a project; the rest stay ad-hoc/ephemeral.
 const AGENTS = [
   {
     slug: "job-description",
     title: "1 · Job Description",
     hint: "Start a NEW JOB intake session — have a live voice conversation, or type. The agent works through the Job Discovery Questionnaire conversationally.",
     voice: true,
+    projectScoped: true,
   },
   {
     slug: "competency-builder",
     title: "2 · Competency Builder",
     hint: "Paste the Job Description (plus any company context) as your first message. Output: 8 predictive competencies (4 execution + 4 operating).",
     voice: false,
+    projectScoped: true,
   },
   {
     slug: "panel-designer",
     title: "3 · Panel Designer",
     hint: "Paste the Competency Framework (and ideally the JD) as your first message. Output: an interview panel of up to 5 interviewers with owned competencies.",
     voice: false,
+    projectScoped: true,
   },
   {
     slug: "interview-system-builder",
     title: "4 · Interview System Builder",
     hint: "Paste the Competency Framework AND the Interview Panel as your first message. Output: per-interviewer guides, questions, probes, scoring and bias checklist.",
     voice: false,
+    projectScoped: true,
   },
   {
     slug: "feedback-form-builder",
     title: "5 · Feedback Form Builder (Phase 2)",
     hint: "Per candidate. Paste the interview transcript, the interview guide, and this interviewer's assigned competencies. Output: one-page evidence report — no scores, human decides.",
     voice: false,
+    projectScoped: false,
   },
   {
     slug: "hiring-rationale",
     title: "6 · Hiring Rationale (Phase 2)",
     hint: "Per candidate. Paste candidate name, position, JD, CV, and ALL interview feedback. Output: one-page evidence-based rationale — committee decides.",
     voice: false,
+    projectScoped: false,
   },
   {
     slug: "success-blueprint",
     title: "7 · Success Blueprint (Phase 2)",
     hint: "Per candidate. Paste the candidate profile, interview evaluations, and JD. Output: one-page Manager's Success Blueprint for onboarding.",
     voice: false,
+    projectScoped: false,
   },
   {
     slug: "interview-coach",
     title: "8 · Interview Coach (Phase 2)",
     hint: "Paste the interviewer guide (role, competencies, questions) and the transcript. Output: coaching report scoring the INTERVIEWER (0–100), not the candidate.",
     voice: false,
+    projectScoped: false,
   },
   {
     slug: "recruiter-evaluation-report",
     title: "A1 · Recruiter Evaluation Report (Phase 2)",
     hint: "Independent assistant. Paste the interview transcription (+ CV, notes, role/company). Output: executive-search-grade evaluation report — no recommendations.",
     voice: false,
+    projectScoped: false,
   },
   {
     slug: "screening-guide",
     title: "A2 · Screening Guide (draft)",
     hint: "Independent assistant. Paste the JD and the competency framework. Output: 5-step recruiter screening guide. (Prompt drafted from Susan's description — needs her review.)",
     voice: false,
+    projectScoped: true,
   },
 ] as const;
 
@@ -92,14 +105,15 @@ type AgentSlug = (typeof AGENTS)[number]["slug"];
 async function postTurn(
   agent: AgentSlug,
   messages: Message[],
-  conversationId: string | null
+  conversationId: string | null,
+  projectId: string | null
 ): Promise<{ reply: string; conversationId: string | null }> {
   const url =
     agent === "job-description" ? "/api/job-description" : `/api/agents/${agent}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, conversationId }),
+    body: JSON.stringify({ messages, conversationId, projectId }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Request failed");
@@ -119,14 +133,29 @@ type RecentConversation = {
 
 export default function Home() {
   return (
-    <ConversationProvider>
-      <JobDescriptionAgent />
-    </ConversationProvider>
+    <Suspense fallback={null}>
+      <ConversationProvider>
+        <JobDescriptionAgent />
+      </ConversationProvider>
+    </Suspense>
   );
 }
 
+type ProjectSummary = { id: string; title: string; status: string; artifactCount: number };
+
 function JobDescriptionAgent() {
-  const [agent, setAgent] = useState<AgentSlug>("job-description");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [agent, setAgent] = useState<AgentSlug>(() => {
+    const a = searchParams.get("agent");
+    return a && AGENTS.some((x) => x.slug === a) ? (a as AgentSlug) : "job-description";
+  });
+  const [projectId, setProjectId] = useState<string | null>(() => searchParams.get("project"));
+  const [projectTitle, setProjectTitle] = useState<string | null>(null);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -274,7 +303,84 @@ function JobDescriptionAgent() {
     setConversationId(null);
     setVoiceDropped(false);
     setCoverage(null);
+    // projectId is intentionally kept — switching between project-scoped
+    // agents inside the same project is exactly how chaining works (ADR-007).
+    const nextMeta = AGENTS.find((a) => a.slug === next)!;
+    const qp = new URLSearchParams({ agent: next });
+    if (nextMeta.projectScoped && projectId) qp.set("project", projectId);
+    router.replace(`/?${qp.toString()}`);
   }
+
+  // Project (ADR-007): the unique key everything else — conversations,
+  // artifacts, versions — hangs off. Project-scoped agents require one.
+  function selectProject(id: string, title?: string) {
+    setProjectId(id);
+    if (title) setProjectTitle(title);
+    setProjectPickerOpen(false);
+    setMessages([]);
+    setConversationId(null);
+    conversationIdRef.current = null;
+    setCoverage(null);
+    setError(null);
+    router.replace(`/?${new URLSearchParams({ agent, project: id }).toString()}`);
+  }
+
+  async function createProject() {
+    const title = newProjectTitle.trim();
+    if (!title) return;
+    setCreatingProject(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not create project");
+      setProjects((prev) => [{ id: data.project.id, title: data.project.title, status: "open", artifactCount: 0 }, ...prev]);
+      selectProject(data.project.id, data.project.title);
+      setNewProjectTitle("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create project");
+    } finally {
+      setCreatingProject(false);
+    }
+  }
+
+  // Fetch the active project's title for the header badge.
+  useEffect(() => {
+    if (!projectId) {
+      setProjectTitle(null);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/projects/${projectId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d?.project) setProjectTitle(d.project.title);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  // Fetch the project list whenever a project-scoped agent is active — used
+  // by the picker/gate below (and to switch projects without leaving chat).
+  useEffect(() => {
+    if (!agentMeta.projectScoped) return;
+    let alive = true;
+    fetch("/api/projects")
+      .then((r) => (r.ok ? r.json() : { projects: [] }))
+      .then((d) => {
+        if (alive) setProjects(d.projects ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [agentMeta.projectScoped]);
 
   async function saveArtifact() {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
@@ -289,6 +395,7 @@ function JobDescriptionAgent() {
           content: lastAssistant.content,
           label: agent,
           conversationId,
+          projectId,
         }),
       });
       const data = await res.json();
@@ -340,7 +447,7 @@ function JobDescriptionAgent() {
     setLoading(true);
     setError(null);
     try {
-      const out = await postTurn(agent, next, conversationId);
+      const out = await postTurn(agent, next, conversationId, projectId);
       setMessages([...next, { role: "assistant", content: out.reply }]);
       if (out.conversationId) {
         setConversationId(out.conversationId);
@@ -354,11 +461,18 @@ function JobDescriptionAgent() {
     }
   }
 
-  // Recent sessions for the selected agent (persistable agents only).
+  // Recent sessions for the selected agent (persistable agents only),
+  // scoped to the active project once one is required (ADR-007).
   useEffect(() => {
+    if (agentMeta.projectScoped && !projectId) {
+      setRecent([]);
+      return;
+    }
     let alive = true;
     setRecent([]);
-    fetch(`/api/conversations?agent=${agent}`)
+    const qp = new URLSearchParams({ agent });
+    if (projectId) qp.set("project", projectId);
+    fetch(`/api/conversations?${qp.toString()}`)
       .then((r) => (r.ok ? r.json() : { conversations: [] }))
       .then((d) => {
         if (alive) setRecent(d.conversations ?? []);
@@ -367,7 +481,7 @@ function JobDescriptionAgent() {
     return () => {
       alive = false;
     };
-  }, [agent]);
+  }, [agent, projectId, agentMeta.projectScoped]);
 
   async function resumeConversation(id: string) {
     setError(null);
@@ -397,7 +511,7 @@ function JobDescriptionAgent() {
       const res = await fetch("/api/job-description/voice-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, conversationId }),
+        body: JSON.stringify({ messages, conversationId, projectId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start voice session");
@@ -465,9 +579,21 @@ function JobDescriptionAgent() {
           </p>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
+          <a href="/projects" style={styles.navLink}>
+            Projects
+          </a>
           <a href="/artifacts" style={styles.navLink}>
             Artifacts
           </a>
+          {agentMeta.projectScoped && projectId && (
+            <button
+              onClick={() => setProjectPickerOpen(true)}
+              style={styles.projectBadge}
+              title="Switch project"
+            >
+              📁 {projectTitle ?? "…"}
+            </button>
+          )}
           <select
             value={agent}
             onChange={(e) => switchAgent(e.target.value as AgentSlug)}
@@ -528,6 +654,55 @@ function JobDescriptionAgent() {
       )}
 
       <div style={styles.card}>
+        {agentMeta.projectScoped && (!projectId || projectPickerOpen) ? (
+          <div style={styles.projectGate}>
+            <p style={{ color: "var(--text-muted)", maxWidth: 480, margin: 0 }}>
+              This agent&rsquo;s work lives inside a <b>project</b> — the job opening
+              its outputs (and every version of them) get filed under. Pick one or
+              start a new one.
+            </p>
+            {projects.length > 0 && (
+              <div style={styles.recentBox}>
+                <div style={styles.recentHead}>Your projects</div>
+                {projects.map((p) => (
+                  <button key={p.id} onClick={() => selectProject(p.id, p.title)} style={styles.recentItem}>
+                    <span style={styles.recentTitle}>{p.title}</span>
+                    <span style={styles.recentMeta}>
+                      {p.artifactCount} artifact{p.artifactCount === 1 ? "" : "s"} · {p.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 14, width: "100%", maxWidth: 440 }}>
+              <input
+                value={newProjectTitle}
+                onChange={(e) => setNewProjectTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    createProject();
+                  }
+                }}
+                placeholder="New project — the role you're hiring for (e.g. Head of DevOps)"
+                style={styles.input}
+              />
+              <button
+                onClick={createProject}
+                disabled={creatingProject || !newProjectTitle.trim()}
+                style={styles.primaryButton}
+              >
+                {creatingProject ? "Creating…" : "+ Create"}
+              </button>
+            </div>
+            {projectId && projectPickerOpen && (
+              <button onClick={() => setProjectPickerOpen(false)} style={{ ...styles.chip, marginTop: 14 }}>
+                Cancel — stay in {projectTitle ?? "current project"}
+              </button>
+            )}
+            {error && <div style={{ ...styles.error, marginTop: 14 }}>Error: {error}</div>}
+          </div>
+        ) : (
         <>
             <div style={styles.messages}>
               {visibleMessages.length === 0 && !voiceLive && !loading && (
@@ -738,6 +913,7 @@ function JobDescriptionAgent() {
               )}
             </div>
         </>
+        )}
       </div>
     </main>
   );
@@ -983,6 +1159,29 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 550,
     color: "var(--accent)",
     textDecoration: "none",
+  },
+  projectBadge: {
+    padding: "7px 12px",
+    borderRadius: 99,
+    border: "1px solid var(--border)",
+    background: "var(--bubble-assistant)",
+    color: "var(--text)",
+    fontSize: 13,
+    fontWeight: 550,
+    cursor: "pointer",
+    maxWidth: 200,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  projectGate: {
+    margin: "auto",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    padding: "40px 20px",
+    width: "100%",
   },
   recentBox: {
     marginTop: 22,
