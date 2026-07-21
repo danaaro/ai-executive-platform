@@ -4,11 +4,11 @@
 
 ## Executive Summary
 
-- **Repository Version:** `0.1.0` (package.json) · git `main` @ `a6c0fe3`, 22 commits. **Two remotes:** `origin` → `github.com/danaaro/ai-executive-platform` (private, canonical architecture history) and `susiesbrain` → `github.com/danaaro/SusiesBrain` (deploy source — Vercel auto-deploys from this one). Working tree clean, nothing uncommitted.
-- **Last Updated:** 2026-07-19 (late session) — three sprints landed back-to-back after the persistence layer: **(1) agent-prompt import** — Susan's 10 production prompts normalized, guardrails layer, generic runtime, save-artifact flow (2026-07-18); **(2) production deploy + persistence** — Supabase/Drizzle live, Vercel live on the correct account, ElevenLabs repointed to prod, Clerk branding fixed; **(3) QA + continuity sprint** — eval harness built and run (10 golden cases + guardrail probes), JD upgraded to v1.1 (document-ingest), and the voice path rebuilt from a laptop-bound, in-memory hack into a DB-anchored, cross-instance-safe design (see Voice Interface + debt #17–19 below)
-- **Current Sprint:** F — SaaS-first build, now past the JD single-vertical slice (parent `TODO.md` §F.1: steps 1 "Database" and 2 "Sessions" done; step 3 "Roles/requisitions" is next)
-- **Current Goal:** Susan + Dana testing round on the deployed app, then build the roles/requisitions layer that chains agent outputs together (kills copy-paste between agents 1→2→3→4)
-- **Overall Completion:** ~45% — one fully productionized agent (JD: text + voice + persistence + progress meter + evals), nine more runnable-but-untested agents behind the same runtime, live deployment, live DB, first real quality signal from evals (first full-suite run: 88% combined, one known structural gap still open). No roles/chaining, no tenancy, business docs still placeholders.
+- **Repository Version:** `0.1.0` (package.json) · git `main` @ `00ba963`, 23 commits. **Two remotes:** `origin` → `github.com/danaaro/ai-executive-platform` (private, canonical architecture history) and `susiesbrain` → `github.com/danaaro/SusiesBrain` (deploy source — Vercel auto-deploys from this one; both pushed together for this sprint). Working tree clean, nothing uncommitted.
+- **Last Updated:** 2026-07-21 — **Project as primary entity (ADR-007)**: Dana's ask — a project (the hiring role, e.g. "Head of DevOps") is now the unique key every conversation and artifact hangs off, replacing the previous per-owner grouping. `projects` table; artifact versioning moved from (owner, agent) to (project, agent); live data auto-migrated into per-owner "Legacy imports" projects (Susan: 5 conversations/4 artifacts, Dana: 1 conversation/2 artifacts — zero loss); new `/projects` list + `/projects/[id]` workspace pages; chat page gates the five project-scoped agents behind a project picker; `/artifacts` now groups by project first. Design locked via AskUserQuestion (required-always entry point, auto-migrate over orphaning, Phase-1 scope only).
+- **Current Sprint:** F — SaaS-first build, now past the JD single-vertical slice (parent `TODO.md` §F.1: steps 1 "Database", 2 "Sessions", 3 "Projects" all done; step 4b "Agent chaining within a project" is next)
+- **Current Goal:** build agent-to-agent chaining inside a project (JD's approved output auto-fills Competency Builder's input, no copy-paste) — the project entity landing is what makes this buildable; then Susan + Dana's full testing round
+- **Overall Completion:** ~50% — one fully productionized agent (JD: text + voice + persistence + progress meter + evals), nine more runnable-but-untested agents behind the same runtime, live deployment, live DB, a real project layer with versioned per-role artifact slots, first real quality signal from evals (first full-suite run: 88% combined, one known structural gap still open). No chaining yet, no tenancy, business docs still placeholders.
 
 ---
 
@@ -37,10 +37,11 @@ Capabilities are the product catalog of `products/interview-intelligence/` (inte
 | Authentication | 🟢 Working | Clerk (ADR-004). Middleware protects everything; invitation-only sign-up (Susan invited and active); sign-in/up cards branded "SusieBrain" |
 | Authorization | 🟡 Basic RBAC | Two roles via Clerk publicMetadata: `admin` (Dana, Susan — see everyone's data) / `member` (own only), enforced in every read API. No per-resource permissions |
 | Organizations (Tenants) | 🔴 Not started | Clerk Organizations unused; single shared tenant. Prerequisite for a second customer company (queue step 6) |
-| Dashboard | 🔴 Not started | Single-purpose chat page is the whole app; roles/requisitions dashboard is queue step 3 |
+| Projects | 🟢 LIVE (ADR-007, 2026-07-21) | The unique key everything hangs off (Dana's framing). `/projects` list + `/projects/[id]` workspace (per-agent slots with version history + in-progress sessions); every project-scoped agent run requires one; versioning is per-project now. Agent-to-agent auto-fill from a project's approved artifacts is NOT built yet (next step) — today the board shows what exists, but still no chaining |
+| Dashboard | 🟡 Partial | `/projects` + `/projects/[id]` are the first real dashboard surfaces; still no cross-project reporting, no draft-&-approve UI |
 | Conversation UI | 🟢 Working | `src/app/page.tsx`: agent picker (all 10 agents), resume-a-session list, bubbles, error surface, auto-scroll, Save artifact. **Four input modes:** 📎 document upload (PDF/DOCX/MD/TXT) · typed chat · 🎤 dictation (Web Speech API) · 🎙 live voice (JD only). **Live intake-progress meter (new)**: a bar over the JD chat scoring each of the 20 questionnaire sections covered/partial/missing, recomputed via `claude-haiku-4-5` over the persisted transcript whenever new messages land — verified live (rich brief upload → 12/20 covered instantly) |
 | Voice Interface | 🟢 Working, production-anchored | ElevenLabs Agents over WebRTC (ADR-005), Claude as the brain via custom-LLM callback — **now pointed at `https://susies-brain.vercel.app/api/job-description/voice-llm`, not a laptop tunnel.** Rebuilt for continuity (2026-07-19): every voice turn persists to Postgres the instant it's transcribed; sessions are anchored to a DB conversation via a signed HMAC "voice grant" (`src/shared/voice-grant.ts`) passed through ElevenLabs' `custom_llm_extra_body` — the callback verifies the signature and hydrates only pre-session history (no duplication), which survives dropped calls, restarts, and different serverless instances. Call duration cap raised 600s → 3600s; UI shows a "Resume voice" banner on drops. Root cause: calls were being force-terminated at the old 10-min default and the previous in-memory handoff (`voice-handoff.ts`, now deleted) couldn't recover across instances. **Verification status:** `npm run test:voice` (18-check automated regression guard) passes; a real human dropped-call resume test by Dana/Susan is still pending. Separately, Susan's earlier "agent doesn't answer" reports (2026-07-19, 15:16–15:47) were diagnosed as hitting the pre-repoint window — no bug, just old laptop-tunnel timing |
-| Persistence (DB) | 🟢 LIVE (ADR-006) | Supabase Postgres (eu-central-1) + Drizzle. Tables: users (Clerk mirror + role), conversations, messages, artifacts (versioned slots, draft/approved pre-wired). Role-scoped agents persist; candidate-scoped agents stay ephemeral (zero personal data in DB, by design, until Phase 2 retention). Verified: live CRUD + cascade delete |
+| Persistence (DB) | 🟢 LIVE (ADR-006 + ADR-007) | Supabase Postgres (eu-central-1) + Drizzle. Tables: users (Clerk mirror + role), **projects** (the primary entity, 2026-07-21), conversations, messages, artifacts — conversations and artifacts both require a `project_id` now; artifact versioning is per-project. Role-scoped agents persist; candidate-scoped agents stay ephemeral (zero personal data in DB, by design, until Phase 2 retention). Verified: live CRUD + cascade delete + the live-data migration into per-owner Legacy projects |
 | History | 🟢 Working | Conversations persist for role-scoped agents; resume-a-session in chat; admins see all users' sessions; voice sessions now included (see Voice Interface) |
 | Downloads | 🔴 Not started | Final outputs are chat text + Save-to-DB; no export/download path |
 | Settings | 🔴 Not started | Nothing user-configurable beyond the voice toggle |
@@ -80,9 +81,9 @@ Prompt + agent definition + input/output schemas exist for all of them (imported
 | Platform Architecture | ▓▓ 20% | `Voice.md` is the only `🟢 READY` architecture doc; 7 remain `🔴 PLACEHOLDER`. Substance lives in 6 ADRs (001, 003, 004, 005, 006 accepted; 002 proposed) |
 | Agent Specifications | ▓▓▓▓▓▓ 60% | ADS + Executive + Specialist templates real but still `🟡 DRAFT`; 10 real agent definitions now conform to the Specialist template (was 1) |
 | Backend | ▓▓▓▓▓▓ 55% | `orchestrator/` (generic + JD-specific), `shared/` (auth, voice-grant, anthropic client), `db/` (schema + client), full `app/api/` surface incl. voice SSE adapter, conversations/messages/coverage, artifacts, upload-parse; `memory/`, `knowledge/`, `authentication/` module dirs still empty scaffolds |
-| Frontend | ▓▓▓▓ 40% | One chat page carrying agent picker, 4 input modes, live voice, progress meter, resume-session, save; plus a separate Artifacts page. No dashboard, no roles/requisitions view, no downloads/settings |
+| Frontend | ▓▓▓▓▓ 50% | Chat page (agent picker, 4 input modes, live voice, progress meter, resume-session, save, project gate) + Artifacts page + new Projects list/workspace pages. Still no draft-&-approve UI, no downloads/settings, no cross-project reporting |
 | Authentication | ▓▓▓▓▓▓▓▓ 80% | Fully working login/route-protection/invitation-only signup via Clerk; missing orgs/tenancy |
-| Persistence | ▓▓▓▓▓▓ 60% | Supabase + Drizzle live; users/conversations/messages/artifacts real and verified; no roles/requisitions entity yet (queue step 3), no retention policy for Phase 2 personal data |
+| Persistence | ▓▓▓▓▓▓▓ 70% | Supabase + Drizzle live; users/projects/conversations/messages/artifacts real and verified, project entity landed (ADR-007); no retention policy for Phase 2 personal data |
 | Knowledge | ░░ 0% | Empty scaffold + placeholder doc |
 | Memory | ░░ 0% | Empty scaffold + placeholder doc |
 | Deployment | ▓▓▓▓▓▓▓ 70% | Live + Git auto-deploy + voice repointed; dev Clerk keys, no custom domain, no CI checks before deploy |
@@ -113,7 +114,10 @@ Detected from `package.json`, config, and code — all actually installed and in
 
 **Goal (from here):** Susan + Dana's testing round on the live app, feeding prompt iteration; then build queue step 3 — roles/requisitions (chains agent outputs, kills copy-paste, brings the dashboard mockup to life).
 
-**Completed this stretch (2026-07-18 → 2026-07-19):**
+**Completed this stretch (2026-07-21):**
+- **Project as primary entity (ADR-007)**: `projects` table; conversations/artifacts require `project_id`; versioning moved from (owner, agent) to (project, agent); live data migrated (nothing lost); `/projects` + `/projects/[id]` pages; chat page project-gates the five persistable agents; `/artifacts` groups by project
+
+**Completed the prior stretch (2026-07-18 → 2026-07-19):**
 - Agent suite import: Susan's 10 production prompts + definitions + schemas, platform guardrails layer, generic agent runtime + picker, save-artifact flow
 - Four input modes (upload/type/dictate/voice) with context continuity across mode switches
 - Vercel production deploy — including the wrong-account incident, rollback, and the account-separation rule now permanently in memory
@@ -124,9 +128,9 @@ Detected from `package.json`, config, and code — all actually installed and in
 - **Intake-progress meter**: live coverage bar over the JD chat, scored by a second cheap model (`claude-haiku-4-5`) over the persisted transcript
 
 **Remaining:**
+- **Agent-to-agent auto-fill within a project** (queue step 4b) — the project entity exists now, but opening Competency Builder from a project still doesn't pre-load the JD; copy-paste between agents is not actually killed yet
 - Human-verify one real dropped-call voice resume (Dana/Susan) — the continuity fix has an automated regression guard (`test:voice`, 18 checks passing) but no live human test yet
 - Fix the JD's output structure/word count to match Susan's exact section spec (eval judge is catching this consistently — not yet addressed)
-- Roles/requisitions entity + dashboard (queue step 3) — the next unlocked step
 - Draft-&-approve states + approval log (queue step 4)
 - Reconcile the two git remotes (`origin` = architecture history, `susiesbrain` = deploy source) — currently fine but a latent confusion risk (see Risks)
 - Dana + Susan per-agent conversational testing for agents 2–10 (none reviewed yet)
@@ -141,16 +145,15 @@ Detected from `package.json`, config, and code — all actually installed and in
 
 # Next Recommended Sprint
 
-**Sprint: Roles/requisitions — the platform's first real multi-agent workflow.**
+**Sprint: Agent chaining — the platform's first real multi-agent workflow.**
 
-**Why this one:** every agent from 2 onward currently requires copy-pasting the previous agent's output into the next chat by hand — the exact "declarative products, shared runtime" claim (ADR-001) hasn't been tested end-to-end as a *chain*. A role/requisition entity that artifacts attach to, with agent inputs auto-filled from a role's approved artifacts, is what turns 10 independent chat agents into one workflow — and it's the piece the original UX mockup's two-zone board was designed around but the app doesn't have yet.
+**Why this one:** the project entity (ADR-007) now exists, but it's still just a filing system — every agent from 2 onward requires copy-pasting the previous agent's output into the next chat by hand. The exact "declarative products, shared runtime" claim (ADR-001) hasn't been tested end-to-end as a *chain*. Auto-filling agent inputs from a project's approved artifacts is what turns 10 independent chat agents into one workflow — and it's the piece the original UX mockup's two-zone board was designed around but the app still doesn't have.
 
 **Expected deliverables:**
-1. `roles` (requisitions) table + relation from `artifacts` (schema change, migration via `drizzle-kit push`)
-2. Roles dashboard: create a role, see its artifact slots (JD / competency / panel / interview system) fill in as agents complete
-3. Agent input auto-fill: opening Competency Builder from a role with an approved JD pre-loads it as context — no paste step
-4. Fix the JD structural/word-count gap the evals surfaced, and re-run the golden set to confirm the fix actually moves the judge score
-5. This dashboard + `Repository-Inventory.md` refreshed again once roles land
+1. Agent input auto-fill: opening Competency Builder from a project with an approved JD pre-loads it as context — no paste step
+2. Same for Panel Designer (competency framework + JD) and Interview System Builder (competency framework + panel)
+3. Fix the JD structural/word-count gap the evals surfaced, and re-run the golden set to confirm the fix actually moves the judge score
+4. This dashboard + `Repository-Inventory.md` refreshed again once chaining lands
 
 ---
 
@@ -181,6 +184,8 @@ Temporary implementations, hardcoded values, missing abstractions, and known iss
 21. **New: two git remotes for one repo** (`origin` = `ai-executive-platform`, `susiesbrain` = `SusiesBrain`, the deploy source) — works today because commits get pushed to both, but nothing enforces that; a push to only one remote silently desyncs architecture history from what's actually deployed.
 22. **New: only one full-suite eval run exists so far** (88% combined) — the other 7 runs logged under `generated/evals/` were narrower debugging reruns of specific cases (some scoring much lower, e.g. 25% while a real bug was still present), not repeat measurements of the same thing. Judge-score stability run-to-run on an unchanged agent is still unknown; needs a second clean full-suite run to check before evals can gate changes with confidence.
 23. **New: coverage/progress-meter caching is per-conversation-row, not time-boxed** — recomputes on new messages only; if the haiku call fails silently the bar could show stale coverage with no visible error state.
+24. **New: no project deletion/archive UI** (ADR-007) — a project can only be created and moved between open/filled/archived by direct DB edit; the `status` field is pre-wired but nothing sets it from the app.
+25. **New: candidate-level structure is deferred, not designed** (ADR-007 scope cut) — Phase-2 agents (feedback, rationale, blueprint, coach, recruiter-evaluation-report) still sit outside the project model entirely; when Phase 2 lands, fitting candidates under a project will likely mean another schema pass, not a drop-in extension.
 
 ---
 
@@ -189,7 +194,7 @@ Temporary implementations, hardcoded values, missing abstractions, and known iss
 Architectural risks visible in the current state (observations, not prescriptions):
 
 1. **The declarative-products claim is still unproven at true n=2.** All 10 agents share one orchestrator and one product folder; a genuinely second *product* (not just a second agent within interview-intelligence) hasn't been attempted.
-2. **No roles/chaining layer yet** — the biggest gap between the current app and the mockup's vision. Agents 2–10 require manual copy-paste from the previous agent's output; this is the next sprint for exactly this reason.
+2. **The project layer exists but doesn't chain yet.** ADR-007 gives every project-scoped agent a shared home with real version history, but agents 2–4 still require manual copy-paste from the previous agent's output — the project is a filing cabinet, not yet a pipeline. This is the immediate next sprint.
 3. **Quality is measured but only from one full-suite data point.** Evals exist now (progress from zero) and the first clean run scored 88% — but with only one full-suite run logged, it's not yet known whether a re-run of the *same* unchanged agent reproduces that score or swings — see debt #22.
 4. **Two git remotes for one working tree** is a live risk, not just a debt item: whichever remote gets forgotten in a future push silently diverges architecture history from the deployed app.
 5. **Brand quarantine (ADR-002) is one demo away from being violated** — the app is now live and demoable to Susan; the moment it's shown to an actual prospect with "interview-intelligence" visible anywhere, the internal-name rule leaks.
@@ -214,8 +219,8 @@ Authentication
 Conversation (text + live voice, DB-anchored, progress meter)
 █████████▓ 95%
 
-Persistence
-██████░░░░ 60%
+Persistence (projects, conversations, artifacts, messages)
+███████░░░ 70%
 
 Knowledge
 ░░░░░░░░░░ 0%
@@ -229,8 +234,8 @@ Deployment (live, Git auto-deploy, voice repointed to prod)
 Testing / Evaluation (harness live, run 8x, high variance)
 ███░░░░░░░ 30%
 
-Roles / Multi-agent workflow
-░░░░░░░░░░ 0%
+Projects / Multi-agent workflow (entity + UI live, chaining not built)
+████░░░░░░ 40%
 
 Production Readiness
 ██▓░░░░░░░ 25%

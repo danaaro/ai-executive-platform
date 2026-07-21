@@ -2,7 +2,7 @@
 
 > Descriptive architecture inventory of the **AI Executive Platform** repository.
 > Purpose: let an external AI architect review the structure and its readiness without reading every file. Implementation/sprint status lives in `docs/architecture/Platform-Maturity.md` (authoritative); this doc covers structure, contracts, decisions, and readiness.
-> Regenerated: **2026-07-19** · Repo state: deployed multi-agent Next.js app (~25 TS/TSX source files), 1 product vertical with 10 agents (1 productionized, 9 runnable-but-untested), Postgres persistence, live eval harness, 6 ADRs. Git: `main` @ `a6c0fe3`, 22 commits. **Two remotes**: `origin` → `github.com/danaaro/ai-executive-platform` (canonical), `susiesbrain` → `github.com/danaaro/SusiesBrain` (Vercel deploy source).
+> Regenerated: **2026-07-21** · Repo state: deployed multi-agent Next.js app (~29 TS/TSX source files), 1 product vertical with 10 agents (1 productionized, 9 runnable-but-untested), Postgres persistence with a **project** primary entity, live eval harness, 7 ADRs. Git: `main` @ `00ba963`, 23 commits. **Two remotes**: `origin` → `github.com/danaaro/ai-executive-platform` (canonical), `susiesbrain` → `github.com/danaaro/SusiesBrain` (Vercel deploy source).
 
 ---
 
@@ -10,7 +10,7 @@
 
 The AI Executive Platform is the multi-product SaaS being built by **SusanDana Co** (Susan Pike-Gubler + Dana Aronovich). It sells **AI executives and specialist agents** to customer companies. Internal company-OS agents are a separate, parked track in the parent workspace and are excluded here.
 
-The repo has moved from a single-vertical prototype to a **deployed, multi-agent, persistent product**: all 10 of Susan's production agents run behind a shared guardrails layer and generic orchestrator; the Job Description agent is the flagship — text + real-time voice, DB-anchored conversation continuity, a live progress meter, and the platform's first eval harness. The app is live at `https://susies-brain.vercel.app`, invitation-only, with Dana and Susan as admins. The architecture claim — platform + declarative product verticals (ADR-001) — is now exercised at n=10 agents within one product, though still n=1 at the *product* level.
+The repo has moved from a single-vertical prototype to a **deployed, multi-agent, persistent product**: all 10 of Susan's production agents run behind a shared guardrails layer and generic orchestrator; the Job Description agent is the flagship — text + real-time voice, DB-anchored conversation continuity, a live progress meter, and the platform's first eval harness. The app is live at `https://susies-brain.vercel.app`, invitation-only, with Dana and Susan as admins. As of 2026-07-21, **a project is the platform's primary entity** (ADR-007): every persisted conversation and artifact belongs to exactly one project (the hiring role being worked), and artifact versioning is per-project rather than per-user. The architecture claim — platform + declarative product verticals (ADR-001) — is now exercised at n=10 agents within one product, though still n=1 at the *product* level.
 
 Methodology is docs-first / architecture-first: every folder carries a README contract, hard decisions get ADRs, and agent content is declarative Markdown loaded by a product-agnostic runtime.
 
@@ -25,14 +25,15 @@ Methodology is docs-first / architecture-first: every folder carries a README co
 | Authentication (ADR-004) | 🟢 Decided & built | Clerk: middleware, invitation-only sign-up, deterministic API 401s. No authz-per-resource/orgs/tenancy |
 | Voice architecture (ADR-005) | 🟢 Decided & built, rebuilt for continuity | ElevenLabs Agents (WebRTC) + custom-LLM SSE adapter; now DB-anchored via signed HMAC voice grants (`src/shared/voice-grant.ts`) instead of an in-memory handoff — survives dropped calls and serverless instance changes |
 | Persistence (ADR-006) | 🟢 Decided & built | Supabase Postgres (eu-central-1) + Drizzle; users/conversations/messages/artifacts live; role-scoped agents persist, candidate-scoped stay ephemeral by design |
+| Project as primary entity (ADR-007) | 🟢 Decided & built (2026-07-21) | `projects` table; conversations/artifacts require `project_id`; versioning per-project, not per-user. `/projects` list + `/projects/[id]` workspace; chat page gates the 5 project-scoped agents behind a project picker. Live data migrated into per-owner "Legacy imports" projects, nothing lost |
 | Product naming (ADR-002) | 🟡 **Open** | "interview-intelligence" internal-only; public brand undecided — only ADR touching customer-facing surfaces, and the app is now demoable |
 | Deployment | 🟢 Decided & executed | Live on Vercel (`susies-brain.vercel.app`), Git auto-deploy from `danaaro/SusiesBrain` main, ~44s builds. Correct-account discipline now in permanent memory after a same-day rollback incident |
 | Evaluation | 🟢 Built | `scripts/run-evals.ts`: 10 golden cases + 3 guardrail probes against the live runtime. First clean full-suite run: 88% combined, structural 100%, guardrails 6/6. Later runs were targeted single-case reruns while fixing specific findings (one still flags the JD's structure/word count as off-spec), not repeat full-suite scores |
-| Roles / multi-agent workflow | 🔴 Not built | Agents 1–10 are independent chats; no entity chains one agent's approved output into the next agent's input yet (next build-queue step) |
+| Agent chaining | 🔴 Not built | Agents 1–10 are independent chats; the project entity now gives them a shared home with real version history, but no agent's approved output auto-fills the next agent's input yet (immediate next build-queue step) |
 | Observability / logging | 🔴 Not built | `console.error` only; architecture doc placeholder |
 | Knowledge / memory | 🔴 Not built | Empty scaffolds + placeholder docs |
 
-**Architecture docs:** 1 of 8 real (`Voice.md` 🟢); the other 7 (`HighLevelArchitecture`, `Authentication`, `MemoryArchitecture`, `KnowledgeArchitecture`, `Communication`, `Observability`, `Deployment`) are 🔴 placeholders — the substance lives in the 6 ADRs and the code.
+**Architecture docs:** 1 of 8 real (`Voice.md` 🟢); the other 7 (`HighLevelArchitecture`, `Authentication`, `MemoryArchitecture`, `KnowledgeArchitecture`, `Communication`, `Observability`, `Deployment`) are 🔴 placeholders — the substance lives in the 7 ADRs and the code.
 
 ---
 
@@ -42,7 +43,7 @@ Methodology is docs-first / architecture-first: every folder carries a README co
 ai-executive-platform/
 ├── README.md · CLAUDE.md · LICENSE · Repository-Inventory.md (this file)
 ├── docs/
-│   ├── adrs/                        6 ADRs (001,003,004,005,006 accepted; 002 proposed)
+│   ├── adrs/                        7 ADRs (001,003,004,005,006,007 accepted; 002 proposed)
 │   ├── architecture/                Platform-Maturity.md (🟢 LIVE dashboard)
 │   ├── platform-architecture/       Voice.md 🟢; 7 placeholders
 │   ├── agent-specifications/        ADS + Executive + Specialist templates (🟡 Draft)
@@ -51,32 +52,35 @@ ai-executive-platform/
 │   └── implementation/ assets/      empty
 ├── src/                             the shared runtime (working code)
 │   ├── app/
-│   │   ├── page.tsx                 chat UI: agent picker, 4 input modes, live voice, progress meter, resume-session, save
-│   │   ├── artifacts/page.tsx        artifact library: grouped by agent, versioned, admin creator column
+│   │   ├── page.tsx                 chat UI: agent picker, 4 input modes, live voice, progress meter, project gate/picker, resume-session, save
+│   │   ├── artifacts/page.tsx        artifact library: grouped by project then agent, versioned, admin creator column
+│   │   ├── projects/page.tsx         project list: create + open (ADR-007)
+│   │   ├── projects/[id]/page.tsx    project workspace: per-agent artifact slots + version history + in-progress sessions
 │   │   ├── layout.tsx · globals.css · sign-in/ · sign-up/    "SusieBrain" branded
 │   │   └── api/
 │   │       ├── job-description/
 │   │       │   ├── route.ts                       text chat endpoint (non-streaming)
 │   │       │   ├── voice-llm/                      OpenAI-compatible SSE adapter for ElevenLabs
 │   │       │   │   ├── handler.ts · route.ts · chat/completions/route.ts
-│   │       │   └── voice-token/route.ts             Clerk-gated ElevenLabs token minting + voice-grant issuing
-│   │       ├── agents/[slug]/route.ts               generic chat endpoint, all 10 agents
-│   │       ├── agents/[slug]/save/route.ts          versioned artifact save
-│   │       ├── conversations/route.ts · [id]/route.ts    session list + resume
+│   │       │   └── voice-token/route.ts             Clerk-gated ElevenLabs token minting + voice-grant issuing (project-scoped)
+│   │       ├── agents/[slug]/route.ts               generic chat endpoint, all 10 agents (project-scoped agents require projectId)
+│   │       ├── agents/[slug]/save/route.ts          versioned artifact save (versioned per project, not per owner)
+│   │       ├── projects/route.ts · [id]/route.ts    project list/create + workspace detail
+│   │       ├── conversations/route.ts · [id]/route.ts    session list + resume (project-filterable)
 │   │       ├── conversations/[id]/messages/route.ts  voice-turn persistence (owner-verified)
 │   │       ├── conversations/[id]/coverage/route.ts   progress-meter scoring (claude-haiku-4-5)
-│   │       ├── artifacts/route.ts                    artifact list + fetch (admin sees all)
+│   │       ├── artifacts/route.ts                    artifact list + fetch (admin sees all, project-filterable)
 │   │       └── upload-parse/route.ts                 txt/md/docx(mammoth)/pdf(pdf-parse)
 │   ├── middleware.ts                Clerk route protection
 │   ├── orchestrator/
 │   │   ├── job-description-orchestrator.ts   JD-specific prompt assembly (text + voice share it)
 │   │   └── agent-orchestrator.ts             generic loader: any of the 10 agents by slug
 │   ├── db/
-│   │   ├── schema.ts                 users, conversations, messages, artifacts (Drizzle)
+│   │   ├── schema.ts                 users, **projects**, conversations, messages, artifacts (Drizzle)
 │   │   └── index.ts                  lazy postgres() singleton, transaction pooler
 │   ├── shared/
 │   │   ├── anthropic-client.ts       model + client config
-│   │   ├── current-user.ts           Clerk↔DB mirror, role resolution, persistence helpers
+│   │   ├── current-user.ts           Clerk↔DB mirror, role resolution, persistence helpers, project-access check
 │   │   └── voice-grant.ts            signed HMAC grant anchoring voice sessions to DB conversations
 │   └── knowledge/                    empty scaffold
 ├── products/
@@ -92,7 +96,8 @@ ai-executive-platform/
 │           └── fixtures/             8 markdown fixtures (brief, JD, competency framework, panel, interview guide, CV, transcript, feedback)
 ├── scripts/
 │   ├── run-evals.ts                  eval runner (npm run evals)
-│   └── test-voice-continuity.ts      voice-grant / continuity smoke test (npm run test:voice)
+│   ├── test-voice-continuity.ts      voice-grant / continuity smoke test (npm run test:voice)
+│   └── migrate-projects.ts           one-off ADR-007 migration (idempotent) — projects table, backfill, NOT NULL
 ├── generated/evals/run-*/            8 eval run outputs (report.md, results.json, transcripts.json) — gitignored
 ├── agents/ prompts/ schemas/ tests/  platform-level empty scaffolds (per-product content lives under products/)
 └── package.json                     next ^15.1, react ^19, @anthropic-ai/sdk ^0.111, @clerk/nextjs ^7.5,
@@ -111,8 +116,9 @@ ai-executive-platform/
 | 004 | Authentication Provider | **Accepted** | Clerk for login/user management; database decision deferred here, made in ADR-006 |
 | 005 | Voice Conversation Provider | **Accepted** | ElevenLabs Agents for the real-time voice leg; Claude stays the brain via custom-LLM callback; continuity mechanism rebuilt 2026-07-19 on top of ADR-006's persistence |
 | 006 | Persistence Layer | **Accepted (2026-07-19)** | Supabase Postgres + Drizzle over Neon/other options; versioned artifact slots; role-scoped agents persist conversations, candidate-scoped agents don't (zero personal data until Phase 2 retention) |
+| 007 | Project as Primary Entity | **Accepted (2026-07-21)** | `projects` table is the unique key everything hangs off (Dana's framing); conversations/artifacts require `project_id`; versioning moves from per-owner to per-project; Phase-1 scope only, candidate sub-entities deferred; existing live data auto-migrated, nothing orphaned |
 
-**Next ADRs implied by the current state:** ADR-002 resolution (brand); a roles/requisitions data-model decision (queue step 3); eventually a tenancy model (Clerk Organizations, queue step 6).
+**Next ADRs implied by the current state:** ADR-002 resolution (brand); eventually a tenancy model (Clerk Organizations, queue step 6). Agent chaining (auto-filling agent N's input from a project's approved artifacts) is enabled by ADR-007 but doesn't need its own ADR — it's an application-layer feature, not an architecture decision.
 
 ---
 
@@ -130,7 +136,7 @@ ai-executive-platform/
 ## Readiness Risks (what an architect should know before building on this)
 
 1. **Declarative-products claim proven at n=10 agents, still n=1 at the product level** — the generic orchestrator now serves 10 agents cleanly, but a genuinely second *product* (separate domain, not just another agent in interview-intelligence) hasn't been attempted.
-2. **No roles/chaining layer** — agents 2–10 require manually pasting the previous agent's output as input; this is the single biggest gap between the deployed app and the intended workflow, and is the next build-queue step.
+2. **Project entity exists, chaining doesn't yet** — projects give agents 1–4 a shared home with real version history (ADR-007), but agents still require manually pasting the previous agent's output as input; auto-fill is the single biggest gap left between the deployed app and the intended workflow, and is the next build-queue step.
 3. **Two git remotes for one working tree** (`origin` = architecture history, `susiesbrain` = what Vercel actually deploys) — fine today, a real desync risk the moment a push targets only one of them.
 4. **Voice continuity has an automated guard but no human verification yet** — `test:voice` (18 checks) passes, but a real dropped-call resume by Dana/Susan hasn't been tried live. Separately, quality on the JD itself is measured now (a real change from before this sprint) but only one full-suite eval run exists so far (88%); not yet enough runs to know how much the judge score naturally varies.
 5. **Voice now depends on three systems staying in sync** — ElevenLabs' dashboard config (not IaC), the HMAC grant secret, and the DB; a mismatch in any one silently breaks voice.
@@ -138,7 +144,7 @@ ai-executive-platform/
 7. **Doc-code drift recurred** — this regeneration exists because two already-shipped features (voice-continuity rebuild, progress meter) went undocumented for a stretch. The "regenerate at end of sprint" rule needs an enforcement mechanism, not just intent.
 8. **Auth is real, tenancy is not** — single shared data space by role, not by organization; acceptable for the current two-admin pilot, not for a second customer company.
 
-Full technical-debt register (23 items) and sprint plan: `docs/architecture/Platform-Maturity.md`.
+Full technical-debt register (25 items) and sprint plan: `docs/architecture/Platform-Maturity.md`.
 
 ---
 
