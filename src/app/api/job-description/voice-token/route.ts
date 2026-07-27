@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
-import { requireUser, dbEnabled, assertProjectAccess } from "@/shared/current-user";
+import { requireUser, dbEnabled, getProjectAccess, canWrite } from "@/shared/current-user";
 import { signVoiceGrant, type VoiceGrant } from "@/shared/voice-grant";
 import { db, tables } from "@/db";
 
@@ -76,8 +76,15 @@ export async function POST(req: NextRequest) {
     }
     const user = await requireUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!(await assertProjectAccess(projectId, user))) {
+    const role = await getProjectAccess(projectId, user);
+    if (!role) {
       return NextResponse.json({ error: "Project not found or not accessible" }, { status: 403 });
+    }
+    if (!canWrite(role)) {
+      return NextResponse.json(
+        { error: "You have view-only access to this position" },
+        { status: 403 }
+      );
     }
   }
 
@@ -95,13 +102,15 @@ export async function POST(req: NextRequest) {
           const [conv] = await d
             .select({
               id: tables.conversations.id,
-              createdBy: tables.conversations.createdBy,
               projectId: tables.conversations.projectId,
             })
             .from(tables.conversations)
             .where(eq(tables.conversations.id, requestedConversationId))
             .limit(1);
-          if (conv && conv.createdBy === user.id && conv.projectId === projectId) conversationId = conv.id;
+          // Write access to the project was verified above; the remaining
+          // check is coherence, not ownership — a shared stage thread can be
+          // continued by voice by anyone working the position (ADR-008 §5).
+          if (conv && conv.projectId === projectId) conversationId = conv.id;
         }
 
         if (!conversationId && projectId) {

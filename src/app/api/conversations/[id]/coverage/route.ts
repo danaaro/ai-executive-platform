@@ -3,8 +3,9 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
 import { db, tables } from "@/db";
-import { requireUser, dbEnabled } from "@/shared/current-user";
+import { requireUser, dbEnabled, getConversationAccess } from "@/shared/current-user";
 import { getAnthropicClient } from "@/shared/anthropic-client";
+import { mergeCoverage, type SectionStatus } from "@/shared/coverage";
 
 export const maxDuration = 60;
 
@@ -19,7 +20,6 @@ export const maxDuration = 60;
 
 const METER_MODEL = "claude-haiku-4-5";
 
-type SectionStatus = { id: number; name: string; status: "covered" | "partial" | "missing" };
 
 let sectionCache: { id: number; name: string }[] | null = null;
 function questionnaireSections(): { id: number; name: string }[] {
@@ -41,10 +41,31 @@ async function scoreCoverage(
 ): Promise<SectionStatus[]> {
   const sections = questionnaireSections();
   const sectionList = sections.map((s) => `${s.id}. ${s.name}`).join("\n");
-  const convo = transcript
-    .map((m) => `${m.role === "user" ? "HIRING MANAGER" : "AGENT"}: ${m.content}`)
-    .join("\n\n")
-    .slice(-120_000); // generous cap; keeps very long sessions bounded
+  // Bounding the prompt must never cost us an ANSWER. A plain tail-slice
+  // dropped the oldest turns first — i.e. the earliest answered sections —
+  // so on a long session the meter would start forgetting the beginning.
+  // The hiring manager's turns are the evidence being scored and are kept
+  // whole; the agent's turns are questions and generated documents, so those
+  // are what get trimmed when a session runs long.
+  const MAX_CHARS = 120_000;
+  const rendered = transcript.map((m) => ({
+    isUser: m.role === "user",
+    text: `${m.role === "user" ? "HIRING MANAGER" : "AGENT"}: ${m.content}`,
+  }));
+  let budget = MAX_CHARS - rendered.reduce((n, r) => n + (r.isUser ? r.text.length : 0), 0);
+  const convo = rendered
+    .map((r) => {
+      if (r.isUser) return r.text;
+      if (budget <= 0) return "AGENT: […]";
+      if (r.text.length <= budget) {
+        budget -= r.text.length;
+        return r.text;
+      }
+      const clipped = r.text.slice(0, Math.max(0, budget));
+      budget = 0;
+      return `${clipped} […]`;
+    })
+    .join("\n\n");
 
   const res = await getAnthropicClient().messages.create({
     model: METER_MODEL,
@@ -81,6 +102,11 @@ export async function GET(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  // Project membership, not ownership (ADR-008) — a collaborator watching
+  // the intake meter climb is exactly the shared-board case.
+  const access = await getConversationAccess(id, user);
+  if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const d = db();
   const [conv] = await d
     .select()
@@ -88,9 +114,6 @@ export async function GET(
     .where(eq(tables.conversations.id, id))
     .limit(1);
   if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (conv.createdBy !== user.id && user.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   if (conv.agentSlug !== "job-description") {
     return NextResponse.json({ error: "Coverage meter is JD-only for now" }, { status: 400 });
   }
@@ -110,7 +133,10 @@ export async function GET(
   }
 
   try {
-    const sections = await scoreCoverage(msgs);
+    const scored = await scoreCoverage(msgs);
+    // Ratchet against the previous result — see mergeCoverage for why.
+    const previous = (conv.coverage as SectionStatus[] | null) ?? [];
+    const sections = mergeCoverage(previous, scored);
     await d
       .update(tables.conversations)
       .set({ coverage: sections, coverageSeq: msgs.length })

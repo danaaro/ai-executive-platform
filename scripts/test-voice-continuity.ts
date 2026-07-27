@@ -34,7 +34,17 @@ async function main() {
   // --- 1. Grant crypto ---
   const grant = signVoiceGrant("11111111-2222-3333-4444-555555555555", 7);
   check("grant roundtrip verifies", verifyVoiceGrant(grant)?.baseSeq === 7);
-  check("tampered sig rejected", verifyVoiceGrant({ ...grant, sig: grant.sig.replace(/^./, "0") }) === null);
+  // Flip the first hex digit to a guaranteed-different one. Replacing it with
+  // a literal "0" was flaky: ~1 run in 16 the signature already started with
+  // "0", so the "tampered" value was identical to the real one and the check
+  // failed for the wrong reason.
+  check(
+    "tampered sig rejected",
+    verifyVoiceGrant({
+      ...grant,
+      sig: grant.sig.replace(/^./, (c) => (c === "0" ? "1" : "0")),
+    }) === null
+  );
   check("tampered conversation rejected", verifyVoiceGrant({ ...grant, conversation_id: "66666666-2222-3333-4444-555555555555" }) === null);
   check("tampered base_seq rejected", verifyVoiceGrant({ ...grant, base_seq: 0 }) === null);
   check("expired grant rejected", verifyVoiceGrant({ ...signVoiceGrant("11111111-2222-3333-4444-555555555555", 7, -10) }) === null);

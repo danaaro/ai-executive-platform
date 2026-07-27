@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, desc } from "drizzle-orm";
 import { getAgent } from "@/orchestrator/agent-orchestrator";
-import { requireUser, dbEnabled, assertProjectAccess } from "@/shared/current-user";
+import {
+  requireUser,
+  dbEnabled,
+  getProjectAccess,
+  canWrite,
+} from "@/shared/current-user";
 import { db, tables } from "@/db";
 
 /**
  * Saves a finished agent artifact into the versioned artifacts table
  * (ADR-006 §4 + ADR-007): one slot per (project, agent), version = latest
- * + 1, status starts as "draft" (approve flow = build-queue step 4).
+ * + 1, status starts as "draft". Approval is a separate, explicit human
+ * action (ADR-008) — see ./[id]/approve.
  */
 
 export async function POST(
@@ -38,8 +44,18 @@ export async function POST(
   if (!projectId) {
     return NextResponse.json({ error: "projectId is required" }, { status: 400 });
   }
-  if (!(await assertProjectAccess(projectId, user))) {
-    return NextResponse.json({ error: "Project not found or not accessible" }, { status: 403 });
+  const role = await getProjectAccess(projectId, user);
+  if (!role) {
+    return NextResponse.json(
+      { error: "Project not found or not accessible" },
+      { status: 403 }
+    );
+  }
+  if (!canWrite(role)) {
+    return NextResponse.json(
+      { error: "You have view-only access to this position" },
+      { status: 403 }
+    );
   }
 
   try {
@@ -75,6 +91,12 @@ export async function POST(
         createdBy: user.id,
       })
       .returning({ id: tables.artifacts.id, version: tables.artifacts.version });
+
+    // Saving is real activity on the position — keep it at the top of Home.
+    await d
+      .update(tables.projects)
+      .set({ updatedAt: new Date() })
+      .where(eq(tables.projects.id, projectId));
 
     return NextResponse.json({
       saved: true,

@@ -1,11 +1,13 @@
 # UX Shell — Navigation & Hiring Workflow
 
 > STATUS: 🟡 DRAFT — first full IA/UX design pass (2026-07-17), recruiter-anchored. Interactive mockup: https://claude.ai/code/artifact/609d5cba-1cb9-419b-9147-aab269159f45 ("Hiring Platform — UX Mockup", private). Source of product truth: `products/interview-intelligence/` docs; vision-doc reference: `../../../context/Interview_Intelligence_INT2_Vision.md` (Appendix A user workflow + §6 agent suite, 2026-07-17 revision).
+>
+> ⚠️ **PARTIALLY SUPERSEDED (2026-07-26)** by the *AI Hiring Workspace* wireframe handoff (`input/AI hiring workspace wireframes.zip`, direction **1b — Pipeline Board**) and ADR-008. Three decisions below no longer hold; the shipped build follows the wireframes. Superseded items are struck through and annotated inline. Everything else in this document — the artifact-driven concept, the artifact-gating input table, the role-level vs candidate-level split (decision 6), the Phase-2 roadmap-preview idea (decision 7), and the SPP brand (decision 5, now actually implemented) — remains current.
 
 ## Design decisions (locked with Dana, 2026-07-17/18)
 
-1. **Full navigation shell** — the whole app skeleton is designed now, so every future agent has a home; only the JD agent is functional today.
-2. **Non-linear workflow** — stages have a natural order but are NOT gated sequentially. Any stage is directly enterable when its **input artifacts** exist, regardless of where they came from.
+1. ~~**Full navigation shell** — persistent left nav, the whole app skeleton designed now.~~ **SUPERSEDED (2026-07-26).** The shipped shell is the wireframes' **top bar + horizontal pipeline board + right work drawer** (`#1b`), not a left-nav shell. `/projects` is Home (`#4b`), `/projects/[id]` is the board. The independent assistants and Phase-2 agents keep a secondary home at `/agents` (the former single-page chat) until they get board surfaces.
+2. ~~**Non-linear workflow** — any stage is enterable when its **input artifacts** exist; only approved artifacts satisfy downstream inputs, and cards for unmet inputs are locked.~~ **SUPERSEDED (2026-07-26) — gating is now FLEXIBLE** (wireframe `#3b`, ADR-008 §8). *Every* stage card is clickable at all times, regardless of upstream approval. A stage opened ahead of an unapproved dependency shows a soft warning banner with a "Draft anyway" action and an `⚠ open anyway` chip on the card — never a lock. What approval still controls is **inheritance**: only an *approved* upstream artifact is injected into a downstream agent's first turn. So the artifact-gating table below is now a map of *what flows*, not of *what is permitted*.
 3. **Recruiter is the anchor persona** — they own requisitions and drive the flow. Hiring-manager and interviewer views are described, not designed, in this pass.
 4. **Deferred:** Susan AI (persistent expert chat), admin/compliance surfaces (audit log UI, org settings, SSO), ATS integrations, analytics dashboards.
 5. **Brand: Susan Pike & Partners visual identity** (2026-07-18, per susanpikepartners.com) — ink navy `#0A1119`/`#121C27`, warm cream grounds (`#F5F1E9` family), brass-gold accent `#C69746` (dark theme `#D3A857`), slate muted `#4B535D`; type: Roboto (body) + Roboto Slab/serif (display); navy sidebar with gold monogram + spaced-caps wordmark. The *product name* remains a placeholder ("Hiring Platform") — ADR-002 naming quarantine applies to the product brand, not the SPP company identity. Status colors adjusted so drafts read slate-blue (amber would collide with the gold accent).
@@ -16,7 +18,9 @@
 
 Each stage **consumes** and **produces** artifacts. A stage is enterable when its inputs exist — produced by an upstream agent **or uploaded/pasted by the user** ("bring your own"). This makes "sequential by default, non-sequential by choice" coherent: the happy path walks the stages in order, but a user who already has a JD (or competency model) made elsewhere starts wherever their inputs allow.
 
-Artifact states: `missing → draft (AI-proposed) → approved (human-confirmed)`. Only **approved** artifacts satisfy downstream input requirements. Every approval is logged (EU AI Act human-oversight — visible in the UI, not buried).
+Artifact states: `missing → draft (AI-proposed) → approved (human-confirmed)`. Only **approved** artifacts feed downstream stages — they no longer *gate* entry to them (see superseded decision 2). Every approval is logged (EU AI Act human-oversight — visible in the UI, not buried).
+
+**Implemented 2026-07-26** (ADR-008): approval is a real, explicit action — `POST /api/artifacts/[id]/approve` sets `status = approved` on the latest version of a `(project, agent)` slot and appends to `artifact_approvals`, the append-only oversight trail rendered in the review panel and the artifact library. "Request changes" writes the same trail with a note that re-enters the agent conversation; the revision becomes a new version to approve. Only the latest version in a slot is approvable, so "which version feeds downstream" is never ambiguous.
 
 ## Artifact-gating table (from vision doc §6, 2026-07-17 names)
 

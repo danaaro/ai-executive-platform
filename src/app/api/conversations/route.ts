@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, tables } from "@/db";
-import { requireUser, dbEnabled, getUserNames } from "@/shared/current-user";
+import {
+  requireUser,
+  dbEnabled,
+  getUserNames,
+  accessibleProjectIds,
+} from "@/shared/current-user";
 
-/** Lists conversations — own for members, everyone's for admins. */
+/**
+ * Lists conversations visible to the caller. Scoped by PROJECT membership
+ * (ADR-008), not by `createdBy` — a shared position's threads belong to
+ * everyone working it.
+ */
 export async function GET(req: NextRequest) {
   if (!dbEnabled()) return NextResponse.json({ conversations: [] });
   const user = await requireUser();
@@ -11,19 +20,32 @@ export async function GET(req: NextRequest) {
 
   const agent = req.nextUrl.searchParams.get("agent");
   const project = req.nextUrl.searchParams.get("project");
-  const d = db();
-  let q = d
+
+  const allowed = await accessibleProjectIds(user);
+  // `allowed === null` means platform admin — unfiltered, NOT empty.
+  let scope: string[] | null = allowed;
+  if (project) {
+    if (allowed !== null && !allowed.includes(project)) {
+      return NextResponse.json({ isAdmin: false, conversations: [] });
+    }
+    scope = [project];
+  }
+  if (scope !== null && scope.length === 0) {
+    return NextResponse.json({ isAdmin: user.role === "admin", conversations: [] });
+  }
+
+  const filters = [];
+  if (scope !== null) filters.push(inArray(tables.conversations.projectId, scope));
+  if (agent) filters.push(eq(tables.conversations.agentSlug, agent));
+
+  let q = db()
     .select()
     .from(tables.conversations)
     .orderBy(desc(tables.conversations.updatedAt))
     .limit(50)
     .$dynamic();
-  if (user.role !== "admin") {
-    q = q.where(eq(tables.conversations.createdBy, user.id));
-  }
-  let rows = await q;
-  if (agent) rows = rows.filter((r) => r.agentSlug === agent);
-  if (project) rows = rows.filter((r) => r.projectId === project);
+  if (filters.length) q = q.where(and(...filters));
+  const rows = await q;
 
   const names = await getUserNames(rows.map((r) => r.createdBy));
   return NextResponse.json({

@@ -16,6 +16,8 @@ import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 export type AgentEntry = {
   slug: string;
   title: string;
+  /** Short label for the board's stage cards — the title minus its number. */
+  stageName: string;
   /** Operative prompt, relative to products/interview-intelligence/ */
   promptFile: string;
   /** Extra context files appended after the prompt (e.g. the JD question bank) */
@@ -23,12 +25,26 @@ export type AgentEntry = {
   /** Phase gate — phase2 agents exist but are flagged in the UI */
   phase: 1 | 2;
   maxTokens?: number;
+  /**
+   * Position on the pipeline board. Absent = not a board stage (the
+   * independent assistants: coach, evaluation report, screening guide).
+   */
+  stageOrder?: number;
+  /**
+   * Upstream slots whose APPROVED artifact this agent consumes
+   * (UX-Shell.md artifact-gating table). Drives two things and only two:
+   *  - the soft warning on a stage opened ahead of its dependency (#3b);
+   *  - what gets injected on the first turn (ADR-008 §9).
+   * It never blocks access — gating is flexible.
+   */
+  dependsOn?: string[];
 };
 
 export const AGENT_REGISTRY: AgentEntry[] = [
   {
     slug: "job-description",
     title: "1 · Job Description Interactive Agent",
+    stageName: "Job Description",
     promptFile: "prompts/01-job-description.md",
     contextFiles: [
       {
@@ -41,58 +57,78 @@ export const AGENT_REGISTRY: AgentEntry[] = [
     // truncates at 8192 (evals 2026-07-19). Keep in sync with the dedicated
     // JD orchestrator's 16384.
     maxTokens: 16384,
+    stageOrder: 1,
+    dependsOn: [],
   },
   {
     slug: "competency-builder",
     title: "2 · Predictive Competency Builder",
+    stageName: "Competency Builder",
     promptFile: "prompts/02-competency-builder.md",
     phase: 1,
+    stageOrder: 2,
+    dependsOn: ["job-description"],
   },
   {
     slug: "panel-designer",
     title: "3 · Strategic Interview Panel Designer",
+    stageName: "Panel Designer",
     promptFile: "prompts/03-panel-designer.md",
     phase: 1,
+    stageOrder: 3,
+    dependsOn: ["job-description", "competency-builder"],
   },
   {
     slug: "interview-system-builder",
     title: "4 · Structured Interview System Builder",
+    stageName: "Interview System",
     promptFile: "prompts/04-interview-system-builder.md",
     phase: 1,
+    stageOrder: 4,
+    dependsOn: ["job-description", "panel-designer"],
   },
   {
     slug: "feedback-form-builder",
     title: "5 · Interview Feedback Form Builder",
+    stageName: "Feedback Form",
     promptFile: "prompts/05-feedback-form-builder.md",
     phase: 2,
+    stageOrder: 5,
   },
   {
     slug: "hiring-rationale",
     title: "6 · Hiring Rationale Generator",
+    stageName: "Hiring Rationale",
     promptFile: "prompts/06-hiring-rationale.md",
     phase: 2,
+    stageOrder: 6,
   },
   {
     slug: "success-blueprint",
     title: "7 · Manager's Success Blueprint",
+    stageName: "Success Blueprint",
     promptFile: "prompts/07-success-blueprint.md",
     phase: 2,
+    stageOrder: 7,
   },
   {
     slug: "interview-coach",
     title: "8 · Interview Excellence Coach",
+    stageName: "Interview Coach",
     promptFile: "prompts/08-interview-coach.md",
     phase: 2,
   },
   {
     slug: "recruiter-evaluation-report",
     title: "A1 · Recruiter Evaluation Report",
+    stageName: "Evaluation Report",
     promptFile: "prompts/09-recruiter-evaluation-report.md",
     phase: 2,
   },
   {
     slug: "screening-guide",
     title: "A2 · Recruiter Screening Guide (draft)",
+    stageName: "Screening Guide",
     promptFile: "prompts/10-screening-guide.md",
     phase: 2,
   },

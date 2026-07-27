@@ -1,17 +1,114 @@
+@import "tailwindcss";
+
+/*
+ * Susan Pike & Partners visual identity (UX-Shell.md §5, locked 2026-07-18,
+ * implemented 2026-07-26). Ink navy grounds, warm cream page, brass-gold
+ * accent, slate muted text.
+ *
+ * Contrast rule that shapes this palette: brass #C69746 on cream is ~2.3:1 —
+ * fine as a FILL or marker, unreadable as body text. So the accent splits in
+ * two: `accent` (fills, connectors, active rings) and `accent-ink` (darker
+ * brass, used whenever the brand color has to carry text).
+ *
+ * Status hues are deliberately NOT amber: brass owns the warm-gold range, so
+ * an amber warning reads as "approved" at a glance. Drafts are slate-blue,
+ * warnings are rust/terracotta instead (UX-Shell flagged this collision).
+ */
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-canvas-subtle: var(--canvas-subtle);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-wash: var(--accent-wash);
+
+  --color-draft: var(--draft);
+  --color-draft-wash: var(--draft-wash);
+  --color-warn: var(--warn);
+  --color-warn-wash: var(--warn-wash);
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+
+  --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-roboto-slab), ui-serif, Georgia, serif;
+
+  --radius-card: 12px;
+}
+
 :root {
-  --bg: #f5f6f8;
+  --canvas: #f5f1e9;
+  --canvas-subtle: #faf7f1;
   --card: #ffffff;
-  --border: #e4e6ea;
-  --text: #16181d;
-  --text-muted: #6b7280;
-  --accent: #1f2937;
-  --accent-hover: #0f1115;
-  --bubble-user: #1f2937;
-  --bubble-user-text: #ffffff;
-  --bubble-assistant: #eef0f3;
-  --bubble-assistant-text: #16181d;
-  --danger: #c0392b;
+  --ink: #0a1119;
+  --ink-soft: #121c27;
+  --muted: #4b535d;
+  --line: #e3dcce;
+  --line-strong: #d2c8b6;
+
+  --accent: #c69746;
+  --accent-ink: #8a6524;
+  --accent-wash: #f7efdf;
+
+  --draft: #4a6178;
+  --draft-wash: #eceff3;
+  --warn: #b4522e;
+  --warn-wash: #fbf0ea;
+  --danger: #a33323;
+  --danger-wash: #fbeae7;
+
+  /* Dot-grid board canvas (#1b) */
+  --dot: #ded5c5;
+
+  /*
+   * Legacy aliases. The pre-Tailwind screens (src/app/agents, /artifacts)
+   * style themselves with inline `React.CSSProperties` objects reading these
+   * names. They are mapped onto the SPP tokens so the legacy chat keeps
+   * working — and quietly picks up the new brand — until the board reaches
+   * parity and those screens are deleted. Do not use these in new code.
+   */
+  --bg: var(--canvas);
+  --border: var(--line);
+  --text: var(--ink);
+  --text-muted: var(--muted);
+  --accent-hover: var(--accent-ink);
+  --bubble-user: var(--ink-soft);
+  --bubble-user-text: var(--canvas);
+  --bubble-assistant: var(--canvas-subtle);
+  --bubble-assistant-text: var(--ink);
   --radius: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0a1119;
+    --canvas-subtle: #0e1620;
+    --card: #121c27;
+    --ink: #f5f1e9;
+    --ink-soft: #e7e0d3;
+    --muted: #8b96a3;
+    --line: #23303f;
+    --line-strong: #33445a;
+
+    --accent: #d3a857;
+    --accent-ink: #e2bd76;
+    --accent-wash: #241d10;
+
+    --draft: #8ba6c0;
+    --draft-wash: #16202b;
+    --warn: #e08258;
+    --warn-wash: #251610;
+    --danger: #e0705d;
+    --danger-wash: #241211;
+
+    --dot: #1d2937;
+  }
 }
 
 * {
@@ -20,13 +117,13 @@
 
 html,
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--canvas);
+  color: var(--ink);
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  font-family: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -39,8 +136,43 @@ button:disabled {
   cursor: default;
 }
 
-input:focus,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* The board canvas texture from #1b — subtle, never competes with cards. */
+.board-canvas {
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/*
+ * Radix open/close transitions. Hand-written rather than pulling in an
+ * animation plugin for two keyframes — the drawer slide is the only motion
+ * this product actually needs.
+ */
+@keyframes spp-fade-in {
+  from { opacity: 0; }
+}
+@keyframes spp-fade-out {
+  to { opacity: 0; }
+}
+@keyframes spp-slide-in-right {
+  from { transform: translateX(100%); }
+}
+@keyframes spp-slide-out-right {
+  to { transform: translateX(100%); }
+}
+@keyframes spp-pop-in {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+}
+
+[data-slot="overlay"][data-state="open"] { animation: spp-fade-in 150ms ease-out; }
+[data-slot="overlay"][data-state="closed"] { animation: spp-fade-out 120ms ease-in forwards; }
+[data-slot="sheet"][data-state="open"] { animation: spp-slide-in-right 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+[data-slot="sheet"][data-state="closed"] { animation: spp-slide-out-right 180ms ease-in forwards; }
+[data-slot="modal"][data-state="open"] { animation: spp-pop-in 150ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="overlay"],
+  [data-slot="sheet"],
+  [data-slot="modal"] {
+    animation: none !important;
+  }
 }

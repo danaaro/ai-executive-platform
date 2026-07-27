@@ -1,11 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/field";
+import { relativeTime, cn } from "@/lib/utils";
+
+/**
+ * Artifact library (#1b, fourth frame) — a two-pane list/detail over every
+ * versioned artifact the viewer can reach, grouped by position first
+ * (ADR-007: the project is the key everything hangs off).
+ *
+ * The list carries `projectTitle` from the API, so no second fetch is needed.
+ */
 
 type ArtifactRow = {
   id: string;
   projectId: string;
+  projectTitle: string;
   agentSlug: string;
   version: number;
   label: string;
@@ -14,31 +28,31 @@ type ArtifactRow = {
   createdAt: string;
 };
 
-type ArtifactFull = ArtifactRow & { content: string };
-type ProjectSummary = { id: string; title: string };
+type ArtifactFull = ArtifactRow & { content: string; createdByName?: string };
+type Approval = {
+  action: "approved" | "changes_requested";
+  note: string | null;
+  actorName: string;
+  createdAt: string;
+};
 
 export default function ArtifactsPage() {
-  const [rows, setRows] = useState<ArtifactRow[]>([]);
-  const [projects, setProjects] = useState<Record<string, string>>({});
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [rows, setRows] = useState<ArtifactRow[] | null>(null);
   const [selected, setSelected] = useState<ArtifactFull | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/artifacts").then((r) => r.json()),
-      fetch("/api/projects").then((r) => r.json()),
-    ])
-      .then(([artifactsData, projectsData]) => {
-        setRows(artifactsData.artifacts ?? []);
-        setIsAdmin(Boolean(artifactsData.isAdmin));
-        const map: Record<string, string> = {};
-        for (const p of (projectsData.projects ?? []) as ProjectSummary[]) map[p.id] = p.title;
-        setProjects(map);
+    fetch("/api/artifacts")
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Could not load artifacts");
+        setRows(d.artifacts ?? []);
       })
-      .catch(() => setError("Could not load artifacts"))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "Could not load artifacts");
+        setRows([]);
+      });
   }, []);
 
   async function open(id: string) {
@@ -50,132 +64,137 @@ export default function ArtifactsPage() {
       return;
     }
     setSelected(data.artifact);
+    setApprovals(data.approvals ?? []);
   }
 
-  // Group by project first (ADR-007 — the unique key everything hangs off),
-  // then by agent slug within each project; latest version first.
-  const byProject = new Map<string, Map<string, ArtifactRow[]>>();
-  for (const r of rows) {
-    const pg = byProject.get(r.projectId) ?? new Map<string, ArtifactRow[]>();
-    const ag = pg.get(r.agentSlug) ?? [];
-    ag.push(r);
-    pg.set(r.agentSlug, ag);
-    byProject.set(r.projectId, pg);
-  }
-  for (const pg of byProject.values()) {
-    for (const ag of pg.values()) ag.sort((a, b) => b.version - a.version);
+  // Group by position, newest activity first.
+  const groups = new Map<string, { title: string; items: ArtifactRow[] }>();
+  for (const r of rows ?? []) {
+    const g = groups.get(r.projectId) ?? { title: r.projectTitle, items: [] };
+    g.items.push(r);
+    groups.set(r.projectId, g);
   }
 
   return (
-    <main style={s.page}>
-      <header style={s.header}>
-        <div style={s.logo}>A</div>
-        <div>
-          <h1 style={s.title}>Artifacts</h1>
-          <p style={s.subtitle}>
-            Saved agent outputs · versioned per project{isAdmin ? " · admin view (all users)" : ""}
-          </p>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
-          <a href="/" style={s.navLink}>← Back to chat</a>
-          <a href="/projects" style={s.navLink}>Projects</a>
-          <UserButton />
-        </div>
-      </header>
+    <>
+      <AppHeader />
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <h1 className="font-display text-[22px] font-semibold text-ink">Artifacts</h1>
+        <p className="mt-1 text-[13px] text-muted">
+          Every saved version, grouped by hiring position. Approved versions are the ones that feed
+          downstream stages.
+        </p>
 
-      <div style={s.layout}>
-        <div style={s.list}>
-          {loading && <p style={s.muted}>Loading…</p>}
-          {!loading && rows.length === 0 && (
-            <p style={s.muted}>
-              Nothing saved yet. Run an agent in the chat and press 💾 Save artifact —
-              it will appear here, versioned.
-            </p>
-          )}
-          {[...byProject.entries()].map(([projectId, agentGroups]) => (
-            <div key={projectId} style={{ marginBottom: 24 }}>
-              <a href={`/projects/${projectId}`} style={s.projectHead}>
-                📁 {projects[projectId] ?? "Project"}
-              </a>
-              {[...agentGroups.entries()].map(([slug, items]) => (
-                <div key={slug} style={{ marginBottom: 14, marginLeft: 8 }}>
-                  <div style={s.groupHead}>{slug}</div>
-                  {items.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => open(r.id)}
-                      style={{
-                        ...s.item,
-                        ...(selected?.id === r.id ? s.itemActive : {}),
-                      }}
-                    >
-                      <span style={s.itemLabel}>
-                        v{r.version} · {r.label}
-                      </span>
-                      <span style={s.itemMeta}>
-                        <span style={{ ...s.pill, ...(r.status === "approved" ? s.pillOk : s.pillDraft) }}>
-                          {r.status}
-                        </span>
-                        {new Date(r.createdAt).toLocaleDateString()}
-                        {isAdmin && ` · ${r.createdBy}`}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+        {error && (
+          <Alert tone="danger" className="mt-5">
+            {error}
+          </Alert>
+        )}
 
-        <div style={s.detail}>
-          {error && <div style={s.error}>{error}</div>}
-          {!selected && !error && (
-            <p style={s.muted}>Select an artifact to view its content.</p>
-          )}
-          {selected && (
-            <>
-              <div style={s.detailHead}>
-                <b>
-                  {selected.agentSlug} · v{selected.version}
-                </b>
-                <button
-                  style={s.copyBtn}
-                  onClick={() => navigator.clipboard.writeText(selected.content)}
-                >
-                  Copy content
-                </button>
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+          {/* List pane */}
+          <div className="flex flex-col gap-5">
+            {rows === null ? (
+              <>
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </>
+            ) : groups.size === 0 ? (
+              <div className="rounded-card border border-dashed border-line-strong px-4 py-8 text-center text-[13px] text-muted">
+                Nothing saved yet. Run a stage and save its draft.
               </div>
-              <pre style={s.content}>{selected.content}</pre>
-            </>
-          )}
+            ) : (
+              [...groups.entries()].map(([projectId, group]) => (
+                <section key={projectId}>
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <h2 className="truncate font-display text-[13px] font-semibold text-ink">
+                      {group.title}
+                    </h2>
+                    <Link
+                      href={`/projects/${projectId}`}
+                      className="shrink-0 text-[11.5px] font-medium text-accent-ink hover:underline"
+                    >
+                      Board →
+                    </Link>
+                  </div>
+                  <ul className="overflow-hidden rounded-card border border-line">
+                    {group.items.map((r) => (
+                      <li key={r.id}>
+                        <button
+                          onClick={() => open(r.id)}
+                          className={cn(
+                            "flex w-full items-center gap-2 border-b border-line bg-card px-3 py-2.5 text-left last:border-b-0 transition-colors hover:bg-canvas-subtle",
+                            selected?.id === r.id && "bg-accent-wash"
+                          )}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] font-medium text-ink">
+                              {r.label}
+                            </span>
+                            <span className="text-[11px] text-muted">
+                              {relativeTime(r.createdAt)} · {r.createdBy}
+                            </span>
+                          </span>
+                          <Badge tone={r.status === "approved" ? "done" : "draft"}>
+                            v{r.version}
+                          </Badge>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))
+            )}
+          </div>
+
+          {/* Detail pane */}
+          <div className="rounded-card border border-line bg-card">
+            {!selected ? (
+              <p className="px-5 py-8 text-center text-[13px] text-muted">
+                Select an artifact to read it.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+                  <h2 className="font-display text-[14px] font-semibold text-ink">
+                    {selected.label}
+                  </h2>
+                  <Badge tone={selected.status === "approved" ? "done" : "draft"}>
+                    v{selected.version} · {selected.status}
+                  </Badge>
+                  <span className="text-[11.5px] text-muted">
+                    {selected.projectTitle} · {relativeTime(selected.createdAt)}
+                  </span>
+                </div>
+
+                <article className="max-h-[62vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
+                  {selected.content}
+                </article>
+
+                {approvals.length > 0 && (
+                  <div className="border-t border-line px-5 py-3">
+                    <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">
+                      Oversight trail
+                    </p>
+                    <ul className="flex flex-col gap-1.5">
+                      {approvals.map((a, i) => (
+                        <li key={i} className="text-[12px] leading-snug text-muted">
+                          <span className="font-medium text-ink">
+                            {a.action === "approved" ? "Approved" : "Changes requested"}
+                          </span>{" "}
+                          by {a.actorName} · {relativeTime(a.createdAt)}
+                          {a.note && <span className="italic"> — “{a.note}”</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
-
-const s: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", display: "flex", flexDirection: "column", padding: "40px 16px", maxWidth: 1100, margin: "0 auto" },
-  header: { display: "flex", alignItems: "center", gap: 14, marginBottom: 20 },
-  logo: { width: 40, height: 40, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 },
-  title: { margin: 0, fontSize: 20, fontWeight: 650 },
-  subtitle: { margin: "2px 0 0", fontSize: 13, color: "var(--text-muted)" },
-  navLink: { fontSize: 13.5, fontWeight: 550, color: "var(--accent)", textDecoration: "none" },
-  layout: { display: "grid", gridTemplateColumns: "340px 1fr", gap: 16, alignItems: "start" },
-  list: { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: 14, maxHeight: "72vh", overflowY: "auto" },
-  projectHead: { display: "block", fontSize: 13, fontWeight: 650, color: "var(--accent)", textDecoration: "none", marginBottom: 8 },
-  groupHead: { fontSize: 11, fontWeight: 650, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-muted)", margin: "4px 0 6px" },
-  item: { display: "flex", flexDirection: "column", gap: 2, width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 8, border: "1px solid transparent", background: "none", cursor: "pointer", color: "var(--text)", fontSize: 13.5 },
-  itemActive: { borderColor: "var(--accent)", background: "var(--bubble-assistant)" },
-  itemLabel: { fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  itemMeta: { display: "flex", gap: 8, alignItems: "center", color: "var(--text-muted)", fontSize: 12 },
-  pill: { borderRadius: 99, padding: "0 8px", fontSize: 10.5, fontWeight: 650 },
-  pillDraft: { background: "var(--bubble-assistant)", color: "var(--text-muted)", border: "1px solid var(--border)" },
-  pillOk: { background: "var(--accent)", color: "#fff" },
-  detail: { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, minHeight: 300, maxHeight: "72vh", overflowY: "auto" },
-  detailHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  copyBtn: { padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontSize: 12.5, cursor: "pointer" },
-  content: { whiteSpace: "pre-wrap", fontSize: 13.5, lineHeight: 1.55, fontFamily: "inherit", margin: 0 },
-  muted: { color: "var(--text-muted)", fontSize: 13.5 },
-  error: { color: "var(--danger)", fontSize: 13 },
-};

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, tables } from "@/db";
-import { requireUser, dbEnabled } from "@/shared/current-user";
+import {
+  requireUser,
+  dbEnabled,
+  getConversationAccess,
+  canWrite,
+} from "@/shared/current-user";
 
-/** Returns one conversation's messages — owner or admin only. */
+/** Returns one conversation's messages — anyone with access to its project. */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,6 +18,9 @@ export async function GET(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const access = await getConversationAccess(id, user);
+  if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const d = db();
   const [conv] = await d
     .select()
@@ -20,9 +28,6 @@ export async function GET(
     .where(eq(tables.conversations.id, id))
     .limit(1);
   if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (conv.createdBy !== user.id && user.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const msgs = await d
     .select()
@@ -32,8 +37,10 @@ export async function GET(
 
   return NextResponse.json({
     id: conv.id,
+    projectId: conv.projectId,
     agentSlug: conv.agentSlug,
     title: conv.title,
+    canWrite: canWrite(access.role),
     messages: msgs.map((m) => ({ role: m.role, content: m.content })),
   });
 }

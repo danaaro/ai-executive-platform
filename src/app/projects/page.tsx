@@ -1,151 +1,174 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/field";
+import { AppHeader } from "@/components/AppHeader";
+import { NewPositionDialog } from "@/components/project/NewPositionDialog";
+import {
+  StageMiniProgress,
+  type MiniStage,
+} from "@/components/project/StageMiniProgress";
+import { relativeTime } from "@/lib/utils";
+
+/**
+ * Home (#4b) — "Your hiring positions": what you own, and what was shared
+ * with you. Each card carries the 4-node stage indicator so the state of a
+ * whole search reads at a glance.
+ */
 
 type Project = {
   id: string;
   title: string;
-  status: "open" | "filled" | "archived";
-  createdBy: string;
-  createdAt: string;
+  status: "open" | "draft" | "filled" | "archived";
   updatedAt: string;
+  ownerName: string;
+  isOwner: boolean;
+  viewerRole: string;
   artifactCount: number;
+  stages: MiniStage[];
+  doneCount: number;
+  stageCount: number;
 };
 
-/**
- * Projects (ADR-007): the unique key everything else — job description,
- * competencies, panel, interview system, every version — hangs off. This is
- * the new landing surface for project-scoped work; each card opens the
- * per-project workspace.
- */
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [owned, setOwned] = useState<Project[] | null>(null);
+  const [shared, setShared] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [creating, setCreating] = useState(false);
 
-  function load() {
-    setLoading(true);
+  useEffect(() => {
     fetch("/api/projects")
-      .then((r) => r.json())
-      .then((d) => {
-        setProjects(d.projects ?? []);
-        setIsAdmin(Boolean(d.isAdmin));
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Could not load your positions");
+        setOwned(d.owned ?? []);
+        setShared(d.shared ?? []);
       })
-      .catch(() => setError("Could not load projects"))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(load, []);
-
-  async function createProject() {
-    const t = title.trim();
-    if (!t) return;
-    setCreating(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t }),
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "Could not load your positions");
+        setOwned([]);
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not create project");
-      setTitle("");
-      window.location.href = `/projects/${data.project.id}`;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create project");
-      setCreating(false);
-    }
-  }
+  }, []);
 
   return (
-    <main style={s.page}>
-      <header style={s.header}>
-        <div style={s.logo}>P</div>
-        <div>
-          <h1 style={s.title}>Projects</h1>
-          <p style={s.subtitle}>
-            One project per hiring role — every artifact and version lives inside it
-            {isAdmin ? " · admin view (all users)" : ""}
-          </p>
+    <>
+      <AppHeader />
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-[22px] font-semibold text-ink">
+            Your hiring positions
+          </h1>
+          <NewPositionDialog />
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
-          <a href="/" style={s.navLink}>← Back to chat</a>
-          <a href="/artifacts" style={s.navLink}>Artifacts</a>
-          <UserButton />
-        </div>
-      </header>
 
-      <div style={s.createBar}>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              createProject();
-            }
-          }}
-          placeholder="New project — the role you're hiring for (e.g. Head of DevOps)"
-          style={s.input}
-        />
-        <button onClick={createProject} disabled={creating || !title.trim()} style={s.primaryButton}>
-          {creating ? "Creating…" : "+ New project"}
-        </button>
-      </div>
+        {error && (
+          <Alert tone="danger" className="mt-5">
+            {error}
+          </Alert>
+        )}
 
-      {error && <div style={s.error}>{error}</div>}
-      {loading && <p style={s.muted}>Loading…</p>}
-      {!loading && projects.length === 0 && (
-        <p style={s.muted}>
-          No projects yet. Create one above — it becomes the home for this role&rsquo;s
-          job description, competencies, panel, and interview system, all versioned together.
-        </p>
-      )}
+        <Section title="Owned by you">
+          {owned === null ? (
+            <LoadingGrid />
+          ) : owned.length === 0 ? (
+            <EmptyCard>
+              No positions yet. Start one and the Job Description agent will interview you.
+            </EmptyCard>
+          ) : (
+            <Grid>
+              {owned.map((p) => (
+                <ProjectCard key={p.id} project={p} />
+              ))}
+            </Grid>
+          )}
+        </Section>
 
-      <div style={s.grid}>
-        {projects.map((p) => (
-          <a key={p.id} href={`/projects/${p.id}`} style={s.card}>
-            <div style={s.cardHead}>
-              <span style={s.cardTitle}>{p.title}</span>
-              <span style={{ ...s.pill, ...(p.status === "open" ? s.pillOpen : s.pillOther) }}>
-                {p.status}
-              </span>
-            </div>
-            <div style={s.cardMeta}>
-              {p.artifactCount} artifact{p.artifactCount === 1 ? "" : "s"}
-              {isAdmin && ` · ${p.createdBy}`}
-            </div>
-            <div style={s.cardMeta}>Updated {new Date(p.updatedAt).toLocaleDateString()}</div>
-          </a>
-        ))}
-      </div>
-    </main>
+        {shared.length > 0 && (
+          <Section title="Shared with you">
+            <Grid>
+              {shared.map((p) => (
+                <ProjectCard key={p.id} project={p} />
+              ))}
+            </Grid>
+          </Section>
+        )}
+      </main>
+    </>
   );
 }
 
-const s: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", display: "flex", flexDirection: "column", padding: "40px 16px", maxWidth: 1100, margin: "0 auto", gap: 20 },
-  header: { display: "flex", alignItems: "center", gap: 14 },
-  logo: { width: 40, height: 40, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 },
-  title: { margin: 0, fontSize: 20, fontWeight: 650 },
-  subtitle: { margin: "2px 0 0", fontSize: 13, color: "var(--text-muted)" },
-  navLink: { fontSize: 13.5, fontWeight: 550, color: "var(--accent)", textDecoration: "none" },
-  createBar: { display: "flex", gap: 10 },
-  input: { flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14.5, background: "var(--card)", color: "var(--text)" },
-  primaryButton: { padding: "10px 18px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 550, cursor: "pointer", whiteSpace: "nowrap" },
-  error: { color: "var(--danger)", fontSize: 13 },
-  muted: { color: "var(--text-muted)", fontSize: 13.5 },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 },
-  card: { display: "flex", flexDirection: "column", gap: 6, padding: 16, borderRadius: 12, border: "1px solid var(--border)", background: "var(--card)", textDecoration: "none", color: "var(--text)", boxShadow: "0 1px 2px rgba(16,24,40,0.04)" },
-  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  cardTitle: { fontWeight: 650, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  cardMeta: { fontSize: 12.5, color: "var(--text-muted)" },
-  pill: { borderRadius: 99, padding: "2px 9px", fontSize: 10.5, fontWeight: 650, flexShrink: 0 },
-  pillOpen: { background: "var(--accent)", color: "#fff" },
-  pillOther: { background: "var(--bubble-assistant)", color: "var(--text-muted)", border: "1px solid var(--border)" },
-};
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-8">
+      <h2 className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Grid({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+  );
+}
+
+const STATUS_TONE = {
+  open: "active",
+  draft: "draft",
+  filled: "done",
+  archived: "neutral",
+} as const;
+
+function ProjectCard({ project: p }: { project: Project }) {
+  return (
+    <Link
+      href={`/projects/${p.id}`}
+      className="flex flex-col gap-3 rounded-card border border-line bg-card p-4 transition-all hover:border-line-strong hover:shadow-[0_2px_10px_rgba(10,17,25,0.07)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-display text-[15px] font-semibold leading-tight text-ink">
+          {p.title}
+        </h3>
+        <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
+      </div>
+
+      <StageMiniProgress stages={p.stages} />
+
+      <p className="text-[11.5px] leading-snug text-muted">
+        {p.doneCount} of {p.stageCount} stages · updated {relativeTime(p.updatedAt)}
+        {!p.isOwner && (
+          <>
+            <br />
+            {p.ownerName} · you are a {p.viewerRole}
+          </>
+        )}
+      </p>
+    </Link>
+  );
+}
+
+function EmptyCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-card border border-dashed border-line-strong px-4 py-8 text-center text-[13px] text-muted">
+      {children}
+    </div>
+  );
+}
+
+function LoadingGrid() {
+  return (
+    <Grid>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="rounded-card border border-line bg-card p-4">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="mt-3 h-[18px] w-32" />
+          <Skeleton className="mt-3 h-3 w-full" />
+        </div>
+      ))}
+    </Grid>
+  );
+}

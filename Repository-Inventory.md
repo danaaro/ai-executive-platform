@@ -2,7 +2,7 @@
 
 > Descriptive architecture inventory of the **AI Executive Platform** repository.
 > Purpose: let an external AI architect review the structure and its readiness without reading every file. Implementation/sprint status lives in `docs/architecture/Platform-Maturity.md` (authoritative); this doc covers structure, contracts, decisions, and readiness.
-> Regenerated: **2026-07-21** · Repo state: deployed multi-agent Next.js app (~29 TS/TSX source files), 1 product vertical with 10 agents (1 productionized, 9 runnable-but-untested), Postgres persistence with a **project** primary entity, live eval harness, 7 ADRs. Git: `main` @ `00ba963`, 23 commits. **Two remotes**: `origin` → `github.com/danaaro/ai-executive-platform` (canonical), `susiesbrain` → `github.com/danaaro/SusiesBrain` (Vercel deploy source).
+> Regenerated: **2026-07-26** · Repo state: deployed multi-agent Next.js app (~45 TS/TSX source files), 1 product vertical with 10 agents (1 productionized, 9 runnable-but-untested), Postgres persistence with a **project** primary entity, **per-project membership authorization + an append-only approval trail + agent-to-agent chaining**, a Tailwind/SPP-branded **pipeline board** UI, live eval harness, 8 ADRs. Git: `main` @ `a6e8105`; this sprint's work is on unmerged branch **`feat/jd-board-flow`** (migration already applied to the live DB; UI not yet driven in a browser). **Two remotes**: `origin` → `github.com/danaaro/ai-executive-platform` (canonical), `susiesbrain` → `github.com/danaaro/SusiesBrain` (Vercel deploy source).
 
 ---
 
@@ -43,19 +43,20 @@ Methodology is docs-first / architecture-first: every folder carries a README co
 ai-executive-platform/
 ├── README.md · CLAUDE.md · LICENSE · Repository-Inventory.md (this file)
 ├── docs/
-│   ├── adrs/                        7 ADRs (001,003,004,005,006,007 accepted; 002 proposed)
+│   ├── adrs/                        8 ADRs (001,003,004,005,006,007,008 accepted; 002 proposed)
 │   ├── architecture/                Platform-Maturity.md (🟢 LIVE dashboard)
-│   ├── platform-architecture/       Voice.md 🟢; 7 placeholders
+│   ├── platform-architecture/       Voice.md 🟢; UX-Shell.md 🟡 (partially superseded by the 2026-07-26 wireframes); 6 placeholders
 │   ├── agent-specifications/        ADS + Executive + Specialist templates (🟡 Draft)
 │   ├── company-blueprint/           12 placeholders (seed: parent foundation/)
 │   ├── builders-handbook/           6 placeholders (incl. empty 00-Roadmap.md)
 │   └── implementation/ assets/      empty
 ├── src/                             the shared runtime (working code)
 │   ├── app/
-│   │   ├── page.tsx                 chat UI: agent picker, 4 input modes, live voice, progress meter, project gate/picker, resume-session, save
-│   │   ├── artifacts/page.tsx        artifact library: grouped by project then agent, versioned, admin creator column
-│   │   ├── projects/page.tsx         project list: create + open (ADR-007)
-│   │   ├── projects/[id]/page.tsx    project workspace: per-agent artifact slots + version history + in-progress sessions
+│   │   ├── page.tsx                 redirect → /projects (the board is the front door)
+│   │   ├── agents/page.tsx           LEGACY single-page chat, retained for the independent assistants + Phase-2 agents (no board home yet)
+│   │   ├── artifacts/page.tsx        two-pane artifact library: grouped by position, versioned, oversight trail
+│   │   ├── projects/page.tsx         Home (#4b): owned + shared positions, status chips, 4-node stage indicator, New Position dialog
+│   │   ├── projects/[id]/page.tsx    Board (#1b): dot-grid canvas, stage cards + hand-off connectors, work drawer, Phase-2 preview row
 │   │   ├── layout.tsx · globals.css · sign-in/ · sign-up/    "SusieBrain" branded
 │   │   └── api/
 │   │       ├── job-description/
@@ -69,19 +70,31 @@ ai-executive-platform/
 │   │       ├── conversations/route.ts · [id]/route.ts    session list + resume (project-filterable)
 │   │       ├── conversations/[id]/messages/route.ts  voice-turn persistence (owner-verified)
 │   │       ├── conversations/[id]/coverage/route.ts   progress-meter scoring (claude-haiku-4-5)
-│   │       ├── artifacts/route.ts                    artifact list + fetch (admin sees all, project-filterable)
+│   │       ├── artifacts/route.ts                    artifact list + fetch (project-scoped access, returns approval trail)
+│   │       ├── artifacts/[id]/approve/route.ts        explicit human approval, latest-version-only, writes the trail (ADR-008)
+│   │       ├── artifacts/[id]/request-changes/route.ts  logs a change request + returns the turn to replay to the agent
 │   │       └── upload-parse/route.ts                 txt/md/docx(mammoth)/pdf(pdf-parse)
 │   ├── middleware.ts                Clerk route protection
 │   ├── orchestrator/
 │   │   ├── job-description-orchestrator.ts   JD-specific prompt assembly (text + voice share it)
-│   │   └── agent-orchestrator.ts             generic loader: any of the 10 agents by slug
+│   │   ├── agent-orchestrator.ts             generic loader + registry (now carries stageOrder / dependsOn / stageName)
+│   │   ├── stages.ts                         DERIVES board state from artifacts+conversations (no stages table); shared by both project endpoints
+│   │   └── inheritance.ts                    loads a stage's approved upstream artifacts and prepends them server-side (chaining)
 │   ├── db/
-│   │   ├── schema.ts                 users, **projects**, conversations, messages, artifacts (Drizzle)
+│   │   ├── schema.ts                 users, **projects**, **project_members**, conversations, messages, artifacts, **artifact_approvals** (Drizzle)
 │   │   └── index.ts                  lazy postgres() singleton, transaction pooler
 │   ├── shared/
 │   │   ├── anthropic-client.ts       model + client config
-│   │   ├── current-user.ts           Clerk↔DB mirror, role resolution, persistence helpers, project-access check
+│   │   ├── current-user.ts           Clerk↔DB mirror; **getProjectAccess/canWrite/canAdminister** — THE authorization choke point (ADR-008); invite binding; appendTurns
 │   │   └── voice-grant.ts            signed HMAC grant anchoring voice sessions to DB conversations
+│   ├── lib/utils.ts                  cn() class merge + relativeTime()
+│   ├── components/
+│   │   ├── ui/                       hand-rolled shadcn-style primitives (Radix only for Dialog/Sheet)
+│   │   ├── board/                    StageCard + Connector, StageDrawer, stage-types (client mirror of the server stage shape)
+│   │   ├── intake/                   use-intake-session (voice/dictation/upload/coverage engine), IntakeProgressPanel, ChatThread, Composer
+│   │   ├── review/DraftReview.tsx    wide review panel: artifact + oversight trail + approve / request-changes
+│   │   ├── project/                  NewPositionDialog (#4c), StageMiniProgress (#4b)
+│   │   └── AppHeader.tsx             persistent top bar with the SPP mark
 │   └── knowledge/                    empty scaffold
 ├── products/
 │   └── interview-intelligence/      (internal name only — ADR-002)
@@ -96,12 +109,16 @@ ai-executive-platform/
 │           └── fixtures/             8 markdown fixtures (brief, JD, competency framework, panel, interview guide, CV, transcript, feedback)
 ├── scripts/
 │   ├── run-evals.ts                  eval runner (npm run evals)
-│   ├── test-voice-continuity.ts      voice-grant / continuity smoke test (npm run test:voice)
-│   └── migrate-projects.ts           one-off ADR-007 migration (idempotent) — projects table, backfill, NOT NULL
+│   ├── test-voice-continuity.ts      voice-grant / continuity smoke test (npm run test:voice) — 18 checks
+│   ├── migrate-projects.ts           one-off ADR-007 migration (idempotent) — projects table, backfill, NOT NULL
+│   ├── migrate-sharing-approval.ts   ADR-008 migration (idempotent, npm run migrate:sharing) — project_members + artifact_approvals + owner backfill; RUN 2026-07-26
+│   └── verify-approval-chain.ts      ADR-008 governance-chain test vs the live DB (npm run test:approval) — 23 checks, self-cleaning throwaway project
 ├── generated/evals/run-*/            8 eval run outputs (report.md, results.json, transcripts.json) — gitignored
 ├── agents/ prompts/ schemas/ tests/  platform-level empty scaffolds (per-product content lives under products/)
 └── package.json                     next ^15.1, react ^19, @anthropic-ai/sdk ^0.111, @clerk/nextjs ^7.5,
-                                     @elevenlabs/react ^1.10, drizzle-orm, postgres, mammoth, pdf-parse, TS ^5.7
+                                     @elevenlabs/react ^1.10, drizzle-orm, postgres, mammoth, pdf-parse, TS ^5.7,
+                                     tailwindcss ^4.3 + @tailwindcss/postcss, @radix-ui/react-dialog + react-slot,
+                                     lucide-react, class-variance-authority, clsx, tailwind-merge
 ```
 
 ---
@@ -118,7 +135,9 @@ ai-executive-platform/
 | 006 | Persistence Layer | **Accepted (2026-07-19)** | Supabase Postgres + Drizzle over Neon/other options; versioned artifact slots; role-scoped agents persist conversations, candidate-scoped agents don't (zero personal data until Phase 2 retention) |
 | 007 | Project as Primary Entity | **Accepted (2026-07-21)** | `projects` table is the unique key everything hangs off (Dana's framing); conversations/artifacts require `project_id`; versioning moves from per-owner to per-project; Phase-1 scope only, candidate sub-entities deferred; existing live data auto-migrated, nothing orphaned |
 
-**Next ADRs implied by the current state:** ADR-002 resolution (brand); eventually a tenancy model (Clerk Organizations, queue step 6). Agent chaining (auto-filling agent N's input from a project's approved artifacts) is enabled by ADR-007 but doesn't need its own ADR — it's an application-layer feature, not an architecture decision.
+| 008 | Project Sharing & the Approval Trail | **Accepted (2026-07-26)** | `project_members` (owner/editor/viewer) replaces `createdBy` as the authorization unit, resolved through the single choke point `getProjectAccess()`; invites are by email and bind on first sign-in; approval is an explicit human action on a slot's latest version, logged append-only to `artifact_approvals` (EU AI Act oversight); **gating is flexible** — approval controls *inheritance*, not access; chaining assembles approved upstream artifacts server-side |
+
+**Next ADRs implied by the current state:** ADR-002 resolution (brand); a tenancy model (Clerk Organizations, queue step 6) — ADR-008 deliberately scopes roles per *project*, not per organization, so tenancy can land without replacing `project_members`. Response streaming for long generations is an application-layer change, not an ADR.
 
 ---
 
@@ -134,6 +153,12 @@ ai-executive-platform/
 ---
 
 ## Readiness Risks (what an architect should know before building on this)
+
+> **Added 2026-07-26 (branch `feat/jd-board-flow`), highest-priority first:**
+> 1. **The UI is unexercised in a browser.** The server-side governance chain is verified against the live DB (`npm run test:approval`, 23 checks) and the migration has run, but nobody has yet signed in and driven the board: no real intake conversation, no approval through the drawer, no two-account sharing check. That is the next thing to do, and it needs a human with a Clerk session.
+> 2. **The authorization refactor has no automated coverage.** Eight handlers plus `appendTurns` moved from `createdBy` to project membership in one change. It typechecks, the ownership checks were audited to zero, and the *approval/inheritance* half is covered by `test:approval` — but the permission half is not. A viewer-cannot-approve / editor-appends-rather-than-forks test pair is the highest-value test to write next, and it needs two identities.
+> 3. **Replies still don't stream.** A full job description is a non-streaming ~16K-token generation against a 120s function budget. The drawer mitigates with an elapsed counter, honest copy, and a DB-read recovery path if the response is lost (the turn persists server-side regardless) — but this is the biggest remaining perceived-quality gap.
+> 4. **Live voice is JD-only.** The ElevenLabs agent is configured for the JD prompt, so the drawer only offers live voice on stage 1. Other stages get typing, dictation and upload.
 
 1. **Declarative-products claim proven at n=10 agents, still n=1 at the product level** — the generic orchestrator now serves 10 agents cleanly, but a genuinely second *product* (separate domain, not just another agent in interview-intelligence) hasn't been attempted.
 2. **Project entity exists, chaining doesn't yet** — projects give agents 1–4 a shared home with real version history (ADR-007), but agents still require manually pasting the previous agent's output as input; auto-fill is the single biggest gap left between the deployed app and the intended workflow, and is the next build-queue step.
