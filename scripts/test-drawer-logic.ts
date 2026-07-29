@@ -75,10 +75,25 @@ async function main() {
       WHERE c.agent_slug = 'job-description' AND m.role = 'assistant'
     `;
     const flagged = turns.filter((t) => findDeliverable([{ role: "assistant", content: t.content }]));
+
+    // Susan's prompt mandates a 500-700 word job description, i.e. roughly
+    // 3,000-5,000 characters — so nothing shorter can be a compliant
+    // deliverable. That floor comes from the spec and stays valid as the data
+    // grows. (An earlier version of this check asserted >20,000 chars, which
+    // was over-fitted to the single 24k artifact that happened to exist when
+    // it was written, and broke the moment real testing produced normal-sized
+    // job descriptions.)
+    const MIN_COMPLIANT_DOC = 3000;
     check(
-      `only genuine documents flagged among ${turns.length} real assistant turns`,
-      flagged.length > 0 && flagged.every((f) => f.content.length > 20_000),
-      `${flagged.length} flagged; smallest ${Math.min(...flagged.map((f) => f.content.length))} chars`
+      `every flagged turn is a compliant-length document (${flagged.length} of ${turns.length} turns)`,
+      flagged.length > 0 && flagged.every((f) => f.content.length >= MIN_COMPLIANT_DOC),
+      `smallest ${Math.min(...flagged.map((f) => f.content.length))} chars`
+    );
+    // Deliverables are rare: most of what the agent says is interview.
+    check(
+      "deliverables remain a small minority of turns",
+      flagged.length / turns.length < 0.25,
+      `${((flagged.length / turns.length) * 100).toFixed(0)}% flagged`
     );
   } finally {
     await sql.end();
