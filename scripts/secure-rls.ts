@@ -38,6 +38,7 @@ const TABLES = [
   "project_members",
   "conversations",
   "messages",
+  "intake_answers",
   "artifacts",
   "artifact_approvals",
 ] as const;

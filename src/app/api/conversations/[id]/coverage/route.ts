@@ -6,6 +6,7 @@ import { db, tables } from "@/db";
 import { requireUser, dbEnabled, getConversationAccess } from "@/shared/current-user";
 import { getAnthropicClient } from "@/shared/anthropic-client";
 import { mergeCoverage, type SectionStatus } from "@/shared/coverage";
+import { hasIntakeAnswers, sectionRollup } from "@/shared/intake-answers";
 
 export const maxDuration = 60;
 
@@ -21,19 +22,67 @@ export const maxDuration = 60;
 const METER_MODEL = "claude-haiku-4-5";
 
 
-let sectionCache: { id: number; name: string }[] | null = null;
-function questionnaireSections(): { id: number; name: string }[] {
+type Section = { id: number; name: string; questionCount: number };
+
+let sectionCache: Section[] | null = null;
+/**
+ * The questionnaire's shape, read from the bank itself — never a hardcoded
+ * count. The bank is the source of truth for both the section list and how
+ * many questions each section holds, so editing it re-shapes the meter with
+ * no code change. (The wireframes mock 9 sections; the real bank has 20.)
+ */
+function questionnaireSections(): Section[] {
   if (sectionCache) return sectionCache;
   const bank = fs.readFileSync(
     path.join(process.cwd(), "products/interview-intelligence/docs/job-description-question-bank.md"),
     "utf-8"
   );
-  const sections: { id: number; name: string }[] = [];
-  for (const m of bank.matchAll(/^## (\d+)\. (.+?)\s*(?:`|$)/gm)) {
-    sections.push({ id: Number(m[1]), name: m[2].trim() });
+  const sections: Section[] = [];
+  for (const line of bank.split("\n")) {
+    const heading = /^## (\d+)\. (.+?)\s*(?:`|$)/.exec(line);
+    if (heading) {
+      sections.push({
+        id: Number(heading[1]),
+        name: heading[2].trim(),
+        questionCount: 0,
+      });
+      continue;
+    }
+    // Question rows look like `| 1.3 | Is this a new position…? |`.
+    const row = /^\|\s*(\d+)\.\d+\s*\|/.exec(line);
+    if (row) {
+      const owner = sections.find((s) => s.id === Number(row[1]));
+      if (owner) owner.questionCount += 1;
+    }
   }
   sectionCache = sections;
   return sections;
+}
+
+/**
+ * Coverage from the structured record — a single grouped read, no model call.
+ *
+ * A question counts as resolved once it carries any final status, `skipped`
+ * included: a question the hiring manager explicitly declined is finished, not
+ * missing, and the meter has to agree with the prompt's completion rules or it
+ * will never reach the end of a real session. `partial` is the honest middle:
+ * some of the section is resolved and some is not.
+ */
+async function derivedCoverage(
+  conversationId: string,
+  sections: Section[]
+): Promise<SectionStatus[]> {
+  const rollup = await sectionRollup(conversationId);
+  const byId = new Map(rollup.map((r) => [r.sectionId, r]));
+  return sections.map((s) => {
+    const r = byId.get(s.id);
+    const resolved = r?.resolved ?? 0;
+    let status: SectionStatus["status"] = "missing";
+    if (resolved > 0) {
+      status = s.questionCount > 0 && resolved >= s.questionCount ? "covered" : "partial";
+    }
+    return { id: s.id, name: s.name, status };
+  });
 }
 
 async function scoreCoverage(
@@ -118,6 +167,19 @@ export async function GET(
     return NextResponse.json({ error: "Coverage meter is JD-only for now" }, { status: 400 });
   }
 
+  const sectionList = questionnaireSections();
+
+  // Preferred path: the agent's own record of what it has been told. It is
+  // deterministic, free, needs no cache, and cannot score a section DOWN —
+  // which is the whole reason mergeCoverage's ratchet existed.
+  if (await hasIntakeAnswers(id)) {
+    const sections = await derivedCoverage(id, sectionList);
+    return NextResponse.json({ sections, cached: false, source: "answers" });
+  }
+
+  // Fallback for conversations that started before the answers store existed
+  // and have no rows to derive from. Nothing is backfilled, so this stays
+  // until those sessions end; new sessions never reach it.
   const msgs = await d
     .select({ role: tables.messages.role, content: tables.messages.content })
     .from(tables.messages)
@@ -125,11 +187,15 @@ export async function GET(
     .orderBy(asc(tables.messages.seq));
 
   if (conv.coverage && conv.coverageSeq === msgs.length) {
-    return NextResponse.json({ sections: conv.coverage, cached: true });
+    return NextResponse.json({ sections: conv.coverage, cached: true, source: "scorer" });
   }
   if (msgs.filter((m) => m.role === "user").length === 0) {
-    const empty = questionnaireSections().map((s) => ({ ...s, status: "missing" as const }));
-    return NextResponse.json({ sections: empty, cached: false });
+    const empty = sectionList.map((s) => ({
+      id: s.id,
+      name: s.name,
+      status: "missing" as const,
+    }));
+    return NextResponse.json({ sections: empty, cached: false, source: "empty" });
   }
 
   try {
@@ -141,7 +207,7 @@ export async function GET(
       .update(tables.conversations)
       .set({ coverage: sections, coverageSeq: msgs.length })
       .where(eq(tables.conversations.id, id));
-    return NextResponse.json({ sections, cached: false });
+    return NextResponse.json({ sections, cached: false, source: "scorer" });
   } catch (err) {
     console.error("[coverage]", err);
     return NextResponse.json({ error: "Coverage scoring failed" }, { status: 500 });

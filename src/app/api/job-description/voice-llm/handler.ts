@@ -4,6 +4,11 @@ import { asc, and, eq, lt, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { extractVoiceGrant } from "@/shared/voice-grant";
+import {
+  createIntakeBlockFilter,
+  recordIntakeAnswers,
+  splitIntakeBlock,
+} from "@/shared/intake-answers";
 import { dbEnabled } from "@/shared/current-user";
 import { db, tables } from "@/db";
 
@@ -346,9 +351,13 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         messages: anthropicMessages,
       });
       const text = response.content.find((b) => b.type === "text");
-      const reply = text && text.type === "text" ? text.text : "";
+      const raw = text && text.type === "text" ? text.text : "";
+      // Strip the bookkeeping block before ElevenLabs sees it — on this
+      // channel every character that reaches the caller is READ ALOUD.
+      const { visibleText: reply, answers } = splitIntakeBlock(raw);
       if (grant && assistantSeq !== null) {
         await persistAssistantTurn(grant.conversationId, assistantSeq, reply);
+        await recordIntakeAnswers(grant.conversationId, answers, "voice");
       }
       return NextResponse.json({
         id,
@@ -381,6 +390,10 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         // line included, so the stored transcript matches the conversation
         // and the agent doesn't repeat a question it already asked aloud.
         let spoken = "";
+        // Withheld from the audio stream as it arrives: the [INTAKE ANSWERS]
+        // block is bookkeeping, and anything emitted here is spoken aloud.
+        // `spoken` keeps the raw text so the block can still be read off it.
+        const filter = createIntakeBlockFilter();
         try {
           const anthropicStream = await getAnthropicClient().messages.create({
             model: DEFAULT_MODEL,
@@ -407,7 +420,8 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
               event.delta.text
             ) {
               spoken += event.delta.text;
-              emit(chunk(id, created, requestedModel, { content: event.delta.text }, null));
+              const audible = filter.push(event.delta.text);
+              if (audible) emit(chunk(id, created, requestedModel, { content: audible }, null));
             } else if (event.type === "message_delta") {
               outputTokens = event.usage.output_tokens;
             }
@@ -422,11 +436,19 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
           emit(chunk(id, created, requestedModel, { content: recovery }, null));
         }
 
+        // Release whatever the filter was holding back against a partial
+        // marker that never completed.
+        const tail = filter.flush();
+        if (tail) emit(chunk(id, created, requestedModel, { content: tail }, null));
+
         // The reply is spoken; store it. Done here rather than on the next
         // callback because a user who hangs up straight after hearing it
-        // would otherwise leave the last turn unrecorded.
+        // would otherwise leave the last turn unrecorded. What is stored is
+        // what was SPOKEN — the bookkeeping block goes to intake_answers.
         if (grant && assistantSeq !== null) {
-          await persistAssistantTurn(grant.conversationId, assistantSeq, spoken);
+          const { visibleText, answers } = splitIntakeBlock(spoken);
+          await persistAssistantTurn(grant.conversationId, assistantSeq, visibleText);
+          await recordIntakeAnswers(grant.conversationId, answers, "voice");
         }
 
         emit(chunk(id, created, requestedModel, {}, "stop"));

@@ -12,6 +12,11 @@ import {
   canWrite,
 } from "@/shared/current-user";
 import { agentStreamResponse } from "@/shared/agent-stream";
+import {
+  createIntakeBlockFilter,
+  recordIntakeAnswers,
+  splitIntakeBlock,
+} from "@/shared/intake-answers";
 
 // The Phase 2/3 deliverable (JD + coverage record) is the longest generation in
 // the suite — measured at 90-120s on 2026-08-13. It now STREAMS (see
@@ -83,15 +88,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const reply = await streamJobDescriptionTurn(
+    // The agent closes each turn with an [INTAKE ANSWERS] block. It is
+    // bookkeeping, not conversation, so it is withheld from the stream as it
+    // arrives rather than typed out on screen and removed afterwards.
+    let filter = createIntakeBlockFilter();
+    const raw = await streamJobDescriptionTurn(
       messages,
-      (text) => emit({ type: "delta", text }),
-      () => emit({ type: "reset" })
+      (text) => {
+        const visible = filter.push(text);
+        if (visible) emit({ type: "delta", text: visible });
+      },
+      () => {
+        filter = createIntakeBlockFilter();
+        emit({ type: "reset" });
+      }
     );
+    const tail = filter.flush();
+    if (tail) emit({ type: "delta", text: tail });
+
+    const { visibleText, answers } = splitIntakeBlock(raw);
 
     if (conversationId && assistantSeq !== null) {
       try {
-        await appendAssistantTurn({ conversationId, seq: assistantSeq, assistantText: reply });
+        // The transcript stores what the user saw; the block lives in
+        // intake_answers, not twice.
+        await appendAssistantTurn({
+          conversationId,
+          seq: assistantSeq,
+          assistantText: visibleText,
+        });
+        await recordIntakeAnswers(conversationId, answers, "text");
       } catch (err) {
         console.error("[job-description] reply persistence failed (turn served):", err);
       }

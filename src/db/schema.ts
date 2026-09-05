@@ -140,6 +140,66 @@ export const messages = pgTable(
   ]
 );
 
+/**
+ * The intake record, stored as ANSWERS rather than transcript (2026-09-05).
+ *
+ * Until now the only machine-readable intake state was `conversations.coverage`
+ * — a cached LLM re-judgement of the whole transcript, recomputed every turn,
+ * carrying nothing but covered/partial/missing per section. Three things the
+ * product now promises are impossible on that: per-section provenance ("how
+ * each section was captured"), the guarantee that switching intake mode keeps
+ * every answer, and a gap checklist that is a query rather than a summary.
+ *
+ * One row per (conversation, question-bank question ID). The transcript stays
+ * the human-readable record; this is the structured one. The Phase-3 JSON the
+ * agent emits at the end becomes a SERIALISATION of these rows instead of the
+ * only place the state lives.
+ */
+export const intakeAnswers = pgTable(
+  "intake_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    /** Question-bank ID, e.g. "1.3" — the questionnaire is the source of truth. */
+    questionId: text("question_id").notNull(),
+    /**
+     * The section number from `questionId` ("1.3" → 1), stored rather than
+     * derived: the coverage meter groups by section on every read, and an
+     * indexed column serves that directly instead of string-splitting in SQL.
+     */
+    sectionId: integer("section_id").notNull(),
+    answer: text("answer"),
+    /**
+     * The prompt's completion vocabulary, unchanged: a question is complete
+     * when answered, credited from something said elsewhere (`inferred`), or
+     * explicitly marked unknown / not yet decided / skipped.
+     */
+    status: text("status", {
+      enum: ["answered", "inferred", "unknown", "not_yet_decided", "skipped"],
+    }).notNull(),
+    /** Which intake method actually captured it — this is the provenance. */
+    source: text("source", {
+      enum: ["document", "voice", "dictation", "typed"],
+    }).notNull(),
+    /** File name for a document sweep, message id otherwise. */
+    sourceRef: text("source_ref"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // A later turn REPLACES an earlier answer to the same question (the hiring
+    // manager corrects themselves, or a document answer is refined in
+    // conversation), so writes are upserts on this key, never appends.
+    uniqueIndex("intake_answers_conversation_question_uniq").on(
+      t.conversationId,
+      t.questionId
+    ),
+    index("intake_answers_conversation_section_idx").on(t.conversationId, t.sectionId),
+  ]
+);
+
 export const artifacts = pgTable(
   "artifacts",
   {
