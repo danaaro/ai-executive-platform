@@ -22,7 +22,7 @@ type SpeechRecognitionLike = {
   stop: () => void;
 };
 
-const INTAKE_START = "Start the NEW JOB intake session.";
+import { INTAKE_START } from "@/shared/intake-openers";
 
 // Mirrors AGENT_REGISTRY in src/orchestrator/agent-orchestrator.ts.
 // job-description keeps its dedicated route (voice depends on it).

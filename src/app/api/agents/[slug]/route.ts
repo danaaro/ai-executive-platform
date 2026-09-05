@@ -6,6 +6,11 @@ import {
 } from "@/orchestrator/agent-orchestrator";
 import { agentStreamResponse } from "@/shared/agent-stream";
 import {
+  createIntakeBlockFilter,
+  recordIntakeAnswers,
+  splitIntakeBlock,
+} from "@/shared/intake-answers";
+import {
   requireUser,
   appendUserTurn,
   appendAssistantTurn,
@@ -128,12 +133,28 @@ export async function POST(
         }
       }
 
-      const reply = await streamAgentTurn(
+      // Defence in depth: only the JD agent emits an [INTAKE ANSWERS] block, and
+      // the JD chat is routed to /api/job-description rather than here (see
+      // use-intake-session.ts). Filtering anyway costs nothing for the agents
+      // that never emit one, and means routing JD through this endpoint later
+      // cannot silently print bookkeeping into the transcript.
+      let filter = createIntakeBlockFilter();
+      const raw = await streamAgentTurn(
         slug,
         outbound,
-        (text) => emit({ type: "delta", text }),
-        () => emit({ type: "reset" })
+        (text) => {
+          const visible = filter.push(text);
+          if (visible) emit({ type: "delta", text: visible });
+        },
+        () => {
+          filter = createIntakeBlockFilter();
+          emit({ type: "reset" });
+        }
       );
+      const tail = filter.flush();
+      if (tail) emit({ type: "delta", text: tail });
+
+      const { visibleText: reply, answers } = splitIntakeBlock(raw);
 
       if (savedConversationId && assistantSeq !== null) {
         try {
@@ -142,6 +163,7 @@ export async function POST(
             seq: assistantSeq,
             assistantText: reply,
           });
+          await recordIntakeAnswers(savedConversationId, answers, "text");
         } catch (err) {
           console.error(`[agents/${slug}] reply persistence failed (turn served):`, err);
         }

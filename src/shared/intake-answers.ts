@@ -23,6 +23,23 @@ import { dbEnabled } from "@/shared/current-user";
 
 export const INTAKE_ANSWERS_MARKER = "[INTAKE ANSWERS]";
 
+/**
+ * Removes an opening code fence left stranded in front of the marker.
+ *
+ * The prompt illustrates the block inside a ``` fence, and models reproduce
+ * illustrations faithfully — so a real turn often ends
+ * "…what's driving it?\n\n```\n[INTAKE ANSWERS]". Cutting at the marker alone
+ * leaves the fence dangling at the end of the visible reply, which is exactly
+ * what shipped to the screen the first time this ran end to end. The prompt now
+ * asks for no fence; this is the belt to that braces, because the instruction
+ * cannot be enforced and the symptom is user-visible.
+ */
+function stripDanglingFence(text: string): string {
+  // Three OR MORE backticks: a four-backtick fence is legal Markdown, and
+  // matching exactly three leaves one behind on screen.
+  return text.replace(/\n*\s*`{3,}[a-zA-Z]*\s*$/, "").trimEnd();
+}
+
 const STATUSES = ["answered", "inferred", "unknown", "not_yet_decided", "skipped"] as const;
 const SOURCES = ["document", "voice", "dictation", "typed"] as const;
 
@@ -59,7 +76,7 @@ export function splitIntakeBlock(text: string): {
   const at = text.lastIndexOf(INTAKE_ANSWERS_MARKER);
   if (at === -1) return { visibleText: text, answers: [] };
 
-  const visibleText = text.slice(0, at).trimEnd();
+  const visibleText = stripDanglingFence(text.slice(0, at));
   const tail = text.slice(at + INTAKE_ANSWERS_MARKER.length);
   // The block may arrive fenced; the first balanced-looking object is the payload.
   const json = tail.match(/\{[\s\S]*\}/);
@@ -107,15 +124,21 @@ export function splitIntakeBlock(text: string): {
  * Streaming counterpart. Deltas go straight to the browser, so the block would
  * be typed out on screen unless it is withheld as it arrives.
  *
- * Holds back the last few characters of every chunk — enough that a marker
- * split across a chunk boundary ("…[INTAKE AN" + "SWERS]…") is still caught —
- * and emits nothing at all once the marker has been seen. `flush()` releases
- * the held tail when the turn ends without one.
+ * Holds back the tail of every chunk — enough that a marker split across a
+ * chunk boundary ("…[INTAKE AN" + "SWERS]…") is still caught, AND enough that
+ * an opening code fence in front of the marker is still inside the buffer when
+ * the marker arrives, so it can be removed rather than already emitted. That
+ * second case is not hypothetical: it is what leaked a dangling ``` onto the
+ * screen the first time this ran against the real model.
+ *
+ * `flush()` releases the held tail when the turn ends without a block.
  */
 export function createIntakeBlockFilter(): {
   push: (chunk: string) => string;
   flush: () => string;
 } {
+  // Marker, plus room for a preceding "\n\n```json\n" and then some.
+  const HOLD = INTAKE_ANSWERS_MARKER.length + 16;
   let held = "";
   let suppressing = false;
 
@@ -126,15 +149,13 @@ export function createIntakeBlockFilter(): {
       const at = held.indexOf(INTAKE_ANSWERS_MARKER);
       if (at !== -1) {
         suppressing = true;
-        const out = held.slice(0, at);
+        const out = stripDanglingFence(held.slice(0, at));
         held = "";
         return out;
       }
-      // Keep back a possible partial marker; release the rest.
-      const keep = INTAKE_ANSWERS_MARKER.length - 1;
-      if (held.length <= keep) return "";
-      const out = held.slice(0, held.length - keep);
-      held = held.slice(held.length - keep);
+      if (held.length <= HOLD) return "";
+      const out = held.slice(0, held.length - HOLD);
+      held = held.slice(held.length - HOLD);
       return out;
     },
     flush(): string {

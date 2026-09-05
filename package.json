@@ -18,6 +18,7 @@
     "test:approval": "tsx scripts/verify-approval-chain.ts",
     "test:drawer": "tsx scripts/test-drawer-logic.ts",
     "test:intake": "tsx scripts/test-intake-answers.ts",
+    "test:one-question": "tsx scripts/test-one-question.ts",
     "test:stream": "tsx scripts/test-stream-contract.ts",
     "test:document": "bash scripts/run-document-test.sh"
   },

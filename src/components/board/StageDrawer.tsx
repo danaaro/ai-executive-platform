@@ -22,8 +22,11 @@ import { DraftReview } from "@/components/review/DraftReview";
 import { findDeliverable, generateDraftPrompt } from "@/components/review/deliverable";
 import { parseJson } from "@/lib/api";
 import type { Stage } from "./stage-types";
-
-const INTAKE_START = "Start the NEW JOB intake session.";
+import {
+  INTAKE_START,
+  STAGE_START_BARE,
+  STAGE_START_INHERITED,
+} from "@/shared/intake-openers";
 
 /**
  * The stage work drawer (#1b) — one stage's whole loop in a single surface:
@@ -166,8 +169,8 @@ function StageDrawerBody({
       isJD
         ? INTAKE_START
         : stage.inheritedFrom.length > 0
-          ? "Here are the approved upstream artifacts for this role. Please begin."
-          : "Please begin. Ask me for whatever input you need."
+          ? STAGE_START_INHERITED
+          : STAGE_START_BARE
     );
   }, [session, isJD, canWrite, warningAcked, stage.inheritedFrom.length]);
 

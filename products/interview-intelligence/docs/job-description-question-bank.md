@@ -4,9 +4,11 @@
 
 **Coverage statuses:** `answered` · `inferred` (credited from something the HM said elsewhere — confirm briefly) · `unknown` · `not_yet_decided` · `skipped` (HM explicitly declined).
 
+**Parenthetical examples are interviewer guidance, never script.** Where a question carries a bracketed list — `(e.g., business growth, new initiative, restructuring, new capability)` — that list tells the interviewer what the question is reaching for. It is not part of the question. Never read it out, never offer it as options, and never re-ask a question with the examples attached ("was it growth, a new initiative, or something else?"). Ask the bare question; use the examples only to judge whether the answer addressed it.
+
 **Section handling tags:** `[public]` may inform JD text directly · `[internal]` informs tone, screening and downstream agents but is never quoted in the JD · `[mixed]` per-question judgment (candor answers stay internal).
 
-**Conversation rule (Dana, 2026-07-18):** do not interrogate one-by-one. Bundle naturally related questions from the same section, credit answers given in passing, and keep it a conversation — but the coverage record at the end must account for every question ID.
+**Conversation rule (Dana, 2026-09-05 — reverses the 2026-07-18 bundling rule):** ask ONE question per turn and wait for the answer. Bundling 2–4 related questions was tried from 2026-07-18 and produced turns where the third and fourth question went half-answered or unanswered. Credit answers given in passing rather than re-asking them, and let each answer shape the next question — but the coverage record at the end must still account for every question ID.
 
 
 ## 1. Business Context & Purpose  `[public]`
@@ -241,4 +243,5 @@
 
 ## Changelog
 - **v2 (2026-07-18):** replaced v1's themes A–I with Susan's 20-section Job Discovery Questionnaire (verbatim questions, new IDs `section.question`). Added coverage statuses and the conversational bundling rule. Company Info / Function Description manual-entry blocks from v1 remain a runtime convention: ask the HM to paste them if not offered (they feed sections 1, 13, 18).
+- **v2.1 (2026-09-05):** conversation rule reversed — one question per turn on every channel, replacing the bundling rule introduced in v2. The rule had already been revoked for live voice on 2026-08-13; this extends the same behaviour to text chat.
 - **v1 (2026-07-11):** initial working set (themes A–I), from Dana.

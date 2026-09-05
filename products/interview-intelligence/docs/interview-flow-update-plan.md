@@ -8,11 +8,15 @@ Driven by Dana's 2026-09-05 review and a new Claude Design wireframe set (6 desi
 
 | # | Update | Status |
 |---|---|---|
-| 0 | `intake_answers` store — prerequisite for 3 and 4 | Ready to build |
+| 0 | `intake_answers` store — prerequisite for 3 and 4 | ✅ **Done 2026-09-05** |
 | 1 | New agent prompts enhancing the JD interview logic | ⏳ Blocked on prompt text from Susan/Dana |
-| 2 | True conversational mode — one question per turn, JD agent only | Ready to build |
-| 3 | Intake resequenced — materials first, then one committed mode | Blocked on item 0 |
+| 2 | True conversational mode — one question per turn, JD agent only | ✅ **Done 2026-09-05** |
+| 3 | Intake resequenced — materials first, then one committed mode | Unblocked — next |
 | 4 | Single-hire (customer) mode — board as front door, deliverables pack | Needs ADR-009 first |
+
+**Baseline before the work (`generated/evals/run-2026-09-05-11-09/`):** agent quality 88.3%,
+guardrails 100%, every structural check 100%. The JD case was the weakest judge score at 72% —
+worth knowing when item 1's prompts land, because that is the number they have to beat.
 
 The through-line: today the platform interviews from zero, bundles questions, treats all four
 intake methods as ambient peers, and stores intake only as transcript text re-judged by an LLM on
@@ -146,6 +150,25 @@ to one. Invert: one question per turn everywhere, and the voice note keeps only 
   sibling, so the rule is guarded on the channel where it is now new.
 
 **Do not** change agents 02–10. Decision taken: JD only.
+
+**What it actually took (2026-09-05).** Reversing the rule in Phase 1 was not enough on its own —
+three findings from driving real turns:
+
+1. **The question bank was the real culprit.** Its questions carry parenthetical examples
+   (`(e.g., business growth, new initiative, restructuring, new capability)`) meant as interviewer
+   guidance, and the agent read them out as a menu of options — "was it growth, a new initiative,
+   or something else?". That is a second question wearing one question mark, and it leads the
+   hiring manager to pick from a list instead of describing their situation. Fixed by a rule in the
+   bank's own header, next to the text it governs, plus a checkable format rule in the prompt.
+2. **Re-asking is where it breaks.** The violation almost always appeared when the agent re-asked
+   something the hiring manager had skipped — exactly when offering options feels helpful.
+3. **The eval rubric rewarded the old behaviour.** `cases.json` scored the JD agent on
+   *"Conversational quality: bundled questions…"*. Left alone it would have marked the new,
+   correct behaviour down. Updated to score one-question-per-turn and the absence of answer menus.
+
+`npm run test:one-question` guards it on the text channel by driving real turns through the
+orchestrator (no dev server needed) and failing on a second question mark, a bulleted list of
+questions, *or* an appended menu — the em-dash form of which passes a naive question-mark count.
 
 ---
 

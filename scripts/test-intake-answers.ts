@@ -1,9 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
 import {
   createIntakeBlockFilter,
   splitIntakeBlock,
   sectionOf,
   INTAKE_ANSWERS_MARKER,
 } from "../src/shared/intake-answers";
+import { INTAKE_START } from "../src/shared/intake-openers";
 
 /**
  * Guards the [INTAKE ANSWERS] contract — the mechanism that turns intake from
@@ -89,6 +92,23 @@ console.log("--- splitIntakeBlock ---");
     JSON.stringify(answers)
   );
 }
+{
+  // The prompt ILLUSTRATES the block inside a ``` fence and models copy
+  // illustrations, so a real turn arrives as "…?\n\n```\n[INTAKE ANSWERS]…".
+  // Cutting at the marker alone left the opening fence dangling at the end of
+  // the visible reply — observed on the first live run.
+  for (const fence of ["```", "```json", "````"]) {
+    const { visibleText, answers } = splitIntakeBlock(
+      `${REPLY}\n\n${fence}\n${BLOCK}\n\`\`\``
+    );
+    check(
+      `dangling ${fence} fence removed from visible reply`,
+      visibleText === REPLY,
+      JSON.stringify(visibleText.slice(-30))
+    );
+    check(`fenced block still parses (${fence})`, answers.length === 2);
+  }
+}
 check("sectionOf rejects non-ids", sectionOf("abc") === null && sectionOf("0.1") === null);
 check("sectionOf reads two-digit sections", sectionOf("14.2") === 14);
 
@@ -103,8 +123,14 @@ function streamThrough(text: string, chunkSize: number): string {
   return out + f.flush();
 }
 
-const FULL = `${REPLY}\n\n${BLOCK}`;
-{
+// Both shapes the model actually produces: bare, and fenced as the prompt
+// illustrates it.
+const VARIANTS: [string, string][] = [
+  ["bare", `${REPLY}\n\n${BLOCK}`],
+  ["fenced", `${REPLY}\n\n\`\`\`\n${BLOCK}\n\`\`\``],
+  ["fenced json", `${REPLY}\n\n\`\`\`json\n${BLOCK}\n\`\`\``],
+];
+for (const [label, FULL] of VARIANTS) {
   // Every chunk size from 1 up: size 1 splits the marker maximally, and sizes
   // near the marker length are where an off-by-one in the held-back tail hides.
   const leaks: number[] = [];
@@ -114,9 +140,9 @@ const FULL = `${REPLY}\n\n${BLOCK}`;
     if (out.includes("INTAKE") || out.includes("answers")) leaks.push(size);
     if (out.trimEnd() !== REPLY) truncated.push(size);
   }
-  check("block never leaks at any chunk size", leaks.length === 0, `leaked at sizes ${leaks}`);
+  check(`[${label}] block never leaks at any chunk size`, leaks.length === 0, `sizes ${leaks}`);
   check(
-    "reply delivered intact at any chunk size",
+    `[${label}] reply delivered intact, no dangling fence`,
     truncated.length === 0,
     `wrong output at sizes ${truncated}`
   );
@@ -134,6 +160,27 @@ const FULL = `${REPLY}\n\n${BLOCK}`;
   const f = createIntakeBlockFilter();
   f.push(`${REPLY}\n\n${BLOCK}`);
   check("nothing escapes after the marker", f.push("more json") === "" && f.flush() === "");
+}
+
+console.log("\n--- opener contract ---");
+{
+  // cases.json cannot import the constant, so its copy is asserted here. The
+  // eval's first turn IS the trigger phrase the JD prompt keys its opening to;
+  // if the two drift, the golden case silently stops exercising the real
+  // opening and starts testing a turn nothing else in the product sends.
+  const cases = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), "products/interview-intelligence/evals/cases/cases.json"),
+      "utf-8"
+    )
+  ) as { cases: { slug: string; userTurns: string[] }[] };
+  const jd = cases.cases.find((c) => c.slug === "job-description");
+  check("eval case exists", !!jd);
+  check(
+    "eval's opening turn matches INTAKE_START",
+    jd?.userTurns[0] === INTAKE_START,
+    `${JSON.stringify(jd?.userTurns[0])} !== ${JSON.stringify(INTAKE_START)}`
+  );
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -66,8 +66,15 @@ function looksLikeDocument(text: string): boolean {
     body.length >= LONG_DOC_CHARS && headingCount(body) >= LONG_DOC_HEADINGS;
   if (!opensWithTitle(body) && !longAndSectioned) return false;
 
-  // A long message that is mostly an enumerated set of QUESTIONS is the agent
-  // bundling questionnaire items (its documented interview style), not a draft.
+  // A long message that is mostly QUESTIONS is not a draft.
+  //
+  // This was written against the bundling era, when a turn could legitimately
+  // be four numbered questions. Phase 1 now asks one question per turn
+  // (2026-09-05), so the guard fires far less often — but it is kept, and kept
+  // at the same threshold, because what it actually rejects is any turn whose
+  // substance is asking rather than delivering. The gap-closing summaries and
+  // the "here is what is still open" turns are exactly that shape, and they
+  // are long enough and sectioned enough to reach this check.
   const questionLines = (body.match(/^.*\?\s*$/gm) ?? []).length;
   const totalLines = body.split("\n").filter((l) => l.trim()).length;
   if (totalLines > 0 && questionLines / totalLines > 0.35) return false;

@@ -4,6 +4,7 @@ import { asc, and, eq, lt, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { extractVoiceGrant } from "@/shared/voice-grant";
+import { INTAKE_START } from "@/shared/intake-openers";
 import {
   createIntakeBlockFilter,
   recordIntakeAnswers,
@@ -16,37 +17,29 @@ import { db, tables } from "@/db";
  * Appended only on the voice channel: the same agent brain, but replies are
  * spoken aloud by TTS, so they must sound like speech, not read like a doc.
  *
- * The ONE-QUESTION rule is written as an explicit, named override (Dana
- * 2026-08-13). The operative prompt's Phase 1 carries a "mandatory" heading
- * telling the agent to bundle 2–4 questions per turn — right for typing, wrong
- * for speech, where a listener cannot re-read the turn and simply answers the
- * last thing they heard. An earlier, milder "one question at a time" clause sat
- * mid-sentence in this note and lost to the base prompt's emphasis every time,
- * so the rule now names the instruction it supersedes.
+ * This note used to carry the ONE-QUESTION rule as a named override, because
+ * the operative prompt's Phase 1 mandated bundling 2–4 questions per turn and a
+ * milder clause here lost to it every time (Dana 2026-08-13). Phase 1 now
+ * mandates one question per turn on every channel (2026-09-05), so the override
+ * is gone — an override that names an instruction which no longer exists is
+ * worse than none, since the model is left reconciling a rule it cannot find.
+ * What remains is a short reinforcement: voice is where a second question does
+ * the most damage, because a listener cannot re-read the turn and will only
+ * answer the last thing they heard.
  */
 const VOICE_CHANNEL_NOTE =
-  "\n\n---\n\n# Channel note: LIVE VOICE — these rules OVERRIDE the instructions above\n\n" +
+  "\n\n---\n\n# Channel note: LIVE VOICE\n\n" +
   "This is a LIVE VOICE conversation — the user is speaking to you and your reply is " +
   "spoken aloud via text-to-speech. Live voice IS fully supported; never say it is " +
   "unavailable or planned for later.\n\n" +
-  "## ONE QUESTION PER TURN (absolute, overrides Phase 1's bundling rule)\n\n" +
-  "Phase 1 above tells you to bundle 2–4 related questions into one conversational turn. " +
-  "That rule applies to TEXT CHAT ONLY and is REVOKED here. On voice:\n" +
-  "- Ask exactly ONE question, then stop talking and wait for the answer. Never two. " +
-  "Never 'and also', never 'a couple of things', never a question followed by a second " +
-  "question in the same turn.\n" +
-  "- HARD FORMAT RULE, check it before you answer: your entire spoken turn must contain " +
-  "EXACTLY ONE question mark character. Zero is allowed when you are only acknowledging " +
-  "something. Two or more is always wrong — rewrite the turn until one remains.\n" +
-  "- Do not preview or enumerate upcoming questions ('I'll ask you about scope, then team, " +
-  "then budget'). Just ask the first one.\n" +
-  "- Do not append a menu of candidate answers to your question ('what's driving it — is it " +
-  "growth, a new initiative, restructuring, something else?'). That is a second question, it " +
-  "doubles the length of a spoken turn, and it leads the Hiring Manager toward your options " +
-  "instead of their own words. Ask the open question and stop.\n" +
-  "- Follow-ups count as turns too: ask your clarifier, wait, then move on.\n" +
-  "- This costs more turns than typing would, and that is correct — a listener cannot " +
-  "re-read what you said and will only answer the last thing they heard.\n\n" +
+  "## One question per turn matters most here\n\n" +
+  "Your instructions already require exactly one question per turn. On voice this is " +
+  "unforgiving, so verify it before every reply:\n" +
+  "- Your entire spoken turn must contain EXACTLY ONE question mark character. Zero is " +
+  "allowed when you are only acknowledging something. Two or more is always wrong — " +
+  "rewrite the turn until one remains.\n" +
+  "- A listener cannot re-read what you said and will only answer the last thing they " +
+  "heard, so a second question does not get a second answer — it costs you the first one.\n\n" +
   "## Speaking style\n\n" +
   "Short conversational sentences. No markdown, no bullet lists, no headings, no numbering — " +
   "every character you emit is read aloud. Keep each turn to a few sentences at most: brief " +
@@ -146,7 +139,7 @@ export function toAnthropicMessages(
     push(m.role, text);
   }
   if (turns.length === 0 || turns[0].role !== "user") {
-    turns.unshift({ role: "user", content: "Start the NEW JOB intake session." });
+    turns.unshift({ role: "user", content: INTAKE_START });
   }
   return turns;
 }

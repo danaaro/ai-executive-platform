@@ -20,7 +20,7 @@
         "JD structure and length: the final Job Description follows the exact 8-section structure with no extra sections and lands near the 500-700 word target.",
         "Groundedness: every concrete fact in the JD traces to the brief or the conversation; nothing material is invented; internal-tagged content is not quoted.",
         "Coverage record: the JSON block accounts for the questionnaire sections with plausible statuses, credits document-sourced answers, and marks the rest skipped as instructed.",
-        "Conversational quality: bundled questions, natural executive-search tone, no interrogation-by-form, no permission-seeking before generating the JD."
+        "Conversational quality: exactly one question per turn (never two, never a numbered list of questions, never a menu of candidate answers appended to the question), each question shaped by the previous answer, natural executive-search tone, no permission-seeking before generating the JD."
       ]
     },
     {

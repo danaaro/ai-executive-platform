@@ -1,6 +1,8 @@
 # Intake Flow — the chronological model
 
-> STATUS: 🟡 DRAFT — design pass 2026-09-04 (Dana). Supersedes the intake portion of `UX-Shell.md` screen 3 and the flat four-method composer shipped 2026-07-18. Governs `src/components/intake/*`, `src/components/board/StageDrawer.tsx`, and the JD prompt's Phase-1 opening.
+> STATUS: 🟡 DRAFT — design pass 2026-09-04 (Dana), amended 2026-09-05. Supersedes the intake portion of `UX-Shell.md` screen 3 and the flat four-method composer shipped 2026-07-18. Governs `src/components/intake/*`, `src/components/board/StageDrawer.tsx`, and the JD prompt's Phase-1 opening.
+>
+> **Amended 2026-09-05** against the new wireframes (`input/wireframes-2026-09-05/`, design turn 5): intake mode is now a COMMITTED choice per stage, not a default posture — Steps 2 and 3 below are rewritten accordingly. Step 5 moved to the front and is **built** (see `intake_answers`). The wireframes mock 9 questionnaire sections; the real bank has 20 and the code reads the count from the bank.
 
 ## The problem with what shipped
 
@@ -50,9 +52,16 @@ The coverage meter jumps here, and this is the first time the user sees the plat
 | 🎙 **Talk it through** | Fastest for long context; the agent asks one question at a time | ElevenLabs live voice |
 | 🎤 **Dictate** | Speak your answer, review the text, then send | Web Speech — Chrome/Edge only; hidden with an explanatory line elsewhere |
 | ⌨️ **Type** | Best when you want to be precise | |
-| 📎 **Add more documents** | Back to Step 1 | |
 
-The choice sets the **default** mode for the session. It is a starting posture, not a lock — every other method stays one click away in the intake header.
+Three options, not four: "add more documents" is not a way of *answering the questionnaire*, and
+listing it here made the choice look like a menu of equals. Upload stays available from the
+composer in every mode, including during a live call.
+
+The choice **commits the stage** (wireframe 5a③: *"Pick one — the whole stage runs this way"*). It
+is stored on the conversation and named in the session header for as long as it lasts. This
+replaces the earlier "starting posture, not a lock" design: a mode nobody can name is a mode nobody
+chose, and per-section provenance only means something if the capture method is a fact about the
+session rather than whatever the user last clicked.
 
 ### Step 3 — Intake, switchable at any moment
 
@@ -64,10 +73,11 @@ The conversation surface gains a persistent header:
 
 Rules:
 
-- **Switch is always live.** Voice → text ends the call and continues the thread; text → voice hydrates the call from the persisted transcript. Both already work server-side (signed voice grant + per-turn persistence, 2026-07-19); what is added is the affordance and a one-line "Picking up at section 9 — you've covered business context, objectives and scope."
+- **Switching is deliberate, not ambient.** ⇄ Switch opens a confirm that names the consequences before anything happens: *"Your 7 answered sections stay — they're saved to the same intake. The live call will end, and the remaining 2 questions will be asked in writing."* On confirm the thread gets a divider — "switched from live voice · 7 answers kept" — and the header changes. Both directions already work server-side (signed voice grant + per-turn persistence, 2026-07-19); what is added is the affordance, the confirm, and the record.
+- **Only the active mode's control is shown.** This is the real behavioural change from the shipped composer, where all four methods sit as unlabelled peers and one is stumbled into rather than chosen.
 - **Upload works during live voice.** Currently blocked (`disabled={… || voiceLive}` in `Composer.tsx`). The file parses, is swept, and the agent acknowledges it *in the call*: "Got your role brief — that covers scope and stakeholders, so I'll skip ahead." Nothing about ingest requires the call to end.
 - **Saved state is visible.** Every turn writes to Postgres already; the header says so. This is the answer to "no matter what type of conversation, it all has to be written down and not lost."
-- **Switching never resets progress.** Guaranteed by `mergeCoverage()` monotonicity and, once Step 5 lands, by the answers table itself.
+- **Switching never resets progress.** Guaranteed by the answers table itself (Step 5, built 2026-09-05) — answers are rows keyed by question, so a mode change cannot touch them. `mergeCoverage()`'s ratchet is now only the fallback path for conversations that predate the table.
 
 ### Step 4 — Close the gaps
 
@@ -75,11 +85,11 @@ When coverage plateaus, or on demand, the remaining sections render as a checkli
 
 This maps exactly onto the prompt's completion rules — a question is complete when answered, or explicitly marked unknown / not yet decided / skipped — and it is what lets an interview *end* instead of running until the user gives up. Then: generate draft → review → approve (built).
 
-## Step 5 — A live intake record
+## Step 5 — A live intake record  ✅ BUILT 2026-09-05
 
 > **Scope correction (2026-09-05, Dana).** This section was originally written as the answer to "don't lose minutes of talking". It is not — durability is a separate concern and was fixed on its own (see *Durability* below). What this section actually buys is structure: answers that downstream agents and the UI can read, instead of prose only a model can interpret.
 
-The flow above works properly only if extracted and spoken answers are **stored as answers**, not merely as transcript. Recommended: a `intake_answers` table keyed `(conversationId, questionId)` carrying `answer`, `status` (`answered` / `inferred` / `unknown` / `not_yet_decided` / `skipped`), `source` (`document` / `voice` / `dictation` / `typed`), `sourceRef` (file name or message id), and `updatedAt`.
+The flow above works properly only if extracted and spoken answers are **stored as answers**, not merely as transcript. Built FIRST rather than last (2026-09-05), because Steps 1–4 promise things — per-section provenance, "your answers are kept", a gap checklist — that cannot be honoured without it. Shipped as an `intake_answers` table keyed `(conversationId, questionId)` carrying `answer`, `status` (`answered` / `inferred` / `unknown` / `not_yet_decided` / `skipped`), `source` (`document` / `voice` / `dictation` / `typed`), `sourceRef` (file name or message id), and `updatedAt`.
 
 Consequences:
 
@@ -89,17 +99,18 @@ Consequences:
 - **The Phase-3 JSON record becomes a serialisation** of state that already exists, rather than the only place the state lives.
 - **Downstream agents inherit structured answers**, not just the JD prose.
 
-Write path: the agent emits a compact `[INTAKE ANSWERS]` JSON block per turn (question ids + status + source), the route persists it, the transcript stays the human-readable record. This is additive — no existing behaviour changes.
+Write path: the agent emits a compact `[INTAKE ANSWERS]` JSON block per turn (question ids + status + source), the route persists it, the transcript stays the human-readable record. Additive — no existing behaviour changed. The block is withheld from the user as it streams, and on voice before ElevenLabs can read it aloud (`src/shared/intake-answers.ts`). Nothing is backfilled: conversations that predate the table keep the LLM scorer as a fallback, so no in-flight session lost its meter.
 
 ## Build order
 
-1. Step 0 launcher + resume card (`StageDrawer` stops auto-firing `INTAKE_START`; the opener is chosen by the user).
-2. Multi-file upload (`Composer` `multiple`, `/api/upload-parse` loop, sequential sweep).
-3. Step 2 method chooser + Step 3 intake header with live switch.
-4. Unblock upload during live voice.
-5. `intake_answers` table + derived coverage + extraction-confirmation panel + gap checklist.
+1. ~~`intake_answers` table + derived coverage~~ — **done 2026-09-05.** Moved to first: it is the one real architectural change, and it is what makes everything below honest rather than decorative.
+2. Step 0 launcher + resume card (`StageDrawer` stops auto-firing `INTAKE_START`; the opener is chosen by the user).
+3. Multi-file upload (`Composer` `multiple`, `/api/upload-parse` loop, sequential sweep).
+4. Step 2 mode chooser + Step 3 intake header — committed mode, switch confirm.
+5. Unblock upload during live voice.
+6. Extraction-confirmation panel, gap checklist and the provenance table — all queries against `intake_answers`.
 
-Steps 1–4 are UI over machinery that already exists and ship independently. Step 5 is the one real architectural change and is what makes 1–4 honest.
+Steps 2–5 are UI over machinery that already exists and ship independently.
 
 
 ---
