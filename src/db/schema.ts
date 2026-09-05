@@ -129,7 +129,15 @@ export const messages = pgTable(
     content: text("content").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("messages_conversation_idx").on(t.conversationId, t.seq)]
+  (t) => [
+    index("messages_conversation_idx").on(t.conversationId, t.seq),
+    // Seq is UNIQUE per conversation, which makes an insert idempotent under
+    // `onConflictDoNothing()`. The voice channel needs this: ElevenLabs
+    // retries a custom-LLM callback on timeout, and the server persists the
+    // in-session history on every callback — without the constraint a retry
+    // would duplicate turns instead of no-op'ing.
+    uniqueIndex("messages_conversation_seq_uniq").on(t.conversationId, t.seq),
+  ]
 );
 
 export const artifacts = pgTable(

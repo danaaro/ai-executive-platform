@@ -185,6 +185,81 @@ export function buildAgentSystemPrompt(slug: string): string {
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
+/**
+ * Streaming variant of runAgentTurn (2026-08-13).
+ *
+ * Why this exists: a full artifact is a 90-120s generation, and served
+ * non-streaming it produced a single response that arrived after the platform's
+ * function budget had already expired. The browser then got a gateway HTML page
+ * where it expected JSON and threw an opaque parse error ("The string did not
+ * match the expected pattern" in Safari). Streaming fixes the class of problem
+ * rather than the symptom: bytes start flowing within seconds, the connection
+ * stays alive for as long as the model is writing, and the user watches the
+ * document being written instead of staring at a spinner for two minutes.
+ *
+ * `onReset` fires when the truncation guard has to restart the generation —
+ * the caller must discard whatever it has already shown.
+ */
+export async function streamAgentTurn(
+  slug: string,
+  messages: ChatMessage[],
+  onDelta: (text: string) => void,
+  onReset?: () => void
+): Promise<string> {
+  const agent = getAgent(slug);
+  if (!agent) throw new Error(`Unknown agent: ${slug}`);
+
+  const runStream = async (thinking: boolean) => {
+    const stream = await getAnthropicClient().messages.create({
+      model: DEFAULT_MODEL,
+      max_tokens: agent.maxTokens ?? 8192,
+      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      system: [
+        {
+          type: "text",
+          text: buildAgentSystemPrompt(slug),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages,
+      stream: true,
+    });
+
+    let text = "";
+    let truncated = false;
+    for await (const event of stream) {
+      if (
+        event.type === "content_block_delta" &&
+        event.delta.type === "text_delta" &&
+        event.delta.text
+      ) {
+        text += event.delta.text;
+        onDelta(event.delta.text);
+      } else if (event.type === "message_delta" && event.delta.stop_reason === "max_tokens") {
+        truncated = true;
+      }
+    }
+    return { text, truncated };
+  };
+
+  let { text, truncated } = await runStream(true);
+
+  // Same self-healing guard as the non-streaming path: adaptive thinking's
+  // variable length can eat the budget before the answer is finished. The
+  // difference here is that partial text has already reached the user, so the
+  // caller is told to throw it away before the retry re-sends from the top.
+  if (truncated) {
+    console.warn(`[orchestrator/${slug}] stream hit max_tokens — retrying without thinking`);
+    onReset?.();
+    const retry = await runStream(false);
+    if (retry.text.trim()) text = retry.text;
+    if (retry.truncated) {
+      console.warn(`[orchestrator/${slug}] still truncated at ${agent.maxTokens ?? 8192}`);
+    }
+  }
+  return text;
+}
+
 export async function runAgentTurn(
   slug: string,
   messages: ChatMessage[]

@@ -93,18 +93,29 @@ export function findDeliverable(messages: Message[]): Deliverable | null {
  * one. The JD agent's prompt defers generation until every questionnaire item
  * is resolved (Phase 2) — this is the user deliberately overriding that to see
  * an interim draft, so it must ask for gaps to be flagged rather than invented.
+ *
+ * The marker is load-bearing, not decoration (fixed 2026-08-13). Phrased as a
+ * plain request, this turn read to the agent as "abandon your methodology
+ * because I asked", which the platform guardrails answer with the flat refusal
+ * sentence — so the button produced a refusal instead of a draft, no document
+ * was ever detected, and no Save button appeared. `prompts/system/guardrails.md`
+ * now sanctions this exact marker as a platform action; keep the two in sync.
  */
+export const INTERIM_DRAFT_MARKER = "[PLATFORM ACTION: INTERIM DRAFT]";
+
 export function generateDraftPrompt(agentSlug: string, stageName: string): string {
   if (agentSlug === "job-description") {
     return (
-      "Please produce an interim draft of the job description now, using everything I have given you so far — " +
+      `${INTERIM_DRAFT_MARKER}\n\n` +
+      "Produce an interim draft of the job description now, using everything I have given you so far — " +
       "even though the questionnaire isn't fully resolved. Follow your required structure exactly, and include " +
       "the Intake & Coverage Record. Where information is still missing, write a clearly marked placeholder such " +
       "as [TO CONFIRM: …] rather than inventing anything. Then tell me which questions still need answering."
     );
   }
   return (
-    `Please produce an interim draft of the ${stageName.toLowerCase()} now, using everything provided so far. ` +
+    `${INTERIM_DRAFT_MARKER}\n\n` +
+    `Produce an interim draft of the ${stageName.toLowerCase()} now, using everything provided so far. ` +
     "Follow your required output structure, mark anything still unknown as [TO CONFIRM: …] rather than inventing it, " +
     "and then tell me what you still need."
   );

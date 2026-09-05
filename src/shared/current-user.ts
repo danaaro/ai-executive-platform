@@ -175,7 +175,13 @@ export async function accessibleProjectIds(user: CurrentUser): Promise<string[] 
  * ---------------------------------------------------------------------- */
 
 /**
- * Appends one user/assistant turn pair to a conversation.
+ * Appends the USER half of a turn, resolving or creating the conversation.
+ *
+ * Called BEFORE the model runs (2026-09-05). The two halves used to be written
+ * together once generation finished, which meant a failed or timed-out
+ * generation threw away the user's input along with the reply — on a long
+ * document turn that is a real loss. Writing the user turn first costs the
+ * reply on failure, never the input.
  *
  * Callers authorize the project before getting here, so the remaining check
  * is *coherence*, not permission: a client-supplied conversation id must
@@ -183,15 +189,16 @@ export async function accessibleProjectIds(user: CurrentUser): Promise<string[] 
  * a `createdBy` mismatch — a stage thread on a shared board is worked by
  * several authorized people (ADR-008 §5), and forking per author would
  * shatter it into one thread each.
+ *
+ * Returns the conversation id and the seq the assistant reply should take.
  */
-export async function appendTurns(opts: {
+export async function appendUserTurn(opts: {
   conversationId: string | null;
   projectId: string;
   agentSlug: string;
   userId: string;
   userText: string;
-  assistantText: string;
-}): Promise<string | null> {
+}): Promise<{ conversationId: string; assistantSeq: number } | null> {
   if (!dbEnabled() || !isPersistableAgent(opts.agentSlug)) return null;
   const d = db();
   let convId = opts.conversationId;
@@ -231,21 +238,62 @@ export async function appendTurns(opts: {
     .where(eq(tables.messages.conversationId, convId));
   const nextSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
 
-  await d.insert(tables.messages).values([
-    { conversationId: convId, seq: nextSeq, role: "user", content: opts.userText },
-    {
-      conversationId: convId,
-      seq: nextSeq + 1,
-      role: "assistant",
-      content: opts.assistantText,
-    },
-  ]);
+  await d
+    .insert(tables.messages)
+    .values({ conversationId: convId, seq: nextSeq, role: "user", content: opts.userText })
+    .onConflictDoNothing();
   await d
     .update(tables.conversations)
     .set({ updatedAt: new Date() })
     .where(eq(tables.conversations.id, convId));
 
-  return convId;
+  return { conversationId: convId, assistantSeq: nextSeq + 1 };
+}
+
+/** Appends the assistant reply once generation succeeds. */
+export async function appendAssistantTurn(opts: {
+  conversationId: string;
+  seq: number;
+  assistantText: string;
+}): Promise<void> {
+  if (!dbEnabled() || !opts.assistantText.trim()) return;
+  const d = db();
+  await d
+    .insert(tables.messages)
+    .values({
+      conversationId: opts.conversationId,
+      seq: opts.seq,
+      role: "assistant",
+      content: opts.assistantText,
+    })
+    .onConflictDoNothing();
+  await d
+    .update(tables.conversations)
+    .set({ updatedAt: new Date() })
+    .where(eq(tables.conversations.id, opts.conversationId));
+}
+
+/**
+ * Both halves in one call. Kept for callers that genuinely have the reply in
+ * hand at the same moment as the input; the agent routes use the split pair
+ * above so the input survives a failed generation.
+ */
+export async function appendTurns(opts: {
+  conversationId: string | null;
+  projectId: string;
+  agentSlug: string;
+  userId: string;
+  userText: string;
+  assistantText: string;
+}): Promise<string | null> {
+  const started = await appendUserTurn(opts);
+  if (!started) return null;
+  await appendAssistantTurn({
+    conversationId: started.conversationId,
+    seq: started.assistantSeq,
+    assistantText: opts.assistantText,
+  });
+  return started.conversationId;
 }
 
 /**

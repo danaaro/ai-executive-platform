@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAgent,
-  runAgentTurn,
+  streamAgentTurn,
   type ChatMessage,
 } from "@/orchestrator/agent-orchestrator";
+import { agentStreamResponse } from "@/shared/agent-stream";
 import {
   requireUser,
-  appendTurns,
+  appendUserTurn,
+  appendAssistantTurn,
   dbEnabled,
   isPersistableAgent,
   getProjectAccess,
@@ -19,8 +21,13 @@ import {
 } from "@/orchestrator/inheritance";
 
 // Long-form generations (8K+ output tokens) exceed Vercel's default function
-// window — give LLM turns an explicit budget.
-export const maxDuration = 120;
+// window. Turns now STREAM (see shared/agent-stream.ts) so the connection is
+// never idle, but the budget still has to cover the tail of a long write:
+// measured 2026-08-13, a full JD interim draft (document + 20-section coverage
+// record, ~14K chars) takes 90-120s, which sat right on the old 120s ceiling
+// and returned a gateway-timeout page. 300s is the platform maximum; Vercel
+// clamps to the plan limit rather than failing the build if it allows less.
+export const maxDuration = 300;
 
 export async function POST(
   req: NextRequest,
@@ -91,37 +98,59 @@ export async function POST(
       }
     }
 
-    const reply = await runAgentTurn(slug, outbound);
+    return agentStreamResponse(async (emit) => {
+      // Persist the turn for role-scoped agents (ADR-006 §5) — the user half
+      // BEFORE generating, so a failed or timed-out generation costs the reply
+      // and never the input. Never let a persistence hiccup break the
+      // conversation itself.
+      let savedConversationId = conversationId;
+      let assistantSeq: number | null = null;
+      if (dbEnabled() && projectId) {
+        try {
+          const user = await requireUser();
+          if (user) {
+            const started = await appendUserTurn({
+              conversationId,
+              projectId,
+              agentSlug: slug,
+              userId: user.id,
+              // Persist what the model actually saw, so a resumed thread and a
+              // voice hand-off both carry the inherited context.
+              userText: outbound[outbound.length - 1]?.content ?? "",
+            });
+            if (started) {
+              savedConversationId = started.conversationId;
+              assistantSeq = started.assistantSeq;
+            }
+          }
+        } catch (err) {
+          console.error(`[agents/${slug}] user-turn persistence failed (turn served):`, err);
+        }
+      }
 
-    // Persist the turn for role-scoped agents (ADR-006 §5). Never let a
-    // persistence hiccup break the conversation itself.
-    let savedConversationId = conversationId;
-    if (dbEnabled() && projectId) {
-      try {
-        const user = await requireUser();
-        if (user) {
-          savedConversationId = await appendTurns({
-            conversationId,
-            projectId,
-            agentSlug: slug,
-            userId: user.id,
-            // Persist what the model actually saw, so a resumed thread and a
-            // voice hand-off both carry the inherited context.
-            userText: outbound[outbound.length - 1]?.content ?? "",
+      const reply = await streamAgentTurn(
+        slug,
+        outbound,
+        (text) => emit({ type: "delta", text }),
+        () => emit({ type: "reset" })
+      );
+
+      if (savedConversationId && assistantSeq !== null) {
+        try {
+          await appendAssistantTurn({
+            conversationId: savedConversationId,
+            seq: assistantSeq,
             assistantText: reply,
           });
+        } catch (err) {
+          console.error(`[agents/${slug}] reply persistence failed (turn served):`, err);
         }
-      } catch (err) {
-        console.error(`[agents/${slug}] persistence failed (turn served):`, err);
       }
-    }
 
-    return NextResponse.json({
-      reply,
-      conversationId: savedConversationId,
-      inherited: inheritedNote,
+      emit({ type: "done", conversationId: savedConversationId, inherited: inheritedNote });
     });
   } catch (err) {
+    // Only reachable for failures BEFORE the stream opens (inheritance lookup).
     console.error(`[agents/${slug}]`, err);
     return NextResponse.json({ error: "Agent request failed" }, { status: 500 });
   }

@@ -20,6 +20,7 @@ import { ChatThread } from "@/components/intake/ChatThread";
 import { Composer } from "@/components/intake/Composer";
 import { DraftReview } from "@/components/review/DraftReview";
 import { findDeliverable, generateDraftPrompt } from "@/components/review/deliverable";
+import { parseJson } from "@/lib/api";
 import type { Stage } from "./stage-types";
 
 const INTAKE_START = "Start the NEW JOB intake session.";
@@ -185,8 +186,7 @@ function StageDrawerBody({
           projectId,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Save failed");
+      const data = await parseJson<{ id: string }>(res);
       onChanged();
       setReviewArtifactId(data.id);
       setMode("review");

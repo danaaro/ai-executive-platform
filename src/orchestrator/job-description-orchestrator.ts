@@ -55,6 +55,61 @@ export function buildJobDescriptionSystemPrompt(): string {
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
+/**
+ * Streaming variant — see the long note on `streamAgentTurn`. The JD agent is
+ * the one that made this necessary: its Phase 2/3 deliverable (700-word JD plus
+ * a 20-section coverage record) is the longest generation in the suite at
+ * 90-120s, so it was the first to outlive the function budget and hand the
+ * browser a gateway page instead of JSON.
+ */
+export async function streamJobDescriptionTurn(
+  messages: ChatMessage[],
+  onDelta: (text: string) => void,
+  onReset?: () => void
+): Promise<string> {
+  const runStream = async (thinking: boolean) => {
+    const stream = await getAnthropicClient().messages.create({
+      model: DEFAULT_MODEL,
+      max_tokens: 16384,
+      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      system: [
+        {
+          type: "text",
+          text: buildJobDescriptionSystemPrompt(),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages,
+      stream: true,
+    });
+
+    let text = "";
+    let truncated = false;
+    for await (const event of stream) {
+      if (
+        event.type === "content_block_delta" &&
+        event.delta.type === "text_delta" &&
+        event.delta.text
+      ) {
+        text += event.delta.text;
+        onDelta(event.delta.text);
+      } else if (event.type === "message_delta" && event.delta.stop_reason === "max_tokens") {
+        truncated = true;
+      }
+    }
+    return { text, truncated };
+  };
+
+  let { text, truncated } = await runStream(true);
+  if (truncated) {
+    console.warn("[job-description] stream hit max_tokens — retrying without thinking");
+    onReset?.();
+    const retry = await runStream(false);
+    if (retry.text.trim()) text = retry.text;
+  }
+  return text;
+}
+
 export async function runJobDescriptionTurn(
   messages: ChatMessage[]
 ): Promise<string> {

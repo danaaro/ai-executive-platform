@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConversation } from "@elevenlabs/react";
+import { parseJson, readAgentStream } from "@/lib/api";
 
 /**
  * The intake engine behind a stage drawer — all four input methods (#3a)
@@ -82,6 +83,49 @@ export function useIntakeSession({
   const conversationIdRef = useRef<string | null>(initialConversationId);
   conversationIdRef.current = conversationId;
 
+  /* ---------------- unsent composer draft ------------------------------- */
+
+  // A dictated or typed answer lives in React state until Send, so a reload,
+  // an accidental close or a crashed tab used to destroy it — for dictation
+  // that is minutes of speech that never reached the server. Mirrored to
+  // localStorage instead: per-viewer, per-thread, cleared once the turn is
+  // actually sent.
+  //
+  // Every access is guarded: private windows and browsers with site data
+  // blocked throw on read AND write, and the composer must still work.
+  const draftKey = `intake-draft:${projectId}:${agentSlug}:${conversationId ?? "new"}`;
+  const draftKeyRef = useRef(draftKey);
+  draftKeyRef.current = draftKey;
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(draftKey);
+      if (saved) setInput((current) => (current ? current : saved));
+    } catch {
+      // no stored value is a perfectly normal state
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        if (input.trim()) window.localStorage.setItem(draftKey, input);
+        else window.localStorage.removeItem(draftKey);
+      } catch {
+        // best-effort only — never disturb typing
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [input, draftKey]);
+
+  const clearDraft = useCallback(() => {
+    try {
+      window.localStorage.removeItem(draftKeyRef.current);
+    } catch {
+      // nothing to clear
+    }
+  }, []);
+
   /* ---------------- coverage meter (shared across all methods) ---------- */
 
   const [coverage, setCoverage] = useState<CoverageSection[] | null>(null);
@@ -130,8 +174,7 @@ export function useIntakeSession({
     setHydrating(true);
     fetch(`/api/conversations/${initialConversationId}`)
       .then(async (r) => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error ?? "Could not load this session");
+        const d = await parseJson<{ id: string; messages?: Message[] }>(r);
         if (!alive) return;
         setMessages(d.messages ?? []);
         setConversationId(d.id);
@@ -170,15 +213,66 @@ export function useIntakeSession({
             ...(wantsInherit ? { inherit: true } : {}),
           }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Request failed");
 
-        setMessages([...next, { role: "assistant", content: data.reply }]);
-        if (data.conversationId) {
-          setConversationId(data.conversationId);
-          conversationIdRef.current = data.conversationId;
+        // Pre-flight rejections (400/401/403) still answer with plain JSON —
+        // only the model call streams, so a non-OK response is never a stream.
+        if (!res.ok) {
+          await parseJson(res); // throws with a readable message
+          throw new Error("Request failed");
         }
-        if (Array.isArray(data.inherited) && data.inherited.length) setInherited(data.inherited);
+
+        // The reply arrives token by token. Showing it as it lands is not
+        // cosmetic: it is what proves to the user that a 90-120s generation is
+        // progressing, and it is why the connection can no longer sit idle
+        // long enough to be killed by a gateway.
+        let streamed = "";
+        let sawTerminal = false;
+        let streamError: string | null = null;
+
+        await readAgentStream(res, (event) => {
+          switch (event.type) {
+            case "open":
+            case "heartbeat":
+              // Liveness only — the model is thinking and has not written yet.
+              // Keeping these visible-but-silent is deliberate: the drawer's
+              // elapsed counter already communicates the wait, and injecting a
+              // fake assistant message here would corrupt the thread.
+              break;
+            case "delta":
+              streamed += event.text;
+              setMessages([...next, { role: "assistant", content: streamed }]);
+              break;
+            case "reset":
+              // The truncation guard restarted the generation — drop the
+              // partial text rather than concatenating two attempts.
+              streamed = "";
+              setMessages([...next, { role: "assistant", content: "" }]);
+              break;
+            case "done":
+              sawTerminal = true;
+              if (event.conversationId) {
+                setConversationId(event.conversationId);
+                conversationIdRef.current = event.conversationId;
+              }
+              if (event.inherited?.length) setInherited(event.inherited);
+              break;
+            case "error":
+              sawTerminal = true;
+              streamError = event.error;
+              break;
+          }
+        });
+
+        if (streamError) throw new Error(streamError);
+        // No terminal event = the connection died mid-generation. Treat it as a
+        // failure so the recovery path below runs, rather than leaving a
+        // half-written document on screen looking finished.
+        if (!sawTerminal) {
+          throw new Error("The connection dropped while the agent was still writing.");
+        }
+        if (!streamed.trim()) throw new Error("The agent returned an empty reply.");
+
+        setMessages([...next, { role: "assistant", content: streamed }]);
         refreshCoverage(300);
         onTurnComplete?.();
       } catch (e) {
@@ -208,8 +302,10 @@ export function useIntakeSession({
     stopDictation();
     const text = input;
     setInput("");
+    // The turn is on its way to the server; the local copy has done its job.
+    clearDraft();
     await sendTurn([...messages, { role: "user", content: text }]);
-  }, [input, loading, messages, sendTurn]);
+  }, [input, loading, messages, sendTurn, clearDraft]);
 
   /** Used by the request-changes loop to push a note straight to the agent. */
   const sendText = useCallback(
@@ -294,8 +390,7 @@ export function useIntakeSession({
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/upload-parse", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      const data = await parseJson<{ name: string; text: string; truncated: boolean }>(res);
       const note = data.truncated ? " (truncated — document was very long)" : "";
       // The `[Uploaded document: …]` framing is what the JD prompt's v1.1
       // document-ingest behaviour looks for. Do not reword it.
@@ -315,33 +410,30 @@ export function useIntakeSession({
   const [voiceDropped, setVoiceDropped] = useState(false);
   const intentionalEndRef = useRef(false);
 
-  // Persist a voice turn the moment it is transcribed (voice-continuity fix):
-  // the transcript is in the DB before the audio finishes playing, so a
-  // dropped call loses nothing. Fire-and-forget with one retry.
-  const persistVoiceTurn = useCallback(
-    (role: "user" | "assistant", content: string) => {
-      const id = conversationIdRef.current;
-      if (!id || !content.trim()) return;
-      const post = () =>
-        fetch(`/api/conversations/${id}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role, content }),
-          keepalive: true,
-        });
-      post().catch(() => setTimeout(() => post().catch(() => {}), 2000));
-      // Voice turns arrive rapidly — refresh the meter at most every ~8s.
-      refreshCoverage(8000);
-    },
-    [refreshCoverage]
-  );
+  // Voice turns are persisted SERVER-SIDE, in the ElevenLabs custom-LLM
+  // callback (src/app/api/job-description/voice-llm/handler.ts), not here.
+  //
+  // This used to POST each transcribed turn from the browser, fire-and-forget
+  // with one retry. Two problems: durability was conditional on the tab
+  // staying alive (a crashed browser or a slept laptop lost everything since
+  // the last successful POST — the "minutes of talking" loss), and a POST that
+  // failed twice was dropped silently while the UI still read "saved".
+  //
+  // The server sees every turn anyway and allocates seq deterministically from
+  // the signed grant's baseSeq. Two writers with different seq schemes (server
+  // baseSeq+i vs. client max(seq)+1) would race and duplicate, so the client
+  // no longer writes at all — it only renders and nudges the coverage meter.
+  const noteVoiceTurn = useCallback(() => {
+    // Voice turns arrive rapidly — refresh the meter at most every ~8s.
+    refreshCoverage(8000);
+  }, [refreshCoverage]);
 
   const conversation = useConversation({
     onMessage: ({ message, role }: { message: string; role: string }) => {
       if (!message) return;
       const r = role === "user" ? "user" : "assistant";
       setMessages((prev) => [...prev, { role: r, content: message }]);
-      persistVoiceTurn(r, message);
+      noteVoiceTurn();
     },
     onError: (message: string) => setError(message),
     onConnect: () => {
@@ -380,8 +472,11 @@ export function useIntakeSession({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages, conversationId: conversationIdRef.current, projectId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not start a voice session");
+      const data = await parseJson<{
+        token: string;
+        conversationId?: string;
+        extraBody?: Record<string, unknown>;
+      }>(res);
       if (data.conversationId) {
         setConversationId(data.conversationId);
         conversationIdRef.current = data.conversationId;
@@ -448,10 +543,11 @@ export function useIntakeSession({
 }
 
 /**
- * A full job description is a non-streaming ~16K-token generation behind a
- * 120s function budget, so the response can be lost while the turn itself
- * committed. The reply is in Postgres either way — go and read it rather than
- * telling the user their work failed.
+ * A full job description is a ~16K-token generation, so the response can still
+ * be lost after the turn itself committed (the server persists before it emits
+ * `done`, so a connection dropped in between loses the message, not the work).
+ * The reply is in Postgres either way — go and read it rather than telling the
+ * user their work failed.
  */
 async function recoverLastReply(
   conversationId: string | null,

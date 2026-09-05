@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  runJobDescriptionTurn,
+  streamJobDescriptionTurn,
   type ChatMessage,
 } from "@/orchestrator/job-description-orchestrator";
 import {
   requireUser,
-  appendTurns,
+  appendUserTurn,
+  appendAssistantTurn,
   dbEnabled,
   getProjectAccess,
   canWrite,
 } from "@/shared/current-user";
+import { agentStreamResponse } from "@/shared/agent-stream";
 
-// The Phase 2/3 deliverable (JD + coverage record) is a long non-streaming
-// generation — needs more than Vercel's default function window.
-export const maxDuration = 120;
+// The Phase 2/3 deliverable (JD + coverage record) is the longest generation in
+// the suite — measured at 90-120s on 2026-08-13. It now STREAMS (see
+// shared/agent-stream.ts): first bytes leave in seconds, so this budget is
+// headroom for the tail of a long write rather than the thing the whole reply
+// has to fit inside. 120 was not enough and produced a gateway-timeout page.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -48,32 +53,50 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  try {
-    const reply = await runJobDescriptionTurn(messages);
-
+  // Everything above is a fast pre-flight check and still answers with plain
+  // JSON + a real status code. Only the model call streams.
+  return agentStreamResponse(async (emit) => {
     let conversationId: string | null = body.conversationId ?? null;
+    let assistantSeq: number | null = null;
+
+    // The user's input is stored BEFORE the model runs. A JD generation takes
+    // 90-160s and can fail or time out; when it does, the reply is lost but
+    // what the hiring manager typed or pasted is already safe.
     if (dbEnabled() && projectId) {
       try {
         const user = await requireUser();
         if (user) {
-          conversationId = await appendTurns({
+          const started = await appendUserTurn({
             conversationId,
             projectId,
             agentSlug: "job-description",
             userId: user.id,
             userText: messages[messages.length - 1]?.content ?? "",
-            assistantText: reply,
           });
+          if (started) {
+            conversationId = started.conversationId;
+            assistantSeq = started.assistantSeq;
+          }
         }
       } catch (err) {
-        console.error("[job-description] persistence failed (turn served):", err);
+        console.error("[job-description] user-turn persistence failed (turn served):", err);
       }
     }
 
-    return NextResponse.json({ reply, conversationId });
-  } catch (err) {
-    console.error(err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    const reply = await streamJobDescriptionTurn(
+      messages,
+      (text) => emit({ type: "delta", text }),
+      () => emit({ type: "reset" })
+    );
+
+    if (conversationId && assistantSeq !== null) {
+      try {
+        await appendAssistantTurn({ conversationId, seq: assistantSeq, assistantText: reply });
+      } catch (err) {
+        console.error("[job-description] reply persistence failed (turn served):", err);
+      }
+    }
+
+    emit({ type: "done", conversationId });
+  });
 }

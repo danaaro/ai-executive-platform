@@ -7,6 +7,14 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/api/**": ["./products/**/*.md", "./prompts/**/*.md"],
   },
+  // pdf-parse v2 wraps pdfjs-dist, which webpack cannot bundle: it mutates
+  // globals and loads its worker dynamically, so the bundled copy threw
+  // "Object.defineProperty called on non-object" at IMPORT time — PDF upload
+  // failed before a single byte was parsed, while DOCX/TXT worked. Loading it
+  // as a real Node module (require at runtime, unbundled) is the supported
+  // path. mammoth is listed for the same reason — it is native-ish and has no
+  // reason to go through the bundler either.
+  serverExternalPackages: ["pdf-parse", "mammoth"],
 };
 
 export default nextConfig;

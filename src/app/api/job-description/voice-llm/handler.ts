@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { asc, and, eq, lt } from "drizzle-orm";
+import { asc, and, eq, lt, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { extractVoiceGrant } from "@/shared/voice-grant";
@@ -10,15 +10,44 @@ import { db, tables } from "@/db";
 /**
  * Appended only on the voice channel: the same agent brain, but replies are
  * spoken aloud by TTS, so they must sound like speech, not read like a doc.
+ *
+ * The ONE-QUESTION rule is written as an explicit, named override (Dana
+ * 2026-08-13). The operative prompt's Phase 1 carries a "mandatory" heading
+ * telling the agent to bundle 2–4 questions per turn — right for typing, wrong
+ * for speech, where a listener cannot re-read the turn and simply answers the
+ * last thing they heard. An earlier, milder "one question at a time" clause sat
+ * mid-sentence in this note and lost to the base prompt's emphasis every time,
+ * so the rule now names the instruction it supersedes.
  */
 const VOICE_CHANNEL_NOTE =
-  "\n\n---\n\n# Channel note: LIVE VOICE\n\n" +
+  "\n\n---\n\n# Channel note: LIVE VOICE — these rules OVERRIDE the instructions above\n\n" +
   "This is a LIVE VOICE conversation — the user is speaking to you and your reply is " +
   "spoken aloud via text-to-speech. Live voice IS fully supported; never say it is " +
-  "unavailable or planned for later. Speak naturally: short conversational sentences, " +
-  "one question at a time, no markdown, no bullet lists, no headings. When you reach " +
-  "the final job description and intake record, offer to continue in text chat so the " +
-  "user can read and copy them, rather than reading long documents aloud.";
+  "unavailable or planned for later.\n\n" +
+  "## ONE QUESTION PER TURN (absolute, overrides Phase 1's bundling rule)\n\n" +
+  "Phase 1 above tells you to bundle 2–4 related questions into one conversational turn. " +
+  "That rule applies to TEXT CHAT ONLY and is REVOKED here. On voice:\n" +
+  "- Ask exactly ONE question, then stop talking and wait for the answer. Never two. " +
+  "Never 'and also', never 'a couple of things', never a question followed by a second " +
+  "question in the same turn.\n" +
+  "- HARD FORMAT RULE, check it before you answer: your entire spoken turn must contain " +
+  "EXACTLY ONE question mark character. Zero is allowed when you are only acknowledging " +
+  "something. Two or more is always wrong — rewrite the turn until one remains.\n" +
+  "- Do not preview or enumerate upcoming questions ('I'll ask you about scope, then team, " +
+  "then budget'). Just ask the first one.\n" +
+  "- Do not append a menu of candidate answers to your question ('what's driving it — is it " +
+  "growth, a new initiative, restructuring, something else?'). That is a second question, it " +
+  "doubles the length of a spoken turn, and it leads the Hiring Manager toward your options " +
+  "instead of their own words. Ask the open question and stop.\n" +
+  "- Follow-ups count as turns too: ask your clarifier, wait, then move on.\n" +
+  "- This costs more turns than typing would, and that is correct — a listener cannot " +
+  "re-read what you said and will only answer the last thing they heard.\n\n" +
+  "## Speaking style\n\n" +
+  "Short conversational sentences. No markdown, no bullet lists, no headings, no numbering — " +
+  "every character you emit is read aloud. Keep each turn to a few sentences at most: brief " +
+  "acknowledgement of what they just said, then the single next question.\n\n" +
+  "When you reach the final job description and intake record, offer to continue in text chat " +
+  "so the user can read and copy them, rather than reading long documents aloud.";
 
 /**
  * Shared cached prefix + voice-only suffix. The base prompt block carries the
@@ -150,6 +179,117 @@ export async function loadVoicePrefix(
   }
 }
 
+/**
+ * Server-side persistence of voice turns (2026-09-05).
+ *
+ * Before this, the ONLY writer of spoken turns was the browser
+ * (`persistVoiceTurn` in use-intake-session.ts). That made durability
+ * conditional on the tab staying alive: a crashed browser, a slept laptop or
+ * a closed window mid-call lost everything said since the last successful
+ * POST — minutes of talking, which is exactly what the 2026-07-19 continuity
+ * work was supposed to end. ElevenLabs calls this route server-to-server for
+ * every turn, so the transcript can be captured here instead, independent of
+ * the client entirely. The client write is now gone; this is the sole writer.
+ *
+ * Seq allocation is append-only rather than index-based:
+ *   persistedInSession = (max(seq) + 1) - baseSeq
+ * and only `history.slice(persistedInSession)` is written, at
+ * `baseSeq + persistedInSession + j`. That makes an ElevenLabs retry of the
+ * same turn slice to empty (a no-op), and if ElevenLabs ever trims its own
+ * history for context it appends the tail rather than overwriting earlier
+ * seqs. `onConflictDoNothing()` on the unique (conversation_id, seq) index is
+ * the backstop for concurrent callbacks.
+ */
+type Turn = { role: "user" | "assistant"; content: string };
+
+/**
+ * The RAW in-session history, filtered to real turns only.
+ *
+ * Deliberately NOT `toAnthropicMessages()`: that merges consecutive same-role
+ * turns and unshifts an intake-start sentinel, so its indices would drift from
+ * what ElevenLabs sends on the next callback and seq allocation would skew.
+ */
+export function historyTurns(messages: OpenAIMessage[]): Turn[] {
+  const turns: Turn[] = [];
+  for (const m of messages) {
+    if (m.role !== "user" && m.role !== "assistant") continue;
+    const text = contentToText(m.content).trim();
+    if (!text) continue;
+    turns.push({ role: m.role, content: text });
+  }
+  return turns;
+}
+
+/**
+ * Appends turns that are not yet stored. Returns the seq the next turn would
+ * take, so the caller can persist the assistant reply after the stream ends.
+ * Never throws — a persistence failure must not fail a live voice turn.
+ */
+export async function persistVoiceTurns(
+  grant: { conversationId: string; baseSeq: number },
+  turns: Turn[]
+): Promise<number | null> {
+  if (!dbEnabled()) return null;
+  try {
+    const d = db();
+    const [agg] = await d
+      .select({ maxSeq: max(tables.messages.seq) })
+      .from(tables.messages)
+      .where(eq(tables.messages.conversationId, grant.conversationId));
+    const nextSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
+    const persistedInSession = Math.max(0, nextSeq - grant.baseSeq);
+
+    const pending = turns.slice(persistedInSession);
+    if (pending.length === 0) return nextSeq;
+
+    await d
+      .insert(tables.messages)
+      .values(
+        pending.map((t, j) => ({
+          conversationId: grant.conversationId,
+          seq: grant.baseSeq + persistedInSession + j,
+          role: t.role,
+          content: t.content.slice(0, 20_000),
+        }))
+      )
+      .onConflictDoNothing();
+    await d
+      .update(tables.conversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(tables.conversations.id, grant.conversationId));
+
+    console.log(
+      `[voice-llm] persisted ${pending.length} turn(s) for conversation ${grant.conversationId} from seq ${grant.baseSeq + persistedInSession}`
+    );
+    return grant.baseSeq + persistedInSession + pending.length;
+  } catch (err) {
+    console.error("[voice-llm] turn persistence failed (turn continues):", err);
+    return null;
+  }
+}
+
+/** Appends one spoken assistant reply at a known seq. Never throws. */
+export async function persistAssistantTurn(
+  conversationId: string,
+  seq: number,
+  content: string
+): Promise<void> {
+  if (!dbEnabled() || !content.trim()) return;
+  try {
+    const d = db();
+    await d
+      .insert(tables.messages)
+      .values({ conversationId, seq, role: "assistant", content: content.slice(0, 20_000) })
+      .onConflictDoNothing();
+    await d
+      .update(tables.conversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(tables.conversations.id, conversationId));
+  } catch (err) {
+    console.error("[voice-llm] assistant persistence failed (turn continues):", err);
+  }
+}
+
 function sse(data: unknown): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
@@ -179,6 +319,15 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
   const requestedModel: string = body.model ?? "job-description-agent";
   const prefix = await loadVoicePrefix(body);
   const anthropicMessages = toAnthropicMessages(body.messages ?? [], prefix);
+
+  // Capture the transcript server-side before generating, so what the user
+  // already said is durable even if this turn fails outright. A grant that
+  // fails verification persists nothing — the signature is what proves the
+  // caller may write to this conversation.
+  const grant = extractVoiceGrant(body);
+  const assistantSeq = grant
+    ? await persistVoiceTurns(grant, historyTurns(body.messages ?? []))
+    : null;
   const id = `chatcmpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const created = Math.floor(Date.now() / 1000);
   const maxTokens = Math.min(Number(body.max_tokens) || 2048, 8192);
@@ -197,6 +346,10 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         messages: anthropicMessages,
       });
       const text = response.content.find((b) => b.type === "text");
+      const reply = text && text.type === "text" ? text.text : "";
+      if (grant && assistantSeq !== null) {
+        await persistAssistantTurn(grant.conversationId, assistantSeq, reply);
+      }
       return NextResponse.json({
         id,
         object: "chat.completion",
@@ -205,10 +358,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         choices: [
           {
             index: 0,
-            message: {
-              role: "assistant",
-              content: text && text.type === "text" ? text.text : "",
-            },
+            message: { role: "assistant", content: reply },
             finish_reason: "stop",
           },
         ],
@@ -227,6 +377,10 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         let inputTokens = 0;
         let outputTokens = 0;
         let cachedTokens = 0;
+        // What the user actually HEARS — persisted verbatim below, recovery
+        // line included, so the stored transcript matches the conversation
+        // and the agent doesn't repeat a question it already asked aloud.
+        let spoken = "";
         try {
           const anthropicStream = await getAnthropicClient().messages.create({
             model: DEFAULT_MODEL,
@@ -252,6 +406,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
               event.delta.type === "text_delta" &&
               event.delta.text
             ) {
+              spoken += event.delta.text;
               emit(chunk(id, created, requestedModel, { content: event.delta.text }, null));
             } else if (event.type === "message_delta") {
               outputTokens = event.usage.output_tokens;
@@ -262,16 +417,18 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
           // session: speak a short recovery line instead of surfacing an
           // "LLM Cascade Error" that kills the whole conversation.
           console.error("voice-llm upstream error:", err);
-          emit(
-            chunk(
-              id,
-              created,
-              requestedModel,
-              { content: "Sorry, I hit a brief hiccup on my side — could you say that again?" },
-              null
-            )
-          );
+          const recovery = "Sorry, I hit a brief hiccup on my side — could you say that again?";
+          spoken += recovery;
+          emit(chunk(id, created, requestedModel, { content: recovery }, null));
         }
+
+        // The reply is spoken; store it. Done here rather than on the next
+        // callback because a user who hangs up straight after hearing it
+        // would otherwise leave the last turn unrecorded.
+        if (grant && assistantSeq !== null) {
+          await persistAssistantTurn(grant.conversationId, assistantSeq, spoken);
+        }
+
         emit(chunk(id, created, requestedModel, {}, "stop"));
         if (includeUsage) {
           emit({

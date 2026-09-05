@@ -21,3 +21,18 @@ Nothing survives a page refresh: conversations live in React state, artifacts ar
 - The in-memory voice handoff remains (the ElevenLabs callback carries no user identity), but it now hydrates from the DB conversation, and its loss-modes shrink to within-session only.
 - Deferred consciously: RLS, Supabase Storage bucket, in-app user management, per-tenant isolation (step 6), retention jobs (Phase 2).
 - New env var `DATABASE_URL` (pooler URI) in `.env.local` + Vercel production; Supabase project must live on **Dana's own account** (see account-separation rule).
+
+---
+
+## Amendment 2026-08-13 — RLS is no longer deferred (accepted, Dana)
+
+**What was wrong.** Decision 1 deferred RLS on the reasoning that "no client ever holds DB credentials" and clients talking to the DB directly was "not planned". The premise was half true and the conclusion was unsafe: our *runtime* indeed never touches the DB directly, but Supabase publishes every table in `public` through **PostgREST** by default, and its default grants had given `anon` and `authenticated` full CRUD on all seven tables. With RLS off, anyone holding the project's *publishable* anon key could read — and delete — every conversation, message and artifact at `https://<ref>.supabase.co/rest/v1/…`. "We don't use that API" is not the same as "that API is closed". Supabase's Security Advisor had been flagging exactly this as 7 errors; Dana surfaced it on 2026-08-13.
+
+**Decision.** RLS is enabled on every table in `public`, with **zero policies** — default-deny for `anon` and `authenticated`. In addition the table grants are revoked from both roles outright, and `ALTER DEFAULT PRIVILEGES` is revoked so a future `drizzle-kit push` cannot silently re-open the hole on a new table. `service_role` is left as-is (it bypasses RLS by design and its key is server-secret and unused here).
+
+**Why this changes nothing about the authorization model.** Authorization stays exactly where ADR-008 put it: per-project membership enforced in the API layer. RLS here is a *second wall around an unused door*, not a new access-control mechanism — the runtime connects as `postgres`, which is both table owner and `BYPASSRLS`, so RLS is invisible to it. There are deliberately no policies to maintain: adding one would start splitting authorization across two places.
+
+**Consequences.**
+- Reversible and repeatable: `npm run secure:rls` (`scripts/secure-rls.ts`) is idempotent, refuses to run if the connecting role lacks `BYPASSRLS`, and verifies its own result including that the app can still read.
+- If a client ever *should* talk to Supabase directly (Phase-2 Storage is the likely first case), that becomes an explicit decision requiring real policies — which is the correct place for that conversation, rather than inheriting open access by default.
+- Supersedes the "Deferred consciously: RLS" bullet in Consequences above.

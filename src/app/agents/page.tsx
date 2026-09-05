@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
+import { parseJson, readAgentStream } from "@/lib/api";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -102,11 +103,21 @@ const AGENTS = [
 
 type AgentSlug = (typeof AGENTS)[number]["slug"];
 
+/**
+ * Both agent routes stream NDJSON as of 2026-08-13 (see shared/agent-stream.ts).
+ * This page is the legacy single-page chat, kept working rather than left to rot:
+ * a bare `res.json()` here would now throw on the very first token and reproduce
+ * exactly the opaque parse error the streaming change was made to eliminate.
+ *
+ * `onDelta` lets the caller paint tokens as they land; the accumulated text is
+ * still returned so the rest of this page's logic is unchanged.
+ */
 async function postTurn(
   agent: AgentSlug,
   messages: Message[],
   conversationId: string | null,
-  projectId: string | null
+  projectId: string | null,
+  onDelta?: (soFar: string) => void
 ): Promise<{ reply: string; conversationId: string | null }> {
   const url =
     agent === "job-description" ? "/api/job-description" : `/api/agents/${agent}`;
@@ -115,12 +126,43 @@ async function postTurn(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, conversationId, projectId }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Request failed");
-  return {
-    reply: data.reply as string,
-    conversationId: (data.conversationId as string | null) ?? conversationId,
-  };
+
+  // Pre-flight rejections still answer with plain JSON and a real status.
+  if (!res.ok) {
+    await parseJson(res); // throws with a message worth showing
+    throw new Error("Request failed");
+  }
+
+  let reply = "";
+  let nextConversationId = conversationId;
+  let sawTerminal = false;
+  let streamError: string | null = null;
+
+  await readAgentStream(res, (event) => {
+    switch (event.type) {
+      case "delta":
+        reply += event.text;
+        onDelta?.(reply);
+        break;
+      case "reset":
+        reply = "";
+        onDelta?.(reply);
+        break;
+      case "done":
+        sawTerminal = true;
+        nextConversationId = event.conversationId ?? conversationId;
+        break;
+      case "error":
+        sawTerminal = true;
+        streamError = event.error;
+        break;
+      // "open"/"heartbeat" are liveness only.
+    }
+  });
+
+  if (streamError) throw new Error(streamError);
+  if (!sawTerminal) throw new Error("The connection dropped while the agent was still writing.");
+  return { reply, conversationId: nextConversationId };
 }
 
 type RecentConversation = {
@@ -449,7 +491,9 @@ function JobDescriptionAgent() {
     setLoading(true);
     setError(null);
     try {
-      const out = await postTurn(agent, next, conversationId, projectId);
+      const out = await postTurn(agent, next, conversationId, projectId, (soFar) =>
+        setMessages([...next, { role: "assistant", content: soFar }])
+      );
       setMessages([...next, { role: "assistant", content: out.reply }]);
       if (out.conversationId) {
         setConversationId(out.conversationId);
