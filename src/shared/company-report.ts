@@ -316,7 +316,6 @@ export function reportToMarkdown(
     `scope: ${meta.mode}`,
     `research_modules: [${meta.modules.map((m) => m.slice(0, 2)).join(", ")}]`,
     `overall_confidence: ${r.overallConfidence}`,
-    "status: draft",
     "---",
     "",
     `# ${meta.company} — Company Intelligence Report`,

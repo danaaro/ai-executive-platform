@@ -6,8 +6,6 @@ const nextConfig = {
   // 500s in production with ENOENT.
   outputFileTracingIncludes: {
     "/api/**": ["./products/**/*.md", "./prompts/**/*.md"],
-    // Company Intel page reads the review checklist at request time (ADR-009).
-    "/internal/**": ["./products/interview-intelligence/evals/company-intel/*.md"],
   },
   // pdf-parse v2 wraps pdfjs-dist, which webpack cannot bundle: it mutates
   // globals and loads its worker dynamically, so the bundled copy threw

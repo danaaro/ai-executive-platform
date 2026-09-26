@@ -55,7 +55,7 @@ type RunState = "queued" | "running" | "done" | "failed" | "skipped";
 
 const CULTURE = "05-culture-voice";
 
-export function CompanyIntel({ checklist }: { checklist: string }) {
+export function CompanyIntel() {
   const [step, setStep] = useState<Step>("name");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [existed, setExisted] = useState(false);
@@ -153,12 +153,7 @@ export function CompanyIntel({ checklist }: { checklist: string }) {
             />
           )}
           {step === "results" && detail && (
-            <ResultsStep
-              detail={detail}
-              checklist={checklist}
-              reload={() => load(detail.company.slug)}
-              onResearchAgain={() => setStep("docs")}
-            />
+            <ResultsStep detail={detail} onUpdate={() => setStep("docs")} />
           )}
         </div>
       </main>
@@ -576,8 +571,13 @@ function RunStep({
     // Synthesize if anything was (re)researched or the wanted output is missing.
     const fresh = await fetch(`/api/company-intel/companies/${slug}`).then((r) => parseJson<Detail>(r));
     const cultureOk = fresh.modules.find((m) => m.module === CULTURE)?.status !== "missing";
+    // Anything the current format expects but the saved report lacks is
+    // rebuilt from saved research here — no separate "re-analyze" or
+    // "find photos" buttons (Dana, 2026-09-26).
     const outputMissing =
-      !fresh.report || (scope === "full" && fresh.report.mode !== "full");
+      !fresh.report || !fresh.report.data || (scope === "full" && fresh.report.mode !== "full");
+    const photosMissing =
+      scope === "full" && Boolean(fresh.report?.data?.keyPersonas.length) && !fresh.report?.data?.photosCheckedAt;
     const anyRan = results.some(Boolean);
 
     if (!cultureOk) {
@@ -585,19 +585,22 @@ function RunStep({
       setRunning(false);
       return;
     }
-    if (!anyRan && !outputMissing) {
-      setNotice("Everything in scope is fresh and the outputs exist. Nothing to re-run. Showing the saved report.");
+    if (!anyRan && !outputMissing && !photosMissing) {
+      setNotice("Everything in scope is fresh and the report is up to date. Nothing to re-run. Showing the saved report.");
       setRunning(false);
       await onFinished();
       return;
     }
 
-    setSynth({ state: "running", chars: 0 });
+    const synthesize = anyRan || outputMissing;
+    setSynth(synthesize ? { state: "running", chars: 0 } : { state: "skipped", chars: 0 });
     try {
-      await stream(`/api/company-intel/companies/${slug}/synthesize`, { mode: scope }, (t) =>
-        setSynth((s) => (s ? { ...s, chars: s.chars + t.length } : s))
-      );
-      setSynth((s) => (s ? { ...s, state: "done" } : s));
+      if (synthesize) {
+        await stream(`/api/company-intel/companies/${slug}/synthesize`, { mode: scope }, (t) =>
+          setSynth((s) => (s ? { ...s, chars: s.chars + t.length } : s))
+        );
+        setSynth((s) => (s ? { ...s, state: "done" } : s));
+      }
       if (scope === "full") {
         setPhotos("running");
         try {
@@ -779,164 +782,66 @@ function download(filename: string, content: string) {
 
 function ResultsStep({
   detail,
-  checklist,
-  reload,
-  onResearchAgain,
+  onUpdate,
 }: {
   detail: Detail;
-  checklist: string;
-  reload: () => Promise<Detail>;
-  onResearchAgain: () => void;
+  onUpdate: () => void;
 }) {
   const { slug, name } = detail.company;
   const report = detail.report;
-  const [rebuilding, setRebuilding] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const toggleReviewed = async () => {
-    if (!report) return;
-    await fetch(`/api/company-intel/outputs/${report.id}/reviewed`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reviewed: !report.reviewed }),
-    });
-    await reload();
-  };
-
-  /** Re-analyzes the SAVED research into a new report version. No new web research. */
-  const rebuild = async () => {
-    setRebuilding(true);
-    setErr(null);
-    try {
-      const hasAll = detail.modules.every((m) => m.status !== "missing");
-      const res = await fetch(`/api/company-intel/companies/${slug}/synthesize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: hasAll ? "full" : "culture-only" }),
-      });
-      if (!res.ok) await parseJson(res);
-      let failed = null as string | null;
-      await readAgentStream(res, (ev) => {
-        if (ev.type === "error") failed = ev.error;
-      });
-      if (failed) throw new Error(failed);
-      if (hasAll) await findPhotos(false);
-      await reload();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not build the report");
-    } finally {
-      setRebuilding(false);
-    }
-  };
-
-  const [findingPhotos, setFindingPhotos] = useState(false);
-  /** Photo pass on the current report. Non-fatal: failures leave initials. */
-  const findPhotos = async (reloadAfter = true) => {
-    setFindingPhotos(true);
-    try {
-      const res = await fetch(`/api/company-intel/companies/${slug}/photos`, { method: "POST" });
-      if (res.ok) await readAgentStream(res, () => {});
-      if (reloadAfter) await reload();
-    } finally {
-      setFindingPhotos(false);
-    }
-  };
-  const canFindPhotos = Boolean(report?.data?.keyPersonas.length);
-
-  const canRebuild = detail.research.some((r) => r.module === CULTURE);
+  const legacy = Boolean(report && !report.data);
 
   return (
     <div className="space-y-4">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-[18px] font-semibold text-ink">{name}</h2>
         <div className="flex flex-wrap gap-2">
-          {canRebuild && (
-            <Button size="sm" variant="ghost" onClick={rebuild} disabled={rebuilding}>
-              {rebuilding ? "Analyzing… (about 1–2 min)" : report ? "Re-analyze" : "Build report"}
-            </Button>
-          )}
-          {canFindPhotos && (
-            <Button size="sm" variant="ghost" onClick={() => findPhotos()} disabled={rebuilding || findingPhotos}>
-              {findingPhotos
-                ? "Finding photos… (about 1 min)"
-                : report?.data?.photosCheckedAt
-                  ? "Look for photos again"
-                  : "Find persona photos"}
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={onResearchAgain} disabled={rebuilding}>
-            Add documents / research again
+          <Button size="sm" variant="ghost" onClick={onUpdate}>
+            Update research
           </Button>
+          {report?.data && (
+            <Button size="sm" onClick={() => window.print()}>
+              Save as PDF
+            </Button>
+          )}
+          {report && (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => download(`${slug}-company-report.md`, report.content)}
+            >
+              Download .md
+            </Button>
+          )}
         </div>
       </div>
 
-      {err && <Alert tone="danger">{err}</Alert>}
-
-      {!report ? (
-        <Alert tone="info">
-          {canRebuild
-            ? "This company's research is saved but has no final report yet (it was researched before the report format). Click \u201cBuild report\u201d to analyze the saved research. No new web research is needed."
-            : "No research yet for this company."}
+      {!report || legacy ? (
+        <Alert tone="accent">
+          {detail.research.length
+            ? "This company was researched before the current report format. Click \u201cUpdate research\u201d and Run: saved research that is still fresh is reused (no new web searches) and the full visual report is built from it."
+            : "No research yet for this company. Click \u201cUpdate research\u201d to start."}
         </Alert>
-      ) : (
-        <>
-          <div className="no-print flex flex-wrap items-center justify-between gap-2 rounded-card border border-line bg-card px-4 py-2.5">
-            <Badge tone={report.reviewed ? "done" : "draft"}>
-              {report.reviewed ? `reviewed by ${report.reviewedBy}` : "draft, not yet reviewed"}
-            </Badge>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={toggleReviewed}>
-                {report.reviewed ? "Mark as draft" : "Mark reviewed"}
-              </Button>
-              {report.data && (
-                <Button size="sm" onClick={() => window.print()}>
-                  Save as PDF
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => download(`${slug}-company-report.md`, report.content)}
-              >
-                Download .md
-              </Button>
-            </div>
-          </div>
-          {report.data ? (
-            <ReportView
-              data={report.data}
-              meta={{
-                company: name,
-                mode: report.mode,
-                version: report.version,
-                createdAt: report.createdAt,
-                logoUrl: detail.company.logoUrl,
-              }}
-            />
-          ) : (
-            <>
-              <Alert tone="accent">
-                This report was made before the visual format. Click \u201cRe-analyze\u201d to rebuild it as a
-                visual report from the saved research (about 2 minutes, no new web research).
-              </Alert>
-              <Card>
-                <article className="max-h-[75vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
-                  {report.content}
-                </article>
-              </Card>
-            </>
-          )}
-        </>
-      )}
+      ) : null}
 
-      {report && (
-        <details className="no-print rounded-card border border-line bg-card p-4">
-          <summary className="cursor-pointer text-[13px] font-medium text-ink">
-            Review checklist (use before marking reviewed)
-          </summary>
-          <div className="mt-3 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted">{checklist}</div>
-        </details>
-      )}
+      {report?.data ? (
+        <ReportView
+          data={report.data}
+          meta={{
+            company: name,
+            mode: report.mode,
+            version: report.version,
+            createdAt: report.createdAt,
+            logoUrl: detail.company.logoUrl,
+          }}
+        />
+      ) : report ? (
+        <Card>
+          <article className="max-h-[75vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
+            {report.content}
+          </article>
+        </Card>
+      ) : null}
 
       {detail.research.length > 0 && (
         <details className="no-print rounded-card border border-line bg-card p-4">

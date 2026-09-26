@@ -19,7 +19,7 @@ It is not connected to any other agent. Pasting a report into a JD session, or a
    - **Full research** runs modules 01–05, then writes the full report.
 
    A live progress view shows the modules running in parallel. The results show on screen, can be downloaded as `.md` files, and are saved to the database.
-4. **Past research.** Open any company to see its latest report, download it, mark it reviewed, or **Re-analyze** it. Re-analyzing rebuilds the report from saved research without new web searches.
+4. **Past research.** Open any company to see its latest report, save it as a PDF, or download it. **Update research** goes back through documents and Run. Fresh research is reused, and anything the report lacks, such as the current format or photos, is rebuilt without new web searches.
 
 ## Research modules
 Brief files live in `../prompts/company-intel/briefs/`.

@@ -45,6 +45,7 @@ The runtime is adapted as follows:
     5. If the site blocks automated reads, Google's favicon service.
 
     White or reversed logo variants are ranked last because the tile is white. The website is filled in from the research when it was never entered. The lookup runs after each report and in the photo step, and it never fails a run.
+11. **One flow, no manual review state (Dana, 2026-09-26).** "Mark reviewed" was removed: it was the package's approval gate for the JD agent, and with that coupling gone it did nothing. The DB columns stay unused for the CRM. The standalone "Re-analyze" and "Find persona photos" buttons were also removed. A run now detects what the current report format lacks, such as an old-format report or missing photos, and rebuilds it from saved research that is still fresh, without new web searches. "Update research" is the single entry point.
 6. **The cache is read from the database.** A module counts as fresh when `researched_on + shelf_life_days` is later than today. Every run inserts a new row and the latest row wins, so history is kept.
 
 ## Consequences
