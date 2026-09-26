@@ -83,6 +83,8 @@ async function main() {
   `;
   // Structured report data for the visual page (2026-09-26).
   await sql`ALTER TABLE company_outputs ADD COLUMN IF NOT EXISTS data jsonb`;
+  // Company logo for the report header (2026-09-26).
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url text`;
   console.log("   ✓ " + TABLES.join(", "));
 
   console.log("2. Constraints + indexes…");

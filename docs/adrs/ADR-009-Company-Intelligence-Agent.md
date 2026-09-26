@@ -37,6 +37,14 @@ The runtime is adapted as follows:
    - The server accepts an image only if its alt or title text contains the person's full name, or its file name contains both their first and last name.
    - Fallback: a Wikimedia Commons image, taken only when the Wikidata entry ties the person to the company.
    - Otherwise the card shows initials. Only the image URL is stored. A wrong face is treated as worse than none.
+10. **Company logo on the company record (Dana, 2026-09-26).** The logo is stored in `companies.logo_url`, a CRM-ready field that belongs to the company rather than to one report. `orchestrator/company-logo.ts` reads the company's own homepage deterministically and takes, in order:
+    1. The JSON-LD Organization logo.
+    2. A "logo" image in the header, nav or homepage link, or one whose file name or label names the company. Body logo grids, which show brands, clients or partners, are excluded.
+    3. The apple-touch-icon.
+    4. The largest favicon.
+    5. If the site blocks automated reads, Google's favicon service.
+
+    White or reversed logo variants are ranked last because the tile is white. The website is filled in from the research when it was never entered. The lookup runs after each report and in the photo step, and it never fails a run.
 6. **The cache is read from the database.** A module counts as fresh when `researched_on + shelf_life_days` is later than today. Every run inserts a new row and the latest row wins, so history is kept.
 
 ## Consequences

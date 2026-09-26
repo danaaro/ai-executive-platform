@@ -43,7 +43,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     };
 
   return NextResponse.json({
-    company: { slug: company.slug, name: company.name, website: company.website },
+    company: { slug: company.slug, name: company.name, website: company.website, logoUrl: company.logoUrl },
     modules,
     research: research.map((r) => ({ module: r.module, content: r.content, researchedOn: r.researchedOn })),
     inputs: inputs.map((i) => ({ id: i.id, filename: i.filename, chars: i.chars, createdAt: i.createdAt })),

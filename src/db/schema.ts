@@ -271,6 +271,8 @@ export const companies = pgTable("companies", {
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   website: text("website"),
+  // Found from the company's own site (orchestrator/company-logo.ts); URL only.
+  logoUrl: text("logo_url"),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),

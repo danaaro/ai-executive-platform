@@ -13,6 +13,7 @@ export async function GET() {
     .select({
       slug: tables.companies.slug,
       name: tables.companies.name,
+      logoUrl: tables.companies.logoUrl,
       updatedAt: tables.companies.updatedAt,
     })
     .from(tables.companies)

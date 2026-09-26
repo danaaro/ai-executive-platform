@@ -32,6 +32,7 @@ export type ReportMeta = {
   mode: "full" | "culture-only";
   version: number;
   createdAt: string;
+  logoUrl?: string | null;
 };
 
 export function ReportView({ data: r, meta }: { data: ReportData; meta: ReportMeta }) {
@@ -172,12 +173,17 @@ function Hero({ r, meta }: { r: ReportData; meta: ReportMeta }) {
   return (
     <section className="print-avoid-break overflow-hidden rounded-card bg-ink-soft text-canvas">
       <div className="p-6 sm:p-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
-          Company Intelligence Report · {meta.mode === "full" ? "Full research" : "Culture focus"}
-        </p>
-        <h1 className="mt-2 font-display text-[28px] font-semibold leading-tight sm:text-[34px]">
-          {meta.company}
-        </h1>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+              Company Intelligence Report · {meta.mode === "full" ? "Full research" : "Culture focus"}
+            </p>
+            <h1 className="mt-2 font-display text-[28px] font-semibold leading-tight sm:text-[34px]">
+              {meta.company}
+            </h1>
+          </div>
+          {meta.logoUrl && <CompanyLogo url={meta.logoUrl} name={meta.company} size="lg" />}
+        </div>
         <p className="mt-3 max-w-3xl text-[16px] leading-relaxed text-canvas/90 sm:text-[18px]">{r.headline}</p>
 
         <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 text-[12.5px]">
@@ -210,6 +216,33 @@ function Hero({ r, meta }: { r: ReportData; meta: ReportMeta }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * The company's logo on a white tile — logos are drawn for light backgrounds,
+ * so the tile keeps them legible on the dark hero. Hides itself if the image
+ * fails to load.
+ */
+export function CompanyLogo({ url, name, size }: { url: string; name: string; size: "sm" | "lg" }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center overflow-hidden bg-white",
+        size === "lg" ? "size-16 rounded-xl p-2 sm:size-20 sm:p-2.5" : "size-7 rounded-md border border-line p-0.5"
+      )}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- external, unknown hosts */}
+      <img
+        src={url}
+        alt={`${name} logo`}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className="max-h-full max-w-full object-contain"
+      />
+    </span>
   );
 }
 

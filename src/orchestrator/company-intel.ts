@@ -5,6 +5,7 @@ import { and, asc, desc, eq, max } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { findPersonaPhotos } from "@/orchestrator/persona-photos";
+import { findCompanyLogo, guessWebsite } from "@/orchestrator/company-logo";
 import {
   REPORT_JSON_SCHEMA,
   isReportShape,
@@ -377,6 +378,7 @@ export async function runResearchModule(opts: {
     .update(tables.companies)
     .set({ updatedAt: new Date() })
     .where(eq(tables.companies.id, company.id));
+  await ensureCompanyLogo(company.id).catch((err) => console.warn("[company-intel] logo lookup failed:", err));
   return row;
 }
 
@@ -551,6 +553,7 @@ export async function addPersonaPhotos(companyId: string) {
   if (!company || !report?.data) throw new Error("No visual report to add photos to");
   const data = report.data as ReportData;
 
+  await ensureCompanyLogo(companyId).catch(() => null);
   const photos = await findPersonaPhotos({
     company: company.name,
     website: company.website,
@@ -563,4 +566,26 @@ export async function addPersonaPhotos(companyId: string) {
   };
   await d.update(tables.companyOutputs).set({ data: next }).where(eq(tables.companyOutputs.id, report.id));
   return next.keyPersonas.filter((p) => p.photo).length;
+}
+
+/**
+ * Finds and stores the company logo once (companies.logo_url). Fills in
+ * `website` from the research when it was never entered, since the logo and
+ * the future CRM record both want it. Never throws into a run's critical path
+ * — callers catch.
+ */
+export async function ensureCompanyLogo(companyId: string, force = false) {
+  const d = db();
+  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
+  if (!company || (company.logoUrl && !force)) return company?.logoUrl ?? null;
+
+  const website =
+    company.website ?? guessWebsite(company.slug, (await latestResearch(companyId)).map((r) => r.content));
+  if (!website) return null;
+  const logoUrl = await findCompanyLogo(website, company.name);
+  await d
+    .update(tables.companies)
+    .set({ logoUrl, website: company.website ?? website })
+    .where(eq(tables.companies.id, companyId));
+  return logoUrl;
 }

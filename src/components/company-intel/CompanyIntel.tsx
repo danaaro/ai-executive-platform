@@ -9,7 +9,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/field";
 import { parseJson, readAgentStream } from "@/lib/api";
 import { extractText } from "@/lib/extract-text";
-import { ReportView } from "@/components/company-intel/ReportView";
+import { CompanyLogo, ReportView } from "@/components/company-intel/ReportView";
 import type { ReportData } from "@/shared/company-report";
 import { cn, relativeTime } from "@/lib/utils";
 
@@ -43,7 +43,7 @@ type Output = {
   createdAt: string;
 } | null;
 type Detail = {
-  company: { slug: string; name: string; website: string | null };
+  company: { slug: string; name: string; website: string | null; logoUrl: string | null };
   modules: ModuleState[];
   research: { module: string; content: string; researchedOn: string }[];
   inputs: { id: string; filename: string; chars: number; createdAt: string }[];
@@ -210,7 +210,9 @@ function NameStep({
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
-  const [past, setPast] = useState<{ slug: string; name: string; updatedAt: string }[] | null>(null);
+  const [past, setPast] = useState<
+    { slug: string; name: string; logoUrl: string | null; updatedAt: string }[] | null
+  >(null);
 
   useEffect(() => {
     fetch("/api/company-intel/companies")
@@ -288,7 +290,14 @@ function NameStep({
                   onClick={() => onOpen(c.slug)}
                   className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13.5px] hover:bg-canvas-subtle"
                 >
-                  <span className="font-medium text-ink">{c.name}</span>
+                  <span className="flex items-center gap-2.5 font-medium text-ink">
+                    {c.logoUrl ? (
+                      <CompanyLogo url={c.logoUrl} name={c.name} size="sm" />
+                    ) : (
+                      <span className="size-7 rounded-md border border-dashed border-line" aria-hidden />
+                    )}
+                    {c.name}
+                  </span>
                   <span className="text-[12px] text-muted">updated {relativeTime(c.updatedAt)}</span>
                 </button>
               </li>
@@ -872,7 +881,13 @@ function ResultsStep({
           {report.data ? (
             <ReportView
               data={report.data}
-              meta={{ company: name, mode: report.mode, version: report.version, createdAt: report.createdAt }}
+              meta={{
+                company: name,
+                mode: report.mode,
+                version: report.version,
+                createdAt: report.createdAt,
+                logoUrl: detail.company.logoUrl,
+              }}
             />
           ) : (
             <>
