@@ -53,6 +53,16 @@ export async function requireUser(): Promise<CurrentUser | null> {
   return user;
 }
 
+/**
+ * Platform admins only (Dana + Susan) — the gate for internal tools such as
+ * Company Intelligence (ADR-009). Customers never get a link to these; this is
+ * the server-side guard behind that, not a UX surface.
+ */
+export async function requireAdmin(): Promise<CurrentUser | null> {
+  const user = await requireUser();
+  return user?.role === "admin" ? user : null;
+}
+
 async function claimPendingInvites(userId: string, email: string): Promise<void> {
   try {
     await db()

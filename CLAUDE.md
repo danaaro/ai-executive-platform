@@ -22,3 +22,14 @@ The multi-product SaaS platform SusanDana Co sells to customers. NOT the interna
 
 ## Current focus
 First vertical slice: the **Job Description agent** in `products/interview-intelligence/` — PRD → schemas → prompt → agent definition → thin `src/` slice → examples → evals. See `docs/builders-handbook/00-Roadmap.md`.
+
+## Company Intelligence Agent (internal — ADR-009)
+**Internal tool for Dana + Susan (Clerk admins) only — never customer-facing, no link to the JD agent or the board.**
+
+Researches a company and produces a company brief + culture profile.
+- UI: `/internal/company-intel` (name → optional documents → run). API: `/api/company-intel/*`. Every route/page checks `requireAdmin()`; the header link renders only for admins.
+- Structure: page orchestrates → up to 5 parallel `company-researcher` runs (one per brief in `products/interview-intelligence/prompts/company-intel/briefs/`, Sonnet + web_search/web_fetch) → `company-synthesizer` (Opus). Runtime: `src/orchestrator/company-intel.ts`.
+- Facts live in `company_research` (sourced, dated). Interpretation lives in `company_outputs` (brief + profile). Uploaded docs in `company_inputs`. These tables are the interim seed of the future CRM company record.
+- Outputs start as drafts; a human marks them reviewed using `products/interview-intelligence/evals/company-intel/review-checklist.md`. Nothing depends on that flag.
+- Slugs: lowercase, hyphenated, no legal suffix ("Acme Corp Ltd." → `acme`).
+- Non-negotiables (don't edit the prompts' core rules without Dana's approval): no scraping behind logins; no demographic data about employees; stakeholders limited to public professional info; every fact carries source + date; facts vs interpretation stay separate.

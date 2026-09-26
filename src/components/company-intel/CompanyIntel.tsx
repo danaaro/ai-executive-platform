@@ -1,0 +1,857 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { AppHeader } from "@/components/AppHeader";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { Card, CardBody } from "@/components/ui/card";
+import { Input, Label, Textarea } from "@/components/ui/field";
+import { parseJson, readAgentStream } from "@/lib/api";
+import { cn, relativeTime } from "@/lib/utils";
+
+/**
+ * Company Intelligence — the guided flow (ADR-009). This page IS the
+ * orchestrator the package's /research-company command used to be:
+ *   1. company name   → find-or-create, show what's cached
+ *   2. documents      → optional uploads / pastes, highest-trust source
+ *   3. run            → stale/missing modules in parallel, then synthesis
+ *   → results: brief + culture profile, download .md, saved in the DB
+ */
+
+type ModuleState = {
+  module: string;
+  title: string;
+  status: "fresh" | "stale" | "missing";
+  researchedOn: string | null;
+  coverage: string | null;
+  sourcesCount: number | null;
+};
+type Output = {
+  id: string;
+  version: number;
+  mode: "full" | "culture-only";
+  content: string;
+  reviewed: boolean;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+} | null;
+type Detail = {
+  company: { slug: string; name: string; website: string | null };
+  modules: ModuleState[];
+  research: { module: string; content: string; researchedOn: string }[];
+  inputs: { id: string; filename: string; chars: number; createdAt: string }[];
+  outputs: { brief: Output; culture: Output };
+};
+type Step = "name" | "docs" | "run" | "results";
+type Scope = "culture-only" | "full";
+type RunState = "queued" | "running" | "done" | "failed" | "skipped";
+
+const CULTURE = "05-culture-voice";
+
+export function CompanyIntel({ checklist }: { checklist: string }) {
+  const [step, setStep] = useState<Step>("name");
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [existed, setExisted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async (slug: string) => {
+    const d = await parseJson<Detail>(await fetch(`/api/company-intel/companies/${slug}`));
+    setDetail(d);
+    return d;
+  };
+
+  const open = async (slug: string, fromList: boolean) => {
+    setError(null);
+    try {
+      const d = await load(slug);
+      const hasOutputs = Boolean(d.outputs.culture || d.outputs.brief);
+      setExisted(true);
+      setStep(fromList && hasOutputs ? "results" : "docs");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not open that company");
+    }
+  };
+
+  const reset = () => {
+    setDetail(null);
+    setExisted(false);
+    setError(null);
+    setStep("name");
+  };
+
+  return (
+    <>
+      <AppHeader
+        breadcrumb={
+          <span className="text-[13px] font-medium text-muted">
+            Internal · Company Intel{detail ? ` · ${detail.company.name}` : ""}
+          </span>
+        }
+      />
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-[22px] font-semibold text-ink">Company Intelligence</h1>
+          {step !== "name" && (
+            <Button size="sm" variant="ghost" onClick={reset}>
+              ← New research
+            </Button>
+          )}
+        </div>
+        <p className="mt-1 text-[13px] text-muted">
+          Internal research tool for Dana and Susan. Produces a factual company brief and a culture
+          profile. Not visible to customers.
+        </p>
+
+        {step !== "results" && <Stepper step={step} />}
+
+        {error && (
+          <Alert tone="danger" className="mt-5">
+            {error}
+          </Alert>
+        )}
+
+        <div className="mt-6">
+          {step === "name" && (
+            <NameStep
+              onPicked={async (slug, wasExisting) => {
+                setError(null);
+                try {
+                  await load(slug);
+                  setExisted(wasExisting);
+                  setStep("docs");
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Could not load the company");
+                }
+              }}
+              onOpen={(slug) => open(slug, true)}
+              onError={setError}
+            />
+          )}
+          {step === "docs" && detail && (
+            <DocsStep
+              detail={detail}
+              existed={existed}
+              reload={() => load(detail.company.slug)}
+              onNext={() => setStep("run")}
+            />
+          )}
+          {step === "run" && detail && (
+            <RunStep
+              detail={detail}
+              onBack={() => setStep("docs")}
+              onFinished={async () => {
+                await load(detail.company.slug);
+                setStep("results");
+              }}
+            />
+          )}
+          {step === "results" && detail && (
+            <ResultsStep
+              detail={detail}
+              checklist={checklist}
+              reload={() => load(detail.company.slug)}
+              onResearchAgain={() => setStep("docs")}
+            />
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+
+function Stepper({ step }: { step: Step }) {
+  const steps: { id: Step; label: string }[] = [
+    { id: "name", label: "1 · Company" },
+    { id: "docs", label: "2 · Documents" },
+    { id: "run", label: "3 · Run" },
+  ];
+  const idx = steps.findIndex((s) => s.id === step);
+  return (
+    <ol className="mt-5 flex gap-2 text-[12px] font-medium">
+      {steps.map((s, i) => (
+        <li
+          key={s.id}
+          className={cn(
+            "rounded-full border px-3 py-1",
+            i === idx
+              ? "border-accent bg-accent-wash text-accent-ink"
+              : i < idx
+                ? "border-line bg-canvas-subtle text-ink"
+                : "border-line text-muted"
+          )}
+        >
+          {s.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+
+function NameStep({
+  onPicked,
+  onOpen,
+  onError,
+}: {
+  onPicked: (slug: string, existed: boolean) => void;
+  onOpen: (slug: string) => void;
+  onError: (e: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [website, setWebsite] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [past, setPast] = useState<{ slug: string; name: string; updatedAt: string }[] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/company-intel/companies")
+      .then((r) => parseJson<{ companies: typeof past }>(r))
+      .then((d) => setPast(d.companies ?? []))
+      .catch(() => setPast([]));
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      const d = await parseJson<{ slug: string; existed: boolean }>(
+        await fetch("/api/company-intel/companies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, website }),
+        })
+      );
+      onPicked(d.slug, d.existed);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Could not start");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <Card>
+        <CardBody>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="ci-name">Which company are we researching?</Label>
+              <Input
+                id="ci-name"
+                autoFocus
+                placeholder="e.g. Amdocs"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ci-web">
+                Website <span className="font-normal text-muted">(optional, helps with common names)</span>
+              </Label>
+              <Input
+                id="ci-web"
+                placeholder="https://…"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </div>
+            <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
+              {busy ? "Checking…" : "Continue"}
+            </Button>
+          </form>
+        </CardBody>
+      </Card>
+
+      <section>
+        <h2 className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted">
+          Past research
+        </h2>
+        {past === null ? (
+          <p className="text-[13px] text-muted">Loading…</p>
+        ) : past.length === 0 ? (
+          <p className="text-[13px] text-muted">No companies researched yet.</p>
+        ) : (
+          <ul className="divide-y divide-line rounded-card border border-line bg-card">
+            {past.map((c) => (
+              <li key={c.slug}>
+                <button
+                  onClick={() => onOpen(c.slug)}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13.5px] hover:bg-canvas-subtle"
+                >
+                  <span className="font-medium text-ink">{c.name}</span>
+                  <span className="text-[12px] text-muted">updated {relativeTime(c.updatedAt)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+
+function DocsStep({
+  detail,
+  existed,
+  reload,
+  onNext,
+}: {
+  detail: Detail;
+  existed: boolean;
+  reload: () => Promise<Detail>;
+  onNext: () => void;
+}) {
+  const slug = detail.company.slug;
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [pasteName, setPasteName] = useState("");
+  const [pasteText, setPasteText] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const addInput = async (filename: string, content: string) => {
+    await parseJson(
+      await fetch(`/api/company-intel/companies/${slug}/inputs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, content }),
+      })
+    );
+  };
+
+  const upload = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setErr(null);
+    for (const file of Array.from(files)) {
+      setBusy(`Reading ${file.name}…`);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const parsed = await parseJson<{ name: string; text: string; truncated: boolean }>(
+          await fetch("/api/upload-parse", { method: "POST", body: form })
+        );
+        await addInput(parsed.name, parsed.text);
+        if (parsed.truncated) setErr(`${file.name} was long and has been cut to about 60,000 characters.`);
+      } catch (e) {
+        setErr(`${file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
+      }
+    }
+    if (fileRef.current) fileRef.current.value = "";
+    await reload();
+    setBusy(null);
+  };
+
+  const paste = async () => {
+    if (!pasteText.trim()) return;
+    setBusy("Saving…");
+    setErr(null);
+    try {
+      const name = pasteName.trim() || `notes-${new Date().toISOString().slice(0, 10)}.md`;
+      await addInput(name, pasteText);
+      setPasteName("");
+      setPasteText("");
+      await reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async (id: string) => {
+    await fetch(`/api/company-intel/companies/${slug}/inputs?id=${id}`, { method: "DELETE" });
+    await reload();
+  };
+
+  const researched = detail.modules.filter((m) => m.status !== "missing");
+
+  return (
+    <div className="space-y-5">
+      {existed && researched.length > 0 && (
+        <Alert tone="accent">
+          <div>
+            <strong>{detail.company.name}</strong> has been researched before.{" "}
+            {detail.modules.filter((m) => m.status === "fresh").length} of 5 modules are still fresh
+            and will be reused, not re-run. You can force a full refresh in the next step.
+          </div>
+        </Alert>
+      )}
+
+      <Card>
+        <CardBody className="space-y-4">
+          <div>
+            <h2 className="font-display text-[16px] font-semibold text-ink">
+              Do you have any documents from {detail.company.name}?
+            </h2>
+            <p className="mt-1 text-[13px] text-muted">
+              Anything they&apos;ve already shared with us, such as decks, handbooks, org charts,
+              Glassdoor exports or meeting notes. Every research module reads these first, and they
+              rank above web sources.
+            </p>
+          </div>
+
+          {detail.inputs.length > 0 && (
+            <ul className="divide-y divide-line rounded-lg border border-line">
+              {detail.inputs.map((i) => (
+                <li key={i.id} className="flex items-center justify-between px-3 py-2 text-[13px]">
+                  <span className="text-ink">
+                    {i.filename}{" "}
+                    <span className="text-muted">· {Math.round(i.chars / 1000)}k chars</span>
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => remove(i.id)}>
+                    Remove
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.md,.markdown,.txt"
+              className="hidden"
+              onChange={(e) => upload(e.target.files)}
+            />
+            <Button onClick={() => fileRef.current?.click()} disabled={Boolean(busy)}>
+              Upload files
+            </Button>
+            <span className="text-[12px] text-muted">PDF, DOCX, MD, TXT · up to 10 MB each</span>
+          </div>
+
+          <details className="rounded-lg border border-line p-3">
+            <summary className="cursor-pointer text-[13px] font-medium text-ink">Or paste text</summary>
+            <div className="mt-3 space-y-2">
+              <Input
+                placeholder="Name, e.g. glassdoor-2026-09.md or call-notes-ceo.md"
+                value={pasteName}
+                onChange={(e) => setPasteName(e.target.value)}
+              />
+              <Textarea
+                rows={6}
+                placeholder="Paste here…"
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+              />
+              <Button size="sm" onClick={paste} disabled={Boolean(busy) || !pasteText.trim()}>
+                Add
+              </Button>
+            </div>
+          </details>
+
+          {busy && <p className="text-[13px] text-muted">{busy}</p>}
+          {err && <Alert tone="warn">{err}</Alert>}
+        </CardBody>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button variant="primary" onClick={onNext} disabled={Boolean(busy)}>
+          {detail.inputs.length ? "Continue" : "Skip, use public sources only"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+
+function RunStep({
+  detail,
+  onBack,
+  onFinished,
+}: {
+  detail: Detail;
+  onBack: () => void;
+  onFinished: () => Promise<void>;
+}) {
+  const slug = detail.company.slug;
+  const [scope, setScope] = useState<Scope>(
+    detail.modules.find((m) => m.module === CULTURE)?.status === "fresh" ? "full" : "culture-only"
+  );
+  const [refresh, setRefresh] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [states, setStates] = useState<Record<string, { state: RunState; log: string[]; error?: string }>>({});
+  const [synth, setSynth] = useState<{ state: RunState; chars: number; error?: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+
+  const inScope = detail.modules.filter((m) => scope === "full" || m.module === CULTURE);
+  const toRun = inScope.filter((m) => refresh || m.status !== "fresh");
+
+  const patch = (module: string, p: Partial<{ state: RunState; log: string[]; error?: string }>) =>
+    setStates((s) => ({ ...s, [module]: { ...(s[module] ?? { state: "queued", log: [] }), ...p } }));
+
+  /** Reads one NDJSON stream; resolves on `done`, throws on `error`. */
+  const stream = async (url: string, body: unknown, onDelta: (t: string) => void) => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) await parseJson(res); // throws a readable error
+    let failed = null as string | null;
+    let done = false as boolean;
+    await readAgentStream(res, (ev) => {
+      if (ev.type === "delta") onDelta(ev.text);
+      else if (ev.type === "error") failed = ev.error;
+      else if (ev.type === "done") done = true;
+    });
+    if (failed) throw new Error(failed);
+    if (!done) throw new Error("The connection closed before the run finished");
+  };
+
+  const run = async () => {
+    setRunning(true);
+    setNotice(null);
+    setStartedAt(Date.now());
+    setSynth(null);
+    const init: typeof states = {};
+    for (const m of inScope) init[m.module] = { state: toRun.includes(m) ? "queued" : "skipped", log: [] };
+    setStates(init);
+
+    // Parallel, one request per module (ADR-009 §5).
+    const results = await Promise.all(
+      toRun.map(async (m) => {
+        patch(m.module, { state: "running" });
+        try {
+          await stream(`/api/company-intel/companies/${slug}/research/${m.module}`, {}, (t) =>
+            setStates((s) => {
+              const cur = s[m.module];
+              return { ...s, [m.module]: { ...cur, log: [...cur.log, ...t.split("\n").filter(Boolean)] } };
+            })
+          );
+          patch(m.module, { state: "done" });
+          return true;
+        } catch (e) {
+          patch(m.module, { state: "failed", error: e instanceof Error ? e.message : "failed" });
+          return false;
+        }
+      })
+    );
+
+    // Synthesize if anything was (re)researched or the wanted output is missing.
+    const fresh = await fetch(`/api/company-intel/companies/${slug}`).then((r) => parseJson<Detail>(r));
+    const cultureOk = fresh.modules.find((m) => m.module === CULTURE)?.status !== "missing";
+    const outputMissing =
+      !fresh.outputs.culture || (scope === "full" && !fresh.outputs.brief);
+    const anyRan = results.some(Boolean);
+
+    if (!cultureOk) {
+      setNotice("Module 05 (culture) has no research yet, so there's nothing to synthesize. Check the error above and run again.");
+      setRunning(false);
+      return;
+    }
+    if (!anyRan && !outputMissing) {
+      setNotice("Everything in scope is fresh and the outputs exist. Nothing to re-run. Showing the saved results.");
+      setRunning(false);
+      await onFinished();
+      return;
+    }
+
+    setSynth({ state: "running", chars: 0 });
+    try {
+      await stream(`/api/company-intel/companies/${slug}/synthesize`, { mode: scope }, (t) =>
+        setSynth((s) => (s ? { ...s, chars: s.chars + t.length } : s))
+      );
+      setSynth((s) => (s ? { ...s, state: "done" } : s));
+      setRunning(false);
+      await onFinished();
+    } catch (e) {
+      setSynth((s) => (s ? { ...s, state: "failed", error: e instanceof Error ? e.message : "failed" } : s));
+      setRunning(false);
+    }
+  };
+
+  const elapsed = startedAt ? Math.round((now - startedAt) / 1000) : 0;
+  const started = Object.keys(states).length > 0;
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardBody className="space-y-4">
+          <h2 className="font-display text-[16px] font-semibold text-ink">What should we run?</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ScopeOption
+              active={scope === "culture-only"}
+              disabled={running}
+              onClick={() => setScope("culture-only")}
+              title="Culture only"
+              text="Module 05 → culture profile. Faster. Use it first to test profile quality."
+            />
+            <ScopeOption
+              active={scope === "full"}
+              disabled={running}
+              onClick={() => setScope("full")}
+              title="Full research"
+              text="All 5 modules in parallel → company brief + culture profile."
+            />
+          </div>
+          <label className="flex items-center gap-2 text-[13px] text-ink">
+            <input
+              type="checkbox"
+              checked={refresh}
+              disabled={running}
+              onChange={(e) => setRefresh(e.target.checked)}
+            />
+            Refresh everything (ignore cached research)
+          </label>
+
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-[0.06em] text-muted">
+                <th className="py-1.5 font-semibold">Module</th>
+                <th className="font-semibold">Cache</th>
+                <th className="font-semibold">Researched</th>
+                <th className="font-semibold">{started ? "This run" : "Plan"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {inScope.map((m) => {
+                const st = states[m.module];
+                const will = toRun.includes(m);
+                return (
+                  <tr key={m.module} className="align-top">
+                    <td className="py-2 pr-2 text-ink">
+                      {m.module.slice(0, 2)} · {m.title}
+                      {st?.state === "running" && st.log.length > 0 && (
+                        <div className="mt-0.5 truncate text-[11.5px] text-muted" title={st.log.at(-1)}>
+                          {st.log.length} steps · {st.log.at(-1)}
+                        </div>
+                      )}
+                      {st?.error && <div className="mt-0.5 text-[11.5px] text-danger">{st.error}</div>}
+                    </td>
+                    <td>
+                      <Badge tone={m.status === "fresh" ? "done" : m.status === "stale" ? "warn" : "neutral"}>
+                        {m.status}
+                      </Badge>
+                    </td>
+                    <td className="text-muted">
+                      {m.researchedOn ?? "—"}
+                      {m.coverage ? ` · ${m.coverage}` : ""}
+                    </td>
+                    <td>
+                      {st ? <RunBadge state={st.state} /> : will ? <Badge tone="active">will run</Badge> : <Badge>reuse</Badge>}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td className="py-2 text-ink">Synthesis (Opus)</td>
+                <td colSpan={2} className="text-muted">
+                  {scope === "full" ? "brief + culture profile" : "culture profile"}
+                  {synth?.state === "running" && synth.chars > 0 && ` · writing (${Math.round(synth.chars / 1000)}k chars)`}
+                  {synth?.error && <div className="text-[11.5px] text-danger">{synth.error}</div>}
+                </td>
+                <td>{synth ? <RunBadge state={synth.state} /> : <Badge>after research</Badge>}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {running && (
+            <p className="text-[12.5px] text-muted">
+              Running · {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}. Research
+              modules usually take 1–4 minutes each. Keep this tab open.
+            </p>
+          )}
+          {notice && <Alert tone="info">{notice}</Alert>}
+        </CardBody>
+      </Card>
+
+      <div className="flex justify-between">
+        <Button variant="ghost" onClick={onBack} disabled={running}>
+          ← Documents
+        </Button>
+        <Button variant="primary" onClick={run} disabled={running}>
+          {running ? "Running…" : started ? "Run again" : "Start research"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ScopeOption(props: {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  title: string;
+  text: string;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={props.disabled}
+      onClick={props.onClick}
+      className={cn(
+        "rounded-lg border p-3 text-left transition-colors disabled:opacity-60",
+        props.active ? "border-accent bg-accent-wash" : "border-line hover:border-line-strong"
+      )}
+    >
+      <div className="text-[14px] font-semibold text-ink">{props.title}</div>
+      <div className="mt-0.5 text-[12.5px] text-muted">{props.text}</div>
+    </button>
+  );
+}
+
+function RunBadge({ state }: { state: RunState }) {
+  const tone = { queued: "neutral", running: "active", done: "done", failed: "danger", skipped: "neutral" } as const;
+  const label = { queued: "queued", running: "running…", done: "done", failed: "failed", skipped: "reused" };
+  return <Badge tone={tone[state]}>{label[state]}</Badge>;
+}
+
+/* ---------------------------------------------------------------------- */
+
+function download(filename: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ResultsStep({
+  detail,
+  checklist,
+  reload,
+  onResearchAgain,
+}: {
+  detail: Detail;
+  checklist: string;
+  reload: () => Promise<Detail>;
+  onResearchAgain: () => void;
+}) {
+  const { slug } = detail.company;
+  const tabs = [
+    detail.outputs.culture && { id: "culture", label: "Culture profile" },
+    detail.outputs.brief && { id: "brief", label: "Company brief" },
+    detail.research.length > 0 && { id: "research", label: `Research files (${detail.research.length})` },
+  ].filter(Boolean) as { id: "culture" | "brief" | "research"; label: string }[];
+  const [tab, setTab] = useState(tabs[0]?.id ?? "research");
+  const [researchIdx, setResearchIdx] = useState(0);
+
+  const output = tab === "culture" ? detail.outputs.culture : tab === "brief" ? detail.outputs.brief : null;
+  const research = detail.research[researchIdx];
+  const content = output?.content ?? (tab === "research" ? research?.content : "") ?? "";
+  const filename =
+    tab === "culture"
+      ? `${slug}-culture-profile.md`
+      : tab === "brief"
+        ? `${slug}-company-brief.md`
+        : `${slug}-${research?.module}.md`;
+
+  const toggleReviewed = async () => {
+    if (!output) return;
+    await fetch(`/api/company-intel/outputs/${output.id}/reviewed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewed: !output.reviewed }),
+    });
+    await reload();
+  };
+
+  if (tabs.length === 0) {
+    return (
+      <Alert tone="info">
+        No results yet for {detail.company.name}.{" "}
+        <button className="underline" onClick={onResearchAgain}>
+          Start research
+        </button>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5">
+          {tabs.map((t) => (
+            <Button
+              key={t.id}
+              size="sm"
+              variant={tab === t.id ? "ink" : "secondary"}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </Button>
+          ))}
+        </div>
+        <Button size="sm" variant="ghost" onClick={onResearchAgain}>
+          Add documents / research again
+        </Button>
+      </div>
+
+      {tab === "research" && (
+        <div className="flex flex-wrap gap-1.5">
+          {detail.research.map((r, i) => (
+            <button
+              key={r.module}
+              onClick={() => setResearchIdx(i)}
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 text-[12px]",
+                i === researchIdx ? "border-accent bg-accent-wash text-accent-ink" : "border-line text-muted"
+              )}
+            >
+              {r.module} · {r.researchedOn}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
+          <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">
+            {output ? (
+              <>
+                <span>
+                  v{output.version} · {output.mode} · {relativeTime(output.createdAt)}
+                </span>
+                <Badge tone={output.reviewed ? "done" : "draft"}>
+                  {output.reviewed ? `reviewed by ${output.reviewedBy}` : "draft"}
+                </Badge>
+              </>
+            ) : (
+              <span>Facts layer, sourced and dated. Not interpreted.</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {output && (
+              <Button size="sm" onClick={toggleReviewed}>
+                {output.reviewed ? "Mark as draft" : "Mark reviewed"}
+              </Button>
+            )}
+            <Button size="sm" variant="primary" onClick={() => download(filename, content)}>
+              Download .md
+            </Button>
+          </div>
+        </div>
+        <article className="max-h-[70vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
+          {content}
+        </article>
+      </Card>
+
+      {output && (
+        <details className="rounded-card border border-line bg-card p-4">
+          <summary className="cursor-pointer text-[13px] font-medium text-ink">
+            Review checklist (use before marking reviewed)
+          </summary>
+          <div className="mt-3 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted">{checklist}</div>
+        </details>
+      )}
+    </div>
+  );
+}

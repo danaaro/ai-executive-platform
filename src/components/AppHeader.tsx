@@ -1,5 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 
 /**
  * Persistent top bar. The Susan Pike & Partners mark is a brass monogram plus
@@ -13,6 +15,11 @@ export function AppHeader({
   children?: React.ReactNode;
   breadcrumb?: React.ReactNode;
 }) {
+  // Internal tools (ADR-009) render only for platform admins — Dana + Susan.
+  // Customers never see the link; the pages/APIs also check server-side.
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === "admin";
+
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
@@ -36,6 +43,14 @@ export function AppHeader({
 
         <div className="ml-auto flex items-center gap-3">
           {children}
+          {isAdmin && (
+            <Link
+              href="/internal/company-intel"
+              className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
+            >
+              Company Intel
+            </Link>
+          )}
           <Link
             href="/artifacts"
             className="text-[13px] font-medium text-muted transition-colors hover:text-ink"

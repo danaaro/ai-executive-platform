@@ -7,6 +7,8 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  boolean,
+  date,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -253,4 +255,97 @@ export const artifactApprovals = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("artifact_approvals_artifact_idx").on(t.artifactId, t.createdAt)]
+);
+
+/**
+ * Company Intelligence (ADR-009) — INTERNAL, admin-only research tool.
+ *
+ * These four tables are the interim seed of the future CRM company record:
+ * `companies` is the entity the CRM will extend (contacts, deals, activity),
+ * so nothing here is shaped around the research tool alone. Not connected to
+ * projects, conversations or artifacts — the tool feeds no other agent.
+ */
+export const companies = pgTable("companies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // lowercase, hyphenated, legal suffix stripped ("Acme Corp Ltd." → "acme")
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  website: text("website"),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Documents we already hold about a company — highest-trust research source. */
+export const companyInputs = pgTable(
+  "company_inputs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    content: text("content").notNull(), // extracted text, not the file
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("company_inputs_company_idx").on(t.companyId)]
+);
+
+/**
+ * The FACTS layer: one row per module run. The latest row per
+ * (company, module) is current; older rows are history. Freshness =
+ * researchedOn + shelfLifeDays vs today (the package's cache rule).
+ */
+export const companyResearch = pgTable(
+  "company_research",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    module: text("module").notNull(), // e.g. "05-culture-voice"
+    content: text("content").notNull(), // the research-module Markdown, frontmatter included
+    researchedOn: date("researched_on").notNull(),
+    shelfLifeDays: integer("shelf_life_days").notNull(),
+    coverage: text("coverage"), // full | partial | thin (as reported by the researcher)
+    sourcesCount: integer("sources_count"),
+    usage: jsonb("usage"), // tokens + web searches, the cost signal
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("company_research_company_module_idx").on(t.companyId, t.module, t.createdAt)]
+);
+
+/** The INTERPRETATION layer: versioned brief + culture profile per company. */
+export const companyOutputs = pgTable(
+  "company_outputs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["brief", "culture"] }).notNull(),
+    version: integer("version").notNull(),
+    mode: text("mode", { enum: ["full", "culture-only"] }).notNull(),
+    content: text("content").notNull(),
+    // A plain marker, not a gate — nothing depends on it (ADR-009 §2).
+    reviewed: boolean("reviewed").notNull().default(false),
+    reviewedBy: text("reviewed_by").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    usage: jsonb("usage"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("company_outputs_company_kind_version_uq").on(t.companyId, t.kind, t.version),
+  ]
 );

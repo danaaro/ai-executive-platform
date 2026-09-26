@@ -41,6 +41,10 @@ const TABLES = [
   "intake_answers",
   "artifacts",
   "artifact_approvals",
+  "companies",
+  "company_inputs",
+  "company_research",
+  "company_outputs",
 ] as const;
 
 function databaseUrl(): string {
