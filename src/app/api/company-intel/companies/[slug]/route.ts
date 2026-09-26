@@ -50,3 +50,32 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     report: shape(outputs.report),
   });
 }
+
+/**
+ * Corrects the official website — the first source of truth for every run
+ * (ADR-009 §14). Clearing the logo makes the next run re-find it from the new site.
+ */
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { error } = await adminOr404();
+  if (error) return error;
+  const company = await companyBySlug((await params).slug);
+  if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const body = await req.json().catch(() => ({}));
+  const raw = typeof body.website === "string" ? body.website.trim() : "";
+  let website: string | null = null;
+  if (raw) {
+    try {
+      const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+      if (!u.hostname.includes(".")) throw new Error();
+      website = u.origin;
+    } catch {
+      return NextResponse.json({ error: "That doesn't look like a website address" }, { status: 400 });
+    }
+  }
+  await db()
+    .update(tables.companies)
+    .set({ website, logoUrl: website === company.website ? company.logoUrl : null, updatedAt: new Date() })
+    .where(eq(tables.companies.id, company.id));
+  return NextResponse.json({ website });
+}

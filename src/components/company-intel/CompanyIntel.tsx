@@ -377,9 +377,13 @@ function DocsStep({
   };
 
   const researched = detail.modules.filter((m) => m.status !== "missing");
+  // The platform's own read of the website is source #1, shown on the website card, not as a document.
+  const uploads = detail.inputs.filter((i) => !i.filename.startsWith("company-website-"));
 
   return (
     <div className="space-y-5">
+      <WebsiteCard detail={detail} reload={reload} />
+
       {existed && researched.length > 0 && (
         <Alert tone="accent">
           <div>
@@ -403,9 +407,9 @@ function DocsStep({
             </p>
           </div>
 
-          {detail.inputs.length > 0 && (
+          {uploads.length > 0 && (
             <ul className="divide-y divide-line rounded-lg border border-line">
-              {detail.inputs.map((i) => (
+              {uploads.map((i) => (
                 <li key={i.id} className="flex items-center justify-between px-3 py-2 text-[13px]">
                   <span className="text-ink">
                     {i.filename}{" "}
@@ -461,10 +465,84 @@ function DocsStep({
 
       <div className="flex justify-end">
         <Button variant="primary" onClick={onNext} disabled={Boolean(busy)}>
-          {detail.inputs.length ? "Continue" : "Skip, use public sources only"}
+          {uploads.length ? "Continue" : "Skip, use public sources only"}
         </Button>
       </div>
     </div>
+  );
+}
+
+/** The official website: source #1 for every run, so it is shown and correctable. */
+function WebsiteCard({ detail, reload }: { detail: Detail; reload: () => Promise<Detail> }) {
+  const [value, setValue] = useState(detail.company.website ?? "");
+  const lastRead = detail.inputs.find((i) => i.filename.startsWith("company-website-"));
+  const [editing, setEditing] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const save = async () => {
+    setErr(null);
+    try {
+      await parseJson(
+        await fetch(`/api/company-intel/companies/${detail.company.slug}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ website: value }),
+        })
+      );
+      setEditing(false);
+      await reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save");
+    }
+  };
+  return (
+    <Card>
+      <CardBody className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-display text-[16px] font-semibold text-ink">Official website</h2>
+            <p className="text-[12.5px] text-muted">
+              Source #1 of truth. Read first on every run, before your documents and before web search.
+            </p>
+          </div>
+          {!editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              {detail.company.website ? "Change" : "Set it"}
+            </Button>
+          )}
+        </div>
+        {editing ? (
+          <div className="flex flex-wrap gap-2">
+            <Input
+              className="max-w-md"
+              placeholder="https://company.com"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+            <Button size="sm" variant="primary" onClick={save}>
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        ) : detail.company.website ? (
+          <a
+            href={detail.company.website}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[13.5px] font-medium text-accent-ink underline-offset-2 hover:underline"
+          >
+            {detail.company.website}
+          </a>
+        ) : (
+          <p className="text-[13px] text-muted">Not set. The run will find the official site automatically.</p>
+        )}
+        {lastRead && !editing && (
+          <p className="text-[12px] text-muted">Last read on {lastRead.filename.slice(16, 26)} · read again on every run</p>
+        )}
+        {err && <Alert tone="danger">{err}</Alert>}
+      </CardBody>
+    </Card>
   );
 }
 

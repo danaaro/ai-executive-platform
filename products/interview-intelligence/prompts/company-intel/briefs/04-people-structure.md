@@ -18,12 +18,16 @@ Understand how the company is organized, where its people are, and who leads it.
    speak about (with source).
 
 ## Sources, in priority order
-1. `inputs/` folder
-2. Company website: leadership page, locations, careers
+1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`
+   (read by the platform today) plus the site's
+   live pages: leadership/team, locations, careers. When it disagrees with
+   any other source about the company itself, the website wins; record the conflict.
+2. **Documents we uploaded** (other files in `inputs/`)
 3. Annual report / filings (headcount, geography, segments)
 4. Company LinkedIn page (public About section only)
 5. Current job postings (company careers site first)
 6. Press interviews, conference talks, podcasts featuring leaders
+Sources from 3 on are found by web search: use them only after 1 and 2, and never over them.
 
 ## Module-specific rules
 - **Stakeholders: public professional info ONLY.** No private life, family, health,

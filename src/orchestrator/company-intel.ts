@@ -35,6 +35,9 @@ const ROOT = path.join(process.cwd(), "products/interview-intelligence");
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8");
 const stripFrontmatter = (md: string) => md.replace(/^---\n[\s\S]*?\n---\n/, "");
 
+/** Inputs whose filename starts with this are the platform's read of the official website. */
+const SITE_INPUT_PREFIX = "company-website-";
+
 const RESEARCH_MODEL = DEFAULT_MODEL; // claude-sonnet-5 — high-volume research
 const SYNTHESIS_MODEL = "claude-opus-5-5"; // judgment lives here (package ADR #10)
 
@@ -313,13 +316,22 @@ export async function runResearchModule(opts: {
     read("schemas/company-intel/research-module.md");
 
   // The package orchestrator's exact hand-off block (research-company.md §4),
-  // followed by the inputs folder's contents — the model can't list files.
+  // followed by the inputs, laid out in Dana's source order (2026-09-26):
+  // 1 official website → 2 our uploaded documents → 3 web search.
+  const doc = (f: { filename: string; content: string }) =>
+    `<document filename="${f.filename}">\n${f.content}\n</document>`;
+  const site = inputs.filter((f) => f.filename.startsWith(SITE_INPUT_PREFIX));
+  const uploads = inputs.filter((f) => !f.filename.startsWith(SITE_INPUT_PREFIX));
   const inputsBlock =
-    inputs.length === 0
-      ? "(The inputs folder is empty. Research relies on public sources only.)"
-      : inputs
-          .map((f) => `<document filename="${f.filename}">\n${f.content}\n</document>`)
-          .join("\n\n");
+    `### SOURCE 1: Official company website (source of truth about the company)\n\n` +
+    (site.length
+      ? site.map(doc).join("\n\n")
+      : `(The platform could not read the website${company.website ? ` ${company.website}` : ""}. ` +
+        `Open the official site yourself with web_fetch before any other source.)`) +
+    `\n\n### SOURCE 2: Documents we uploaded (second in trust)\n\n` +
+    (uploads.length ? uploads.map(doc).join("\n\n") : "(None uploaded.)") +
+    `\n\n### SOURCE 3: Web search (last; never overrides sources 1 and 2)\n\n` +
+    `Now research the web following your brief.`;
 
   const user =
     `Company: ${company.name}\n` +
@@ -330,7 +342,7 @@ export async function runResearchModule(opts: {
     `Inputs folder: companies/${company.slug}/inputs/\n` +
     `Write your output to: companies/${company.slug}/research/${opts.module}.md\n` +
     `Use the template: company-intel/templates/research-module.md\n\n` +
-    `## Contents of the inputs folder (${inputs.length} file${inputs.length === 1 ? "" : "s"})\n\n` +
+    `## Your sources, in order of authority\n\n` +
     inputsBlock;
 
   const { content, usage, stopReason } = await runToCompletion({
@@ -426,6 +438,9 @@ How to write it:
 - **Traceability, lightly:** no "(→ 03)" arrows. The research files remain the evidence record.
   Name the key fact behind a conclusion in plain words where it matters. Keep dates on any
   figure that can go stale.
+- **Source precedence:** official company website (\`company-website-*.md\`) > documents we
+  uploaded > web research. When they disagree on a fact about the company, the higher one wins.
+  Exception: employee voice is its own evidence for lived culture; the website never overrules it.
 - **Current roles only.** A persona or group-company leader counts as current only when the
   company's own website (the \`company-website-*.md\` input, read today) or dated press from the
   last 12 months confirms it. Org-chart / data aggregators and old register entries are never
@@ -603,7 +618,6 @@ export async function ensureCompanyLogo(companyId: string, force = false) {
  * Step 0 of every run: the company's own website as a primary input
  * ---------------------------------------------------------------------- */
 
-const SITE_INPUT_PREFIX = "company-website-";
 
 /**
  * Reads the company's own site server-side (orchestrator/company-site.ts) and

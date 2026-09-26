@@ -2,7 +2,9 @@
 
 > STATUS: 🟢 ready (adapted from the package's `companies/_example/inputs/README.md`, 2026-09-26)
 
-In step 2 of `/internal/company-intel`, you can attach documents you already have about the company. Every research module reads every document, and documents rank **above** web sources in trust.
+In step 2 of `/internal/company-intel`, you can attach documents you already have about the company. Every research module reads every document.
+
+**Source order:** (1) the company's **official website**, which is read automatically on every run and is the source of truth about the company; (2) **these documents**; (3) web search. Documents rank above anything found on the web but below the official website. For culture, employee voice such as Glassdoor exports stays its own evidence and is never overruled by the website.
 
 ## Useful things to add
 - Employee handbook, values or culture deck, code of conduct

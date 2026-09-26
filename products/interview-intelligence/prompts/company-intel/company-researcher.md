@@ -15,7 +15,10 @@ folder, and the output path. If any is missing, ask for it before starting.
 ## Process
 1. Read your brief in full. It defines the questions, source priorities, and shelf life.
 2. Read every file in `companies/<slug>/inputs/` (use Glob to list, then Read).
-   Uploaded docs rank highest in trust.
+   **Source order (Dana, 2026-09-26):** (1) the official company website, meaning
+   `company-website-*.md` and the site's live pages, is the source of truth about the company;
+   (2) documents we uploaded come next; (3) web search comes last and never overrides 1 or 2.
+   If the website file is missing, open the official site yourself before searching.
 3. Research the web following the brief's source priorities.
    - Prefer primary sources (the company's own site, filings, official press releases)
      over aggregators.

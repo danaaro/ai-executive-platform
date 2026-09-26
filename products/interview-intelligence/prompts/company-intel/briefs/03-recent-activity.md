@@ -22,10 +22,15 @@ last 12 months, counted back from today's date.
    (a factual pattern, e.g. "4 AI-related launches in 12 months")
 
 ## Sources, in priority order
-1. `inputs/` folder
-2. Company newsroom / press releases / blog
-3. Reputable news and industry media
-4. Company LinkedIn page (public posts)
+1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`
+   (read by the platform today) plus the site's
+   live pages: newsroom, press releases, blog. When it disagrees with
+   any other source about the company itself, the website wins; record the conflict.
+2. **Documents we uploaded** (other files in `inputs/`)
+3. Company newsroom / press releases / blog
+4. Reputable news and industry media
+5. Company LinkedIn page (public posts)
+Sources from 3 on are found by web search: use them only after 1 and 2, and never over them.
 
 ## Module-specific rules
 - Exclude events older than 12 months, except one line of context if essential.

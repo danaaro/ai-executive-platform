@@ -16,10 +16,15 @@ pressure. This strongly shapes culture (investment mode vs cost-cutting mode).
 7. **Market signals (public):** share-price trend over 12 months, notable analyst themes.
 
 ## Sources, in priority order
-1. `inputs/` folder
-2. Annual reports, quarterly earnings releases, investor presentations
-3. Regulatory filings
-4. Reputable financial and business press
+1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`
+   (read by the platform today) plus the site's
+   live pages: investor relations, results. When it disagrees with
+   any other source about the company itself, the website wins; record the conflict.
+2. **Documents we uploaded** (other files in `inputs/`)
+3. Annual reports, quarterly earnings releases, investor presentations
+4. Regulatory filings
+5. Reputable financial and business press
+Sources from 3 on are found by web search: use them only after 1 and 2, and never over them.
 
 ## Module-specific rules
 - Every number includes: **period** (FY2025, Q2 2026), **currency**, and source.

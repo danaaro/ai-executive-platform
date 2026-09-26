@@ -25,13 +25,21 @@ the most important output of the whole system.
 9. Any Glassdoor exports or review files in `inputs/`: analyze these for themes too.
 
 ## Sources, in priority order
-1. `inputs/` folder (handbooks, values decks, Glassdoor exports): highest trust
-2. Careers page, values/culture page, CEO letters
-3. Glassdoor public pages (overall ratings, category ratings, highlighted themes)
-4. Company LinkedIn posts (public)
-5. Press interviews with leaders about culture; "best places to work" lists
+1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`
+   (read by the platform today) plus the site's
+   live pages: careers, values/culture pages. When it disagrees with
+   any other source about the company itself, the website wins; record the conflict.
+2. **Documents we uploaded** (other files in `inputs/`): handbooks, values decks, Glassdoor exports
+3. Careers page, values/culture page, CEO letters
+4. Glassdoor public pages (overall ratings, category ratings, highlighted themes)
+5. Company LinkedIn posts (public)
+6. Press interviews with leaders about culture; "best places to work" lists
+Sources from 3 on are found by web search: use them only after 1 and 2, and never over them.
 
 ## Module-specific rules
+- **Website vs employee voice:** the official website is the authority for STATED culture only.
+  For LIVED culture, employee reviews and exports are evidence in their own right; never let
+  the website overrule or soften them. The gap between the two is the finding.
 - **IGNORE all demographic breakdowns.** Glassdoor shows ratings by race, gender,
   sexual orientation, disability, caregiver status, and similar. Never record them.
 - Report **themes**, not single reviews. One dramatic review is not evidence.

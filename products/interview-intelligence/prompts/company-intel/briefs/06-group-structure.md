@@ -25,11 +25,15 @@ leadership decisions sit one level up (parent) or one level down (brands, busine
    federated (country/brand CEOs with their own P&L)? Use only stated or evidenced facts.
 
 ## Sources, in priority order
-1. `inputs/` folder, especially `company-website-*.md` (the company's own "companies",
-   "brands", "about" and team pages)
-2. Each subsidiary's own website: about / leadership / press pages
-3. Parent company's website, investor relations and annual report
-4. Official press releases and reputable business and trade press
+1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`
+   (read by the platform today) plus the site's
+   live pages: companies/brands, about, team. When it disagrees with
+   any other source about the company itself, the website wins; record the conflict.
+2. **Documents we uploaded** (other files in `inputs/`)
+3. Each subsidiary's own website: about / leadership / press pages
+4. Parent company's website, investor relations and annual report
+5. Official press releases and reputable business and trade press
+Sources from 3 on are found by web search: use them only after 1 and 2, and never over them.
 
 ## Module-specific rules
 - **Leaders:** public professional information only (same rule as module 04). A leader

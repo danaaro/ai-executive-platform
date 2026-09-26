@@ -19,11 +19,15 @@ its industry.
    main competitors, market position claims (and who makes those claims).
 
 ## Sources, in priority order
-1. `inputs/` folder
-2. Company website: About, History, Investor Relations
+1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`
+   (read by the platform today) plus the site's
+   live pages: About, History, Investor Relations. When it disagrees with
+   any other source about the company itself, the website wins; record the conflict.
+2. **Documents we uploaded** (other files in `inputs/`)
 3. Regulatory filings (stock exchange / securities regulator)
 4. Reputable press and business media
 5. Wikipedia: for leads only; confirm key facts elsewhere
+Sources from 3 on are found by web search: use them only after 1 and 2, and never over them.
 
 ## Module-specific rules
 - Market-position claims made by the company itself are recorded as "company claim".
