@@ -912,6 +912,14 @@ function download(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+// The browser's "Save as PDF" names the file after document.title.
+function printAsPdf(companyName: string) {
+  const previous = document.title;
+  document.title = `${companyName.replace(/[^\p{L}\p{N}]+/gu, "")}_CompanyIntel`;
+  window.addEventListener("afterprint", () => (document.title = previous), { once: true });
+  window.print();
+}
+
 function ResultsStep({
   detail,
   onUpdate,
@@ -943,7 +951,7 @@ function ResultsStep({
             Update research
           </Button>
           {report?.data && (
-            <Button size="sm" onClick={() => window.print()}>
+            <Button size="sm" onClick={() => printAsPdf(name)}>
               Save as PDF
             </Button>
           )}
