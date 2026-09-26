@@ -579,8 +579,12 @@ export async function addPersonaPhotos(companyId: string) {
 
   await ensureCompanyLogo(companyId).catch(() => null);
   const usage = photoUsage();
+  // The official pages read in step 1 ("## Page: <url>" lines of the website input).
+  const siteInput = (await loadInputs(companyId)).find((f) => f.filename.startsWith(SITE_INPUT_PREFIX));
+  const officialPages = [...(siteInput?.content.matchAll(/^## Page: (\S+)/gm) ?? [])].map((m) => m[1]);
   const photos = await findPersonaPhotos({
     usage,
+    officialPages,
     company: company.name,
     website: company.website,
     personas: data.keyPersonas.map((p) => ({ name: p.name, role: p.role })),

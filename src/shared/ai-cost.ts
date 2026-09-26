@@ -35,8 +35,9 @@ export function formatUsd(n: number): string {
 /**
  * Pre-run estimate, from measured averages (Aviv Group / VLU, 2026-09-26):
  * a research module ≈ $0.34–0.97 (mean ≈ $0.70), writing the report ≈ $0.37,
- * the photo step ≈ $0.53 (measured on Aviv Group's 6 personas). Reused (fresh) modules cost nothing.
+ * the photo step $0–0.53 (free when the official team page has everyone; web search only
+ * for people it misses). Reused (fresh) modules cost nothing.
  */
 export function estimateRunCost(modulesToRun: number, writeReport: boolean, findPhotos: boolean): number {
-  return modulesToRun * 0.7 + (writeReport ? 0.4 : 0) + (findPhotos ? 0.5 : 0);
+  return modulesToRun * 0.7 + (writeReport ? 0.4 : 0) + (findPhotos ? 0.25 : 0);
 }

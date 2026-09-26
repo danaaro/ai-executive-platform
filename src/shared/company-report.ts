@@ -23,7 +23,7 @@ export const DIMENSIONS = [
 export type Confidence = "high" | "medium" | "low";
 
 /** Added after synthesis by the photo step (orchestrator/persona-photos.ts), never by the model. */
-export type PersonaPhoto = { url: string; source: string; via: "web page" | "Wikimedia Commons" };
+export type PersonaPhoto = { url: string; source: string; via: "official website" | "web page" | "Wikimedia Commons" };
 export type Coverage = "full" | "partial" | "thin" | "not researched";
 
 export type ReportData = {

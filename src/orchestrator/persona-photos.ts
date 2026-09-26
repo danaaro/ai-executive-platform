@@ -33,12 +33,42 @@ export async function findPersonaPhotos(opts: {
   website: string | null;
   personas: Persona[];
   usage?: RunUsage;
+  /** Pages of the official website already read in step 1 — checked first (source #1). */
+  officialPages?: string[];
 }): Promise<Record<string, PersonaPhoto | null>> {
   const result: Record<string, PersonaPhoto | null> = {};
   for (const p of opts.personas) result[p.name] = null;
   if (!opts.personas.length) return result;
 
-  const pages = await proposePages(opts).catch((err) => {
+  // Pass 1 — the official website (Dana's source order). Free: no model call.
+  // aviv-group.com/team carries every leader's photo as a CSS background
+  // named "<First Last>.jpeg", which the web-search pass never reached.
+  const official = [...new Set(opts.officialPages ?? [])].filter(isAllowedUrl).slice(0, 12);
+  const kept = official.map(() => ({ html: "", base: "" }));
+  const officialImages = await Promise.all(
+    official.map((u, i) => pageImages(u, kept[i]).catch(() => [] as PageImage[]))
+  );
+  const allNames = opts.personas.map((p) => p.name);
+  for (const p of opts.personas) {
+    for (let i = 0; i < official.length; i++) {
+      const hit = officialImages[i].find((img) => matchesPerson(img, p.name));
+      if (hit) {
+        result[p.name] = { url: hit.src, source: official[i], via: "official website" };
+        break;
+      }
+    }
+    // Official pages only: a team card's photo is often generically named
+    // ("photo portrait.png"), so fall back to its position in the card.
+    for (let i = 0; i < official.length && !result[p.name]; i++) {
+      const src = kept[i].html && cardPhotoBefore(kept[i].html, kept[i].base, p.name, allNames);
+      if (src) result[p.name] = { url: src, source: official[i], via: "official website" };
+    }
+  }
+
+  // Pass 2 — web search, only for people the official site didn't cover.
+  const missing = opts.personas.filter((p) => !result[p.name]);
+  if (!missing.length) return result;
+  const pages = await proposePages({ ...opts, personas: missing }).catch((err) => {
     console.warn("[persona-photos] page search failed:", err);
     return {} as Record<string, string[]>;
   });
@@ -52,7 +82,7 @@ export async function findPersonaPhotos(opts: {
     })
   );
 
-  for (const p of opts.personas) {
+  for (const p of missing) {
     // The person's own proposed pages first, then every fetched page — a
     // leadership page found for the CEO usually carries the whole team.
     const order = [...(pages[p.name] ?? []), ...urls.filter((u) => !(pages[p.name] ?? []).includes(u))];
@@ -66,7 +96,7 @@ export async function findPersonaPhotos(opts: {
   }
 
   await Promise.all(
-    opts.personas
+    missing
       .filter((p) => !result[p.name])
       .map(async (p) => {
         result[p.name] = await wikidataPhoto(p.name, opts.company).catch(() => null);
@@ -180,7 +210,7 @@ function isAllowedUrl(u: string): boolean {
   }
 }
 
-async function pageImages(pageUrl: string): Promise<PageImage[]> {
+async function pageImages(pageUrl: string, keep?: { html: string; base: string }): Promise<PageImage[]> {
   const res = await fetch(pageUrl, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140 Safari/537.36",
@@ -192,6 +222,10 @@ async function pageImages(pageUrl: string): Promise<PageImage[]> {
   if (!res.ok || !(res.headers.get("content-type") ?? "").includes("html")) return [];
   const html = (await res.text()).slice(0, 2_000_000);
   const base = res.url || pageUrl;
+  if (keep) {
+    keep.html = html;
+    keep.base = base;
+  }
   const abs = (src: string) => {
     try {
       return new URL(decodeEntities(src.trim().split(/\s+/)[0]), base).toString();
@@ -210,6 +244,16 @@ async function pageImages(pageUrl: string): Promise<PageImage[]> {
     const src = raw && !raw.startsWith("data:") ? abs(raw) : null;
     if (!src) continue;
     out.push({ src, label: decodeEntities(`${attr(tag, "alt")} ${attr(tag, "title")}`) });
+  }
+  // CSS background images and any other quoted image URL (Webflow team grids,
+  // sliders). No label — they only count through the file-name rule.
+  for (const m of html.matchAll(/url\(\s*["']?([^"')\s]+\.(?:jpe?g|png|webp|avif)[^"')\s]*)["']?\s*\)/gi)) {
+    const src = abs(m[1]);
+    if (src) out.push({ src, label: "" });
+  }
+  for (const m of html.matchAll(/["'](https?:\/\/[^"'\s]+\.(?:jpe?g|png|webp|avif)(?:\?[^"'\s]*)?)["'\s,]/gi)) {
+    const src = abs(m[1]);
+    if (src) out.push({ src, label: "" });
   }
   // Social-card image: only counts through the file-name rule (its label is the page, not the picture).
   for (const m of html.matchAll(/<meta\b[^>]*(?:og:image|twitter:image)[^>]*>/gi)) {
@@ -258,6 +302,35 @@ export function matchesPerson(img: PageImage, name: string): boolean {
   }
   const tokens = new Set(file.split(" "));
   return tokens.has(first) && tokens.has(last);
+}
+
+/**
+ * The team-card rule, for the company's OWN pages only. Accepts the <img>
+ * immediately before the person's name when, between the two, there is no
+ * other image and no other listed person's name, the gap fits one card, and
+ * the image is not a logo/icon or named for someone else. Verified on
+ * aviv-group.com/team (every card is photo → name).
+ */
+function cardPhotoBefore(html: string, base: string, name: string, allNames: string[]): string | null {
+  const at = html.indexOf(name);
+  if (at < 0) return null;
+  const imgs = [...html.slice(0, at).matchAll(/<img\b[^>]*>/gi)];
+  const last = imgs[imgs.length - 1];
+  if (!last || at - (last.index ?? 0) > 12_000) return null;
+  const between = html.slice((last.index ?? 0) + last[0].length, at);
+  if (/<img\b/i.test(between)) return null;
+  if (allNames.some((n) => n !== name && between.includes(n))) return null;
+  const raw = (last[0].match(/\ssrc\s*=\s*["']([^"']+)["']/i)?.[1] ?? "").trim();
+  if (!raw || raw.startsWith("data:") || /\.svg(\?|$)|logo|icon|sprite/i.test(raw)) return null;
+  let src: string;
+  try {
+    src = new URL(decodeEntities(raw), base).toString();
+  } catch {
+    return null;
+  }
+  // Named for a different listed person? Then it's that person's photo.
+  if (allNames.some((n) => n !== name && matchesPerson({ src, label: "" }, n))) return null;
+  return src;
 }
 
 /* -------------------------------------------------------------------------
