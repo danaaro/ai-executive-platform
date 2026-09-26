@@ -570,7 +570,7 @@ export async function runSynthesis(opts: {
  * enrichment of that report, not a new analysis). Its own request, so the
  * page search never eats into the synthesis time budget.
  */
-export async function addPersonaPhotos(companyId: string) {
+export async function addPersonaPhotos(companyId: string, userId?: string) {
   const d = db();
   const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
   const { report } = await latestOutputs(companyId);
@@ -579,9 +579,25 @@ export async function addPersonaPhotos(companyId: string) {
 
   await ensureCompanyLogo(companyId).catch(() => null);
   const usage = photoUsage();
-  // The official pages read in step 1 ("## Page: <url>" lines of the website input).
-  const siteInput = (await loadInputs(companyId)).find((f) => f.filename.startsWith(SITE_INPUT_PREFIX));
+  // Photos ALWAYS start from the official website (Dana, 2026-09-26). Use
+  // today's read from step 1; if there isn't one (e.g. a photos-only run that
+  // reused saved research), read the site now rather than skip to web search.
+  let siteInput = (await loadInputs(companyId)).find((f) => f.filename.startsWith(SITE_INPUT_PREFIX));
+  if (!siteInput || !siteInput.filename.includes(today())) {
+    await refreshCompanySite(companyId, userId ?? company.createdBy).catch((err) =>
+      console.warn("[company-intel] website read before photos failed:", err)
+    );
+    siteInput = (await loadInputs(companyId)).find((f) => f.filename.startsWith(SITE_INPUT_PREFIX));
+  }
+  const [fresh] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
   const officialPages = [...(siteInput?.content.matchAll(/^## Page: (\S+)/gm) ?? [])].map((m) => m[1]);
+  // Plus the usual team-page addresses, in case the website read capped them out.
+  if (fresh?.website) {
+    const origin = new URL(fresh.website).origin;
+    for (const p of ["/team", "/leadership", "/management", "/about/leadership", "/about-us/leadership", "/our-team", "/about/team"]) {
+      officialPages.push(origin + p);
+    }
+  }
   const photos = await findPersonaPhotos({
     usage,
     officialPages,

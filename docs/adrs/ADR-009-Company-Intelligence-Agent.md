@@ -56,7 +56,13 @@ The runtime is adapted as follows:
     - **Pass 1, free:** check the official pages read in step 1. It detects `<img>` tags, `srcset`, CSS `url(...)` backgrounds and quoted image URLs, and applies the name rule. On the company's own pages only, it also applies a **team-card rule**: the `<img>` directly before the person's name is accepted when no other image and no other persona name lies between them, the gap fits one card (≤12k characters), and the image isn't a logo or named for someone else.
     - **Pass 2:** web search runs only for people pass 1 misses.
 
-    On Aviv Group, all 6 photos now come from the official site, in 1 second, at $0.00. Previously the step found 2 of 6 for $0.53.
+    On Aviv Group, all 6 photos now come from the official site, in 1 second, at $0.00. Previously the step found 2 of 6 for $0.53. Hardened the same day, when Dana asked that this always happen:
+    - **Always:** the photo step re-reads the site itself when no read from today exists. It also tries the usual team addresses directly (`/team`, `/leadership`, `/management`, …).
+    - **Other scripts:** one small call finds each name as written on the page (e.g. Mor Cohen → מור כהן). A variant is kept only if it literally appears on the page. Name matching is Unicode-aware, and the website reader recognises Hebrew, French and German section names.
+    - **The card rule is proven per page before use:** people matched by name on that page must have their named photo in the card position, at least one must, and none may contradict. On vlu.co.il the photo before "שימי קאופמן" is Mor Cohen's, so the rule stays off there.
+    - **Profile-page rule:** on a person's own page (title or address carries their full name), its og:image is used.
+
+    Results: VLU has 5 of 6 from vlu.co.il, and the missing person isn't on the site. Aviv Group has 6 of 6 at $0.00. Both were checked visually.
 6. **The cache is read from the database.** A module counts as fresh when `researched_on + shelf_life_days` is later than today. Every run inserts a new row and the latest row wins, so history is kept.
 
 ## Consequences

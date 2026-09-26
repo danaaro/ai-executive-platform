@@ -43,25 +43,88 @@ export async function findPersonaPhotos(opts: {
   // Pass 1 — the official website (Dana's source order). Free: no model call.
   // aviv-group.com/team carries every leader's photo as a CSS background
   // named "<First Last>.jpeg", which the web-search pass never reached.
-  const official = [...new Set(opts.officialPages ?? [])].filter(isAllowedUrl).slice(0, 12);
+  const official = [...new Set(opts.officialPages ?? [])].filter(isAllowedUrl).slice(0, 20);
   const kept = official.map(() => ({ html: "", base: "" }));
   const officialImages = await Promise.all(
     official.map((u, i) => pageImages(u, kept[i]).catch(() => [] as PageImage[]))
   );
-  const allNames = opts.personas.map((p) => p.name);
-  for (const p of opts.personas) {
-    for (let i = 0; i < official.length; i++) {
-      const hit = officialImages[i].find((img) => matchesPerson(img, p.name));
-      if (hit) {
-        result[p.name] = { url: hit.src, source: official[i], via: "official website" };
-        break;
-      }
+
+  // Names as the official site writes them. A Hebrew site writes "מור כהן",
+  // not "Mor Cohen". One small call maps them; a variant is kept only if it
+  // literally appears on one of the pages, so it cannot be invented.
+  const variants = new Map<string, string[]>(opts.personas.map((p) => [p.name, [p.name]]));
+  const nonLatin = kept.some((k) => /[\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF]/.test(k.html));
+  if (nonLatin) {
+    const onPage = await nativeNames(opts.personas, kept.map((k) => k.html), opts.usage).catch(() => ({}));
+    for (const [en, native] of Object.entries(onPage)) {
+      if (native && kept.some((k) => k.html.includes(native))) variants.get(en)?.push(native);
     }
-    // Official pages only: a team card's photo is often generically named
-    // ("photo portrait.png"), so fall back to its position in the card.
+  }
+  const allNames = [...variants.values()].flat();
+  const byName = (img: PageImage, p: Persona) => (variants.get(p.name) ?? [p.name]).some((v) => matchesPerson(img, v));
+
+  // (a) Name rule: the image's label or file name carries the person's name.
+  for (const p of opts.personas) {
     for (let i = 0; i < official.length && !result[p.name]; i++) {
-      const src = kept[i].html && cardPhotoBefore(kept[i].html, kept[i].base, p.name, allNames);
-      if (src) result[p.name] = { url: src, source: official[i], via: "official website" };
+      const hit = officialImages[i].find((img) => byName(img, p));
+      if (hit) result[p.name] = { url: hit.src, source: official[i], via: "official website" };
+    }
+  }
+
+  // (b) Team-card rule (photo directly before the name) — only on a page where
+  // it is PROVEN: every person already matched by name on that page must have
+  // their named photo in that position, and at least one must. On vlu.co.il
+  // the photo before "שימי קאופמן" is Mor Cohen's, so the rule stays off there.
+  for (let i = 0; i < official.length; i++) {
+    const { html, base } = kept[i];
+    if (!html) continue;
+    const cardFor = (p: Persona) =>
+      (variants.get(p.name) ?? [p.name]).map((v) => cardPhotoBefore(html, base, v, allNames)).find(Boolean) ?? null;
+    let agree = 0;
+    let disagree = 0;
+    for (const p of opts.personas) {
+      const named = officialImages[i].find((img) => byName(img, p));
+      if (!named) continue;
+      const card = cardFor(p);
+      if (card && sameImage(card, named.src)) agree++;
+      else if (card) disagree++;
+    }
+    if (agree === 0 || disagree > 0) continue;
+    for (const p of opts.personas) {
+      if (result[p.name]) continue;
+      const card = cardFor(p);
+      if (card) result[p.name] = { url: card, source: official[i], via: "official website" };
+    }
+  }
+
+  // (c) Profile-page rule: the person's OWN page on the official site — its
+  // <title> or address carries their full name (vlu.co.il/team/אריאל-אייבר,
+  // title "אריאל אייבר - VLU") — and its og:image is their portrait.
+  for (const p of opts.personas) {
+    for (let i = 0; i < official.length && !result[p.name]; i++) {
+      const { html, base } = kept[i];
+      if (!html) continue;
+      const title = norm(html.match(/<title[^>]*>([^<]*)/i)?.[1] ?? "");
+      let path = "";
+      try {
+        path = norm(decodeURIComponent(new URL(base).pathname));
+      } catch {}
+      const own = (variants.get(p.name) ?? [p.name]).some((v) => {
+        const full = nameParts(v).full;
+        return full.includes(" ") && (` ${title} `.includes(` ${full} `) || ` ${path} `.includes(` ${full} `));
+      });
+      if (!own) continue;
+      const og = html.match(/<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1] ??
+        html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i)?.[1];
+      if (!og || /\.svg(\?|$)|logo|icon/i.test(og)) continue;
+      let src: string;
+      try {
+        src = new URL(decodeEntities(og), base).toString();
+      } catch {
+        continue;
+      }
+      if (allNames.some((n) => !(variants.get(p.name) ?? []).includes(n) && matchesPerson({ src, label: "" }, n))) continue;
+      result[p.name] = { url: src, source: official[i], via: "official website" };
     }
   }
 
@@ -280,11 +343,14 @@ const norm = (s: string) =>
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 
 function nameParts(name: string) {
-  const parts = norm(name.replace(/\b(dr|prof|mr|mrs|ms)\.?\s+/gi, "")).split(" ").filter((w) => w.length > 1);
+  const cleaned = name
+    .replace(/\([^)]*\)/g, " ") // "Theodore (Theo) Mseka", "Brig. Gen. (Res.)"
+    .replace(/\b(dr|prof|mr|mrs|ms|rabbi|brig|gen|col|maj|capt|lt|adv)\.?\s+/gi, " ");
+  const parts = norm(cleaned).split(" ").filter((w) => w.length > 1);
   return { first: parts[0] ?? "", last: parts[parts.length - 1] ?? "", full: parts.join(" ") };
 }
 
@@ -302,6 +368,68 @@ export function matchesPerson(img: PageImage, name: string): boolean {
   }
   const tokens = new Set(file.split(" "));
   return tokens.has(first) && tokens.has(last);
+}
+
+/** Same picture, allowing for size variants ("-p-500", "-1024x882") and query strings. */
+function sameImage(a: string, b: string) {
+  const key = (u: string) =>
+    decodeURIComponent(u.split("?")[0].split("/").pop() ?? "")
+      .replace(/(-p-\d+|-\d+x\d+|@\d(\.\d)?x?)(?=\.\w+$)/i, "")
+      .toLowerCase();
+  return key(a) === key(b);
+}
+
+/** One small call: how does the official page write each name? */
+async function nativeNames(personas: Persona[], htmls: string[], usage?: RunUsage): Promise<Record<string, string>> {
+  const text = htmls
+    .map((h) => h.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " "))
+    .join("\n")
+    .slice(0, 30000);
+  const tool: Anthropic.Messages.Tool = {
+    name: "save_names",
+    description: "Save how each person's name is written on the page.",
+    input_schema: {
+      type: "object",
+      properties: {
+        names: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { english: { type: "string" }, onPage: { type: "string" } },
+            required: ["english", "onPage"],
+          },
+        },
+      },
+      required: ["names"],
+    },
+  };
+  const msg = await getAnthropicClient().messages.create({
+    model: DEFAULT_MODEL,
+    max_tokens: 1500,
+    tools: [tool],
+    messages: [
+      {
+        role: "user",
+        content:
+          `People (English names):\n${personas.map((p) => `- ${p.name} (${p.role})`).join("\n")}\n\n` +
+          `Below is text from the company's own website. For each person, copy EXACTLY how their name ` +
+          `is written in this text (same script and spelling, e.g. Hebrew), or "" if they do not appear. ` +
+          `Never translate or guess a name that is not in the text. Call save_names once.\n\n<page>\n${text}\n</page>`,
+      },
+    ],
+  });
+  if (usage) {
+    usage.inputTokens += msg.usage.input_tokens;
+    usage.outputTokens += msg.usage.output_tokens;
+  }
+  const call = msg.content.find(
+    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === "save_names"
+  );
+  const out: Record<string, string> = {};
+  for (const r of (call?.input as { names?: { english: string; onPage: string }[] })?.names ?? []) {
+    if (r?.english && typeof r.onPage === "string" && r.onPage.trim().length > 1) out[r.english] = r.onPage.trim();
+  }
+  return out;
 }
 
 /**

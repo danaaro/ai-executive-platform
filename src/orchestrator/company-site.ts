@@ -18,11 +18,11 @@ const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140 Safari/537.36";
 
 const KEYWORDS: [RegExp, number][] = [
-  [/team|leadership|management|executive|board|governance|who-we-are|people/i, 10],
+  [/team|leadership|management|executive|board|governance|who-we-are|people|צוות|הנהלה|מי-אנחנו|דירקטוריון|equipe|équipe|direction|führung|vorstand/i, 10],
   [/companies|our-companies|brands|portfolio|subsidiar|our-group|group-companies/i, 8],
-  [/about|history|story|mission|values|culture/i, 6],
+  [/about|history|story|mission|values|culture|עלינו|אודות|קצת-עלינו|a-propos|ueber-uns|uber-uns/i, 6],
   [/news|press|media|newsroom|announce/i, 5],
-  [/career|jobs|join|work-with-us/i, 4],
+  [/career|jobs|join|work-with-us|קריירה|דרושים|משרות/i, 4],
   [/investor|ir\b|annual-report/i, 4],
 ];
 const COMMON_PATHS = [
@@ -130,7 +130,11 @@ function collectLinks(html: string, base: URL, rootHost: string, into: Map<strin
     if (!/^https?:$/.test(u.protocol) || !(host === rootHost || host.endsWith(`.${rootHost}`))) continue;
     if (/\.(pdf|jpe?g|png|svg|zip|mp4)$/i.test(u.pathname)) continue;
     const segs = u.pathname.split("/").filter(Boolean);
-    const hay = `${host.split(".")[0]} ${u.pathname} ${stripTags(m[2])}`;
+    let path = u.pathname;
+    try {
+      path = decodeURIComponent(u.pathname); // Hebrew slugs arrive percent-encoded
+    } catch {}
+    const hay = `${host.split(".")[0]} ${path} ${stripTags(m[2])}`;
     let score = scoreFor(hay);
     if (!score || (!segs.length && host === rootHost)) continue;
     // A single article/case study/whitepaper is not a section page.
