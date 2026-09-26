@@ -24,6 +24,6 @@ The same approach works for any source that requires a login.
 Use descriptive names with dates, e.g. `values-deck-2026.pdf` or `ceo-letter-2026-03.md`.
 
 ## Limits and confidentiality
-- Supported formats are PDF, DOCX, MD and TXT, up to 10 MB each. Very long documents are cut off at about 60,000 characters.
+- Supported formats are PDF, DOCX, MD and TXT, at any size. The text is extracted in your browser and only the text is uploaded. Very long documents are cut off at about 60,000 characters. Scanned PDFs have no text layer, so paste their text instead.
 - Uploaded text is stored in the internal `company_inputs` table (Supabase, RLS-protected). Only Dana and Susan can see it.
 - Only add client material you have permission to use.

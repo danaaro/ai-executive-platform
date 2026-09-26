@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Card, CardBody } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/field";
 import { parseJson, readAgentStream } from "@/lib/api";
+import { extractText } from "@/lib/extract-text";
 import { cn, relativeTime } from "@/lib/utils";
 
 /**
@@ -331,11 +332,9 @@ function DocsStep({
     for (const file of Array.from(files)) {
       setBusy(`Reading ${file.name}…`);
       try {
-        const form = new FormData();
-        form.append("file", file);
-        const parsed = await parseJson<{ name: string; text: string; truncated: boolean }>(
-          await fetch("/api/upload-parse", { method: "POST", body: form })
-        );
+        // Extracted in the browser: only text is sent, so Vercel's 4.5 MB body
+        // limit no longer applies to the file (see lib/extract-text.ts).
+        const parsed = await extractText(file);
         await addInput(parsed.name, parsed.text);
         if (parsed.truncated) setErr(`${file.name} was long and has been cut to about 60,000 characters.`);
       } catch (e) {
@@ -424,7 +423,7 @@ function DocsStep({
             <Button onClick={() => fileRef.current?.click()} disabled={Boolean(busy)}>
               Upload files
             </Button>
-            <span className="text-[12px] text-muted">PDF, DOCX, MD, TXT · up to 10 MB each</span>
+            <span className="text-[12px] text-muted">PDF, DOCX, MD, TXT · any size (long documents are cut at ~60k characters)</span>
           </div>
 
           <details className="rounded-lg border border-line p-3">
