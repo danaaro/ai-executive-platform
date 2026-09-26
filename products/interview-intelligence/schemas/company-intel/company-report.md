@@ -15,6 +15,7 @@ The reader is an executive with two minutes. Every section must earn its place.
 | **Key figures** (`keyFigures`) | 3–5 headline numbers (people, revenue, ownership, rating), each dated | Stat tiles |
 | **At a glance** (`atAGlance`) | What they do, ownership, size and footprint, financial direction, leadership, current moment | Fact grid |
 | **Where the company is right now** (`currentSituation`) | One analytical paragraph tying together finances, events and leadership. It says what they *mean*. Full mode only | Narrative block |
+| **Group structure** (`groupStructure`) | Parent one level up and the major companies one level down, each with leader (confirmed or not) and latest change, from module 06. Full mode only | Summary + company cards |
 | **Last 12 months** (`timeline`) | 3–6 events that matter, newest first, each with why it matters. Full mode only | Timeline |
 | **Key personas** (`keyPersonas`) | 4–6 decision-makers who matter for our work: role, tenure, background, public focus areas, a public stance, why they matter, and how to open a professional conversation. **Public professional information only.** Full mode only | Persona cards |
 | **Culture: who thrives** (`culture.thrives/struggles/cultureAdd`) | Observable behaviors only, never personality types or demographic proxies | Three columns |

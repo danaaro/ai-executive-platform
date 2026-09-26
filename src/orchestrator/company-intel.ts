@@ -6,6 +6,8 @@ import { db, tables } from "@/db";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { findPersonaPhotos } from "@/orchestrator/persona-photos";
 import { findCompanyLogo, guessWebsite } from "@/orchestrator/company-logo";
+import { readCompanySite } from "@/orchestrator/company-site";
+import { like } from "drizzle-orm";
 import {
   REPORT_JSON_SCHEMA,
   isReportShape,
@@ -46,6 +48,7 @@ export const MODULES = [
   { id: "03-recent-activity", title: "Recent activity" },
   { id: "04-people-structure", title: "People & structure" },
   { id: "05-culture-voice", title: "Culture & employee voice" },
+  { id: "06-group-structure", title: "Group & portfolio" },
 ] as const;
 
 export type ModuleId = (typeof MODULES)[number]["id"];
@@ -423,6 +426,12 @@ How to write it:
 - **Traceability, lightly:** no "(→ 03)" arrows. The research files remain the evidence record.
   Name the key fact behind a conclusion in plain words where it matters. Keep dates on any
   figure that can go stale.
+- **Current roles only.** A persona or group-company leader counts as current only when the
+  company's own website (the \`company-website-*.md\` input, read today) or dated press from the
+  last 12 months confirms it. Org-chart / data aggregators and old register entries are never
+  enough. When the official team page and another source disagree, the official page wins.
+- **Group structure** comes from module 06 (and the company website's companies/brands pages):
+  parent one level up, major companies one level down, each with its leader and latest change.
 - **Key personas: public professional information ONLY** (role, tenure, official bio, public
   statements, talks, interviews). Nothing about private life, family, health, personal social
   media, or personality speculation. "approach" must rest on their public priorities and role,
@@ -431,8 +440,8 @@ How to write it:
   advisory, AI consulting). Not a hiring manager, not a candidate.
 ${mode === "culture-only"
   ? `- **Scope is culture-only:** only module 05 was researched. Set currentSituation to null, and leave
-  timeline and keyPersonas empty. In atAGlance write "not researched" where the research is
-  silent. Mark areas 01–04 as "not researched" in coverage, and say in confidenceNote that a full
+  timeline, keyPersonas and groupStructure.entities empty (groupStructure.summary: "Not researched in this run."). In atAGlance write "not researched" where the research is
+  silent. Mark areas 01–04 and 06 as "not researched" in coverage, and say in confidenceNote that a full
   run adds ownership, financials, recent activity and leadership.`
   : "- **Scope is full:** every section applies."}
 
@@ -588,4 +597,80 @@ export async function ensureCompanyLogo(companyId: string, force = false) {
     .set({ logoUrl, website: company.website ?? website })
     .where(eq(tables.companies.id, companyId));
   return logoUrl;
+}
+
+/* -------------------------------------------------------------------------
+ * Step 0 of every run: the company's own website as a primary input
+ * ---------------------------------------------------------------------- */
+
+const SITE_INPUT_PREFIX = "company-website-";
+
+/**
+ * Reads the company's own site server-side (orchestrator/company-site.ts) and
+ * stores it as an input dated today, replacing the previous copy, so every
+ * research module reads the official team / companies / about pages at the
+ * highest trust level — even when Anthropic's web_fetch can't open the site.
+ */
+export async function refreshCompanySite(companyId: string, userId: string) {
+  const d = db();
+  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
+  if (!company) throw new Error("Company not found");
+
+  const website = company.website ?? (await findOfficialWebsite(company.name));
+  if (!website) return { website: null, pages: 0 };
+  if (!company.website) {
+    await d.update(tables.companies).set({ website }).where(eq(tables.companies.id, companyId));
+  }
+
+  const date = today();
+  const pack = await readCompanySite(website, date);
+  if (!pack) return { website, pages: 0 };
+
+  await d
+    .delete(tables.companyInputs)
+    .where(and(eq(tables.companyInputs.companyId, companyId), like(tables.companyInputs.filename, `${SITE_INPUT_PREFIX}%`)));
+  await d.insert(tables.companyInputs).values({
+    companyId,
+    filename: `${SITE_INPUT_PREFIX}${date}.md`,
+    content: pack.markdown,
+    createdBy: userId,
+  });
+  return { website: pack.website, pages: pack.pages.length };
+}
+
+/** When no website was entered: one small search for the official domain. */
+async function findOfficialWebsite(name: string): Promise<string | null> {
+  const tool: Anthropic.Messages.Tool = {
+    name: "save_website",
+    description: "Save the company's official website URL, or an empty string if not found.",
+    input_schema: { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
+  };
+  const messages: Anthropic.Messages.MessageParam[] = [
+    {
+      role: "user",
+      content: `What is the official website of the company "${name}"? Search, then call save_website with its homepage URL (not a social profile, directory or news page).`,
+    },
+  ];
+  try {
+    for (let round = 0; round < 3; round++) {
+      const msg = await getAnthropicClient().messages.create({
+        model: RESEARCH_MODEL,
+        max_tokens: 1500,
+        messages,
+        tools: [{ type: "web_search_20260318", name: "web_search", max_uses: 2, allowed_callers: ["direct"] }, tool],
+      });
+      const call = msg.content.find(
+        (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === "save_website"
+      );
+      if (call) {
+        const url = String((call.input as { url?: string }).url ?? "").trim();
+        return /^https?:\/\//i.test(url) ? url : null;
+      }
+      if (msg.stop_reason !== "pause_turn") return null;
+      messages.push({ role: "assistant", content: msg.content });
+    }
+  } catch (err) {
+    console.warn("[company-intel] website lookup failed:", err);
+  }
+  return null;
 }

@@ -31,6 +31,9 @@ Brief files live in `../prompts/company-intel/briefs/`.
 | 03 | Recent activity (12 months) | 30 days |
 | 04 | People & structure | 180 days |
 | 05 | Culture & employee voice | 365 days |
+| 06 | Group & portfolio (parent, major companies and their leaders) | 180 days |
+
+Before the modules run, the platform reads the company's own website (team, companies, about, news, careers) and gives it to every module as a primary source dated that day.
 
 ## Non-negotiables (from the package; not to be changed without Dana's approval)
 - Every fact carries a source and a date. "Not found" is a valid result, and gaps are never filled with guesses.

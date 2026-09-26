@@ -72,6 +72,21 @@ export type ReportData = {
   }[];
   /** Set once the photo step has run, so the page doesn't offer it again. */
   photosCheckedAt?: string;
+  /** Absent on reports made before module 06 (2026-09-26). */
+  groupStructure?: {
+    summary: string;
+    parent: { name: string; relationship: string } | null;
+    operatingModel: string | null;
+    entities: {
+      name: string;
+      role: string;
+      whatTheyDo: string;
+      market: string;
+      size: string | null;
+      leader: { name: string; role: string; confirmed: boolean } | null;
+      latestChange: string | null;
+    }[];
+  };
   culture: {
     thrives: { behavior: string; evidence: string }[];
     struggles: string[];
@@ -180,8 +195,45 @@ export const REPORT_JSON_SCHEMA = obj({
         "How to open a professional conversation with them, grounded ONLY in their public priorities and role."
       ),
     }),
-    "4–6 key decision-makers (CEO, relevant C-suite, business-unit or people leaders). PUBLIC PROFESSIONAL INFORMATION ONLY. Empty if module 04 was not researched."
+    "4–6 key decision-makers (CEO, relevant C-suite, business-unit or people leaders). ONLY people whose CURRENT role is confirmed by the company's own website or dated press from the last 12 months — never a role known only from an org-chart/data aggregator or an old register entry. PUBLIC PROFESSIONAL INFORMATION ONLY. Empty if module 04 was not researched."
   ),
+  groupStructure: obj({
+    summary: str(
+      "2–3 sentences: how the group is put together and where power sits (parent above, companies below). If standalone, say so."
+    ),
+    parent: {
+      anyOf: [
+        obj({ name: str(), relationship: str("e.g. '90% owner (PE), board control' or 'parent group, 100%'") }),
+        { type: "null" },
+      ],
+      description: "One level up only; null if standalone",
+    },
+    operatingModel: nstr("Centralized (shared platform, group functions) vs federated (own P&Ls), only if evidenced"),
+    entities: arr(
+      obj({
+        name: str(),
+        role: str("Its role in the group: core business, growth bet, recently acquired, being sold…"),
+        whatTheyDo: str("One line"),
+        market: str("Country / segment"),
+        size: nstr("Published size with date, e.g. '~700 staff (2026)'"),
+        leader: {
+          anyOf: [
+            obj({
+              name: str(),
+              role: str(),
+              confirmed: {
+                type: "boolean",
+                description: "true only if the company's own site or dated press ≤12 months confirms it",
+              },
+            }),
+            { type: "null" },
+          ],
+        },
+        latestChange: nstr("Most significant change in the last 12 months, with date"),
+      }),
+      "Up to 8 major subsidiaries / brands / business units from module 06. Empty if standalone or not researched."
+    ),
+  }),
   culture: obj({
     thrives: arr(obj({ behavior: str(), evidence: str("One short clause") }), "3–5 observable behaviors"),
     struggles: arr(str(), "2–3 behaviors"),
@@ -240,7 +292,7 @@ export const REPORT_JSON_SCHEMA = obj({
       area: str("Research area name, e.g. 'Identity & ownership'"),
       level: { type: "string", enum: ["full", "partial", "thin", "not researched"] },
     }),
-    "One entry per research area (5), from each research file's coverage"
+    "One entry per research area (6), from each research file's coverage"
   ),
   sourcesCount: { type: ["integer", "null"], description: "Total sources across research files" },
   confidenceNote: str("2–3 sentences: why this confidence, what was thin, whether employee voice / client docs were available"),
@@ -368,6 +420,25 @@ export function reportToMarkdown(
         ...(p.publicStance ? [`- **Public stance:** ${p.publicStance}`] : []),
         `- **Why they matter:** ${p.whyTheyMatter}`,
         `- **Approach:** ${p.approach}`,
+        ""
+      );
+    }
+  }
+  const gs = r.groupStructure;
+  if (gs && (gs.entities.length || gs.parent)) {
+    out.push("## Group structure", gs.summary, "");
+    if (gs.parent) out.push(`**Parent / owner:** ${gs.parent.name} (${gs.parent.relationship})`, "");
+    if (gs.operatingModel) out.push(`**Operating model:** ${gs.operatingModel}`, "");
+    if (gs.entities.length) {
+      out.push(
+        "| Company | Role | What they do | Market | Size | Leader | Latest change |",
+        "|---|---|---|---|---|---|---|",
+        ...gs.entities.map(
+          (e) =>
+            `| ${e.name} | ${e.role} | ${e.whatTheyDo} | ${e.market} | ${e.size ?? "n/a"} | ${
+              e.leader ? `${e.leader.name}, ${e.leader.role}${e.leader.confirmed ? "" : " (unconfirmed)"}` : "n/a"
+            } | ${e.latestChange ?? ""} |`
+        ),
         ""
       );
     }

@@ -24,6 +24,7 @@ description: INTERNAL ONLY (admins: Dana + Susan). Researches one company across
 - **Guardrails:** demographic exclusion, stakeholder privacy, source + date on every fact, facts vs interpretation, no logged-in scraping. These are embedded in the prompts and must not be changed without Dana's approval.
 
 ## Changelog
+- **v1.5 (2026-09-26):** step 0 reads the company's own website. Current roles now require an official or recent source, with aggregators as leads only. New module 06, Group & portfolio, and a Group structure section in the report (ADR-009 §12–13).
 - **v1.4 (2026-09-26):** company logo from the company's own site, stored in `companies.logo_url` (ADR-009 §10).
 - **v1.3 (2026-09-26):** persona photos come from public pages or Wikimedia and are matched strictly by name, with initials as the fallback. They are found in a separate step after the report (ADR-009 §9).
 - **v1.2 (2026-09-26):** report delivered as structured data via a `save_report` tool (`src/shared/company-report.ts`) and rendered as a visual page. Adds key personas (public professional information only). Culture scale poles are stated explicitly in the schema after a run inverted one.

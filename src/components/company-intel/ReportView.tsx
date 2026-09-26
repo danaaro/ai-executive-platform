@@ -63,6 +63,12 @@ export function ReportView({ data: r, meta }: { data: ReportData; meta: ReportMe
         </Section>
       </div>
 
+      {r.groupStructure && (r.groupStructure.entities.length > 0 || r.groupStructure.parent) && (
+        <Section title="Group structure" subtitle="One level up, one level down">
+          <GroupStructure g={r.groupStructure} />
+        </Section>
+      )}
+
       <Section title="Last 12 months: what matters">
         {r.timeline.length ? <Timeline items={r.timeline} /> : <NotResearched what="Recent activity" />}
       </Section>
@@ -357,6 +363,66 @@ function formatDate(d: string): string {
 }
 
 /* ---------------------------------------------------------------------- */
+
+function GroupStructure({ g }: { g: NonNullable<ReportData["groupStructure"]> }) {
+  return (
+    <div className="space-y-4">
+      <p className="max-w-4xl text-[14px] leading-[1.7] text-ink">{g.summary}</p>
+      {(g.parent || g.operatingModel) && (
+        <div className="flex flex-wrap gap-3">
+          {g.parent && (
+            <div className="rounded-lg border border-line bg-canvas-subtle px-3 py-2">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">Parent / owner</p>
+              <p className="text-[13.5px] font-semibold text-ink">{g.parent.name}</p>
+              <p className="text-[12px] text-muted">{g.parent.relationship}</p>
+            </div>
+          )}
+          {g.operatingModel && (
+            <div className="max-w-xl rounded-lg border border-line bg-canvas-subtle px-3 py-2">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">Operating model</p>
+              <p className="text-[13px] leading-snug text-ink">{g.operatingModel}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {g.entities.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {g.entities.map((e, i) => (
+            <article key={i} className="print-avoid-break flex flex-col rounded-card border border-line p-4">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-[15px] font-semibold leading-tight text-ink">{e.name}</h3>
+                <span className="shrink-0 rounded-full border border-accent/40 bg-accent-wash px-2 py-px text-[10.5px] font-medium text-accent-ink">
+                  {e.role}
+                </span>
+              </div>
+              <p className="mt-1 text-[12px] text-muted">
+                {e.market}
+                {e.size && <> · {e.size}</>}
+              </p>
+              <p className="mt-2 text-[13px] leading-snug text-ink">{e.whatTheyDo}</p>
+              {e.leader && (
+                <p className="mt-2 text-[12.5px] text-ink">
+                  <span className="font-semibold">{e.leader.name}</span>, {e.leader.role}
+                  {!e.leader.confirmed && (
+                    <span className="ml-1.5 rounded-full border border-warn/40 bg-warn-wash px-1.5 py-px text-[10px] font-semibold text-warn">
+                      unconfirmed
+                    </span>
+                  )}
+                </p>
+              )}
+              {e.latestChange && (
+                <p className="mt-auto flex gap-1.5 pt-3 text-[12px] leading-snug text-muted">
+                  <ArrowRight className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  {e.latestChange}
+                </p>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function initials(name: string) {
   return name

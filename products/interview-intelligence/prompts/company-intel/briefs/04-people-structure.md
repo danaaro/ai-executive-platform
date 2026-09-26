@@ -31,3 +31,12 @@ Understand how the company is organized, where its people are, and who leads it.
   personal details.
 - Do not attempt to list or profile ordinary employees.
 - LinkedIn people lists require login, so don't try. Note the limitation if relevant.
+- **Current roles need a current, credible source (added 2026-09-26).** The company's own
+  leadership/team page (included in `inputs/` as `company-website-*.md` when it could be
+  read) is the authority on who holds a role today. Org-chart and data aggregators (The Org,
+  ZoomInfo, RocketReach, LeadIQ, Crunchbase people, commercial-register signatory lists) are
+  leads only: a role found only there is written as "unconfirmed (aggregator only, <date>)",
+  never as current. Press coverage counts when dated within the last 12 months. If the
+  official page and another source disagree, the official page wins; record the conflict.
+  (Why: an Aviv Group run named a 2023 register signatory as current Chief People Officer
+  when the official team page listed someone else.)

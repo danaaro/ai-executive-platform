@@ -488,6 +488,7 @@ function RunStep({
   const [states, setStates] = useState<Record<string, { state: RunState; log: string[]; error?: string }>>({});
   const [synth, setSynth] = useState<{ state: RunState; chars: number; error?: string } | null>(null);
   const [photos, setPhotos] = useState<RunState | null>(null);
+  const [site, setSite] = useState<RunState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -547,6 +548,21 @@ function RunStep({
     const init: typeof states = {};
     for (const m of inScope) init[m.module] = { state: toRun.includes(m) ? "queued" : "skipped", log: [] };
     setStates(init);
+
+    // Step 0: the company's own website, read server-side and stored as a
+    // dated input every module reads first (ADR-009 §12). Non-fatal.
+    if (toRun.length) {
+      setSite("running");
+      try {
+        const res = await fetch(`/api/company-intel/companies/${slug}/site`, { method: "POST" });
+        const out = await parseJson<{ pages: number }>(res);
+        setSite(out.pages > 0 ? "done" : "failed");
+      } catch {
+        setSite("failed");
+      }
+    } else {
+      setSite("skipped");
+    }
 
     // Parallel, one request per module (ADR-009 §5).
     const results = await Promise.all(
@@ -652,23 +668,46 @@ function RunStep({
             Refresh everything (ignore cached research)
           </label>
 
-          <table className="w-full text-[13px]">
+          {/* Fixed layout: long progress lines truncate inside the first column
+              instead of pushing the status columns out of the card. */}
+          <table className="w-full table-fixed text-[13px]">
+            <colgroup>
+              <col />
+              <col className="w-[86px] sm:w-[96px]" />
+              <col className="hidden w-[118px] sm:table-column" />
+              <col className="w-[96px]" />
+            </colgroup>
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-                <th className="py-1.5 font-semibold">Module</th>
-                <th className="font-semibold">Cache</th>
-                <th className="font-semibold">Researched</th>
+                <th className="py-1.5 font-semibold">Step</th>
+                <th className="font-semibold">Saved</th>
+                <th className="hidden font-semibold sm:table-cell">Researched</th>
                 <th className="font-semibold">{started ? "This run" : "Plan"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
+              <tr>
+                <td colSpan={3} className="py-2">
+                  <span className="font-medium text-ink">1 · Read the company website</span>
+                  <span className="block text-[12px] text-muted">
+                    Official team, companies and about pages
+                    {site === "failed" && " · couldn't be read, research continues without it"}
+                  </span>
+                </td>
+                <td>{site ? <RunBadge state={site} /> : <Badge>waiting</Badge>}</td>
+              </tr>
+              <tr>
+                <td colSpan={4} className="pb-1 pt-3 font-medium text-ink">
+                  2 · Research{inScope.length > 1 ? `, ${inScope.length} areas in parallel` : ""}
+                </td>
+              </tr>
               {inScope.map((m) => {
                 const st = states[m.module];
                 const will = toRun.includes(m);
                 return (
                   <tr key={m.module} className="align-top">
-                    <td className="py-2 pr-2 text-ink">
-                      {m.module.slice(0, 2)} · {m.title}
+                    <td className="min-w-0 py-2 pl-4 pr-2 text-ink">
+                      <span className="text-muted">{m.module.slice(0, 2)}</span> {m.title}
                       {st?.state === "running" && st.log.length > 0 && (
                         <div className="mt-0.5 truncate text-[11.5px] text-muted" title={st.log.at(-1)}>
                           {st.log.length} steps · {st.log.at(-1)}
@@ -681,7 +720,7 @@ function RunStep({
                         {m.status}
                       </Badge>
                     </td>
-                    <td className="text-muted">
+                    <td className="hidden text-[12px] text-muted sm:table-cell">
                       {m.researchedOn ?? "—"}
                       {m.coverage ? ` · ${m.coverage}` : ""}
                     </td>
@@ -692,19 +731,23 @@ function RunStep({
                 );
               })}
               <tr>
-                <td className="py-2 text-ink">Synthesis (Opus)</td>
-                <td colSpan={2} className="text-muted">
-                  {scope === "full" ? "full report" : "culture-focused report"}
-                  {synth?.state === "running" && synth.chars > 0 && ` · writing (${Math.round(synth.chars / 1000)}k chars)`}
-                  {synth?.error && <div className="text-[11.5px] text-danger">{synth.error}</div>}
+                <td colSpan={3} className="py-2 pt-3">
+                  <span className="font-medium text-ink">3 · Write the report</span>
+                  <span className="block text-[12px] text-muted">
+                    {scope === "full" ? "The analyzed company report" : "A culture-focused report"}
+                    {synth?.state === "running" && synth.chars > 0 && ` · writing (${Math.round(synth.chars / 1000)}k chars)`}
+                  </span>
+                  {synth?.error && <span className="block text-[11.5px] text-danger">{synth.error}</span>}
                 </td>
-                <td>{synth ? <RunBadge state={synth.state} /> : <Badge>after research</Badge>}</td>
+                <td>{synth ? <RunBadge state={synth.state} /> : <Badge>waiting</Badge>}</td>
               </tr>
               {scope === "full" && (
                 <tr>
-                  <td className="py-2 text-ink">Persona photos</td>
-                  <td colSpan={2} className="text-muted">official photos, matched by name</td>
-                  <td>{photos ? <RunBadge state={photos} /> : <Badge>after report</Badge>}</td>
+                  <td colSpan={3} className="py-2">
+                    <span className="font-medium text-ink">4 · Find photos of key people</span>
+                    <span className="block text-[12px] text-muted">Official photos, matched by name</span>
+                  </td>
+                  <td>{photos ? <RunBadge state={photos} /> : <Badge>waiting</Badge>}</td>
                 </tr>
               )}
             </tbody>
