@@ -35,6 +35,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
       version: o.version,
       mode: o.mode,
       content: o.content,
+      data: o.data,
       reviewed: o.reviewed,
       reviewedBy: o.reviewedBy ? (names[o.reviewedBy] ?? o.reviewedBy) : null,
       reviewedAt: o.reviewedAt,

@@ -336,6 +336,9 @@ export const companyOutputs = pgTable(
     version: integer("version").notNull(),
     mode: text("mode", { enum: ["full", "culture-only"] }).notNull(),
     content: text("content").notNull(),
+    // Structured report (src/shared/company-report.ts) — drives the visual page.
+    // Null for pre-2026-09-26 rows, which only have Markdown.
+    data: jsonb("data"),
     // A plain marker, not a gate — nothing depends on it (ADR-009 §2).
     reviewed: boolean("reviewed").notNull().default(false),
     reviewedBy: text("reviewed_by").references(() => users.id),

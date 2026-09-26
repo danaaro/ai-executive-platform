@@ -1,71 +1,35 @@
----
-company: <Company Name>
-slug: <slug>
-built_on: <YYYY-MM-DD>
-scope: <full | culture-only>
-research_modules: [..]                   # modules actually available
-overall_confidence: <high | medium | low>
-status: draft                            # draft | reviewed (a human marks it reviewed)
----
+# Company Intelligence Report — section guide
 
-# <Company Name> — Company Intelligence Report
+> STATUS: 🟢 ready (2026-09-26). The machine contract is the JSON schema in
+> `src/shared/company-report.ts` (enforced through structured outputs). This file explains what
+> each section is for. The platform renders the data as a visual executive page and serializes
+> it to Markdown for download.
 
-## Bottom line
-<The 4–6 things that matter most, one sentence each. These are the analyzed conclusions, not a list of
-facts. A reader who stops here should know what this company is, where it stands right now, what
-it's like to work there, and the biggest risk or open issue.>
+The reader is an executive with two minutes. Every section must earn its place.
 
-## At a glance
-| | |
-|---|---|
-| What they do | <1 line> |
-| Ownership | <public (ticker) / private / PE-owned / subsidiary of …> |
-| Size & footprint | <employees, as-of date · main locations> |
-| Financial direction | <growing / stable / under pressure, with the single number that shows it> |
-| Leadership | <CEO (since …) + the 1–2 other leaders who matter most> |
-| Current moment | <e.g. post-acquisition integration, AI pivot, cost-cutting, rapid expansion> |
+| Section (JSON field) | What it is for | Rendered as |
+|---|---|---|
+| **Headline** (`headline`) | The one sentence they remember about the company's moment | Hero line |
+| **Trajectory** (`trajectory`) | growing / stable / transforming / under pressure / unclear, plus why | Status chip |
+| **Bottom line** (`bottomLine`) | 4–6 analyzed conclusions. A reader who stops here knows what the company is, where it stands, what it's like inside, and the biggest open issue | Numbered cards |
+| **Key figures** (`keyFigures`) | 3–5 headline numbers (people, revenue, ownership, rating), each dated | Stat tiles |
+| **At a glance** (`atAGlance`) | What they do, ownership, size and footprint, financial direction, leadership, current moment | Fact grid |
+| **Where the company is right now** (`currentSituation`) | One analytical paragraph tying together finances, events and leadership. It says what they *mean*. Full mode only | Narrative block |
+| **Last 12 months** (`timeline`) | 3–6 events that matter, newest first, each with why it matters. Full mode only | Timeline |
+| **Key personas** (`keyPersonas`) | 4–6 decision-makers who matter for our work: role, tenure, background, public focus areas, a public stance, why they matter, and how to open a professional conversation. **Public professional information only.** Full mode only | Persona cards |
+| **Culture: who thrives** (`culture.thrives/struggles/cultureAdd`) | Observable behaviors only, never personality types or demographic proxies | Three columns |
+| **Culture at a glance** (`culture.dimensions`) | Position 1–5 on the six trade-off spectrums, what it means, and confidence | Spectrum chart ("culture DNA") |
+| **What gets rewarded** (`culture.whatGetsRewarded`) | What actually gets people promoted or recognized | Callout |
+| **Employee sentiment** (`employeeSentiment`) | Published ratings only (overall, categories, CEO approval, recommend %), source, period, and recurring themes. Never estimated | Bar chart + meters |
+| **Say vs. do** (`sayVsDo`) | Where what the company says about itself differs from what it does, and the implication | Side-by-side rows |
+| **Risks and watch-outs** (`risks`) | 2–5 risks, each with severity | Severity-labeled list |
+| **Opportunities and conversation angles** (`opportunities`) | 2–4 openings for SusanDana (leadership hiring, talent strategy, culture change, AI adoption), each with the angle to open with | Cards |
+| **Questions to raise with the client** (`questions`) | 4–7 questions the research couldn't answer, most important first | Numbered list |
+| **Confidence and sources** (`overallConfidence`, `coverage`, `sourcesCount`, `confidenceNote`) | How far to trust this: coverage per research area and what was thin | Coverage strip |
 
-## Where the company is right now
-<One tight paragraph (4–6 sentences) of analysis: the company's current situation and direction,
-and what is driving it. Tie together finances, recent events and leadership. Say what it means,
-not only what happened.>
-
-## What happened in the last 12 months that matters
-<3–5 bullets, newest first. Each one: date · event · why it matters.>
-
-## Culture: who thrives here (the "<Company>-ness")
-<3–5 observable behaviors, each with one clause of evidence.>
-
-**Who tends to struggle:** <2–3 behaviors>
-**Where a new hire could add to the culture:** <1–3 gaps a different profile would fill>
-
-## Culture at a glance
-| Dimension | Where they sit (1–5) | What it means in practice | Confidence |
-|---|---|---|---|
-| Decision-making: consensus (1) ↔ decisive/top-down (5) | | | |
-| Pace: structured (1) ↔ fast/ambiguous (5) | | | |
-| Autonomy: hierarchy (1) ↔ flat/self-directed (5) | | | |
-| Communication: diplomatic (1) ↔ direct (5) | | | |
-| Risk: risk-averse (1) ↔ experiment/fail fast (5) | | | |
-| Collaboration: individual (1) ↔ cross-functional (5) | | | |
-
-**What actually gets rewarded:** <1–2 sentences>
-
-## Say vs. do: the gaps worth knowing
-<2–4 bullets: where what the company says about itself differs from what behavior, employees or
-results show, and what that implies.>
-
-## Risks and watch-outs
-<2–4 bullets: instability, reorgs, controversies, key-person dependency, financial pressure.>
-
-## Opportunities and conversation angles
-<2–4 bullets: where this company's situation creates a need, e.g. for leadership hiring,
-talent strategy, culture change or AI adoption, and the angle to open a conversation with.
-Grounded in the analysis above, not generic.>
-
-## Questions to raise with the client
-<4–7 questions the research could not answer, prioritized, the most important first.>
-
-## Confidence and sources
-<2–3 sentences: overall confidence and why, which areas were thin, and how many sources the
-research drew on. Mention whether employee-voice data or client documents were available.>
+## Writing rules
+- Analyze, connect and conclude. Don't digest the research. Short, concrete sentences.
+- Numbers only when published or sourced, and dated. Use `null` rather than a guess.
+- No `(→ 03)` arrows. The research files hold the evidence. Name the key fact in plain words.
+- Culture: observable behaviors only. No demographic or background proxies.
+- Personas: public professional information only. The approach must rest on public priorities, never on psychological profiling.

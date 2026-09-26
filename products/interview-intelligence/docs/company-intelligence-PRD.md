@@ -7,7 +7,7 @@
 **Seed:** `../../../../Company Intelligent Agent/` (BUILD-PLAN.md + company-intel-package)
 
 ## Purpose
-This is independent research ahead of client work. Given a company, it delivers **one** analyzed document (changed 2026-09-26 from a separate brief and culture profile): a single analyzed **Company Intelligence Report** covering the bottom line, the company at a glance, where it stands now, the last 12 months, culture, gaps between what the company says and what it does, risks, conversation angles, and questions for the client. The report is shown on screen and downloadable as one `.md`. The raw research stays behind a collapsed fact-check panel. Its template is `../schemas/company-intel/company-report.md`.
+This is independent research ahead of client work. Given a company, it delivers **one** analyzed document (changed 2026-09-26 from a separate brief and culture profile): a single analyzed **Company Intelligence Report** covering the bottom line, the company at a glance, where it stands now, the last 12 months, culture, gaps between what the company says and what it does, risks, conversation angles, and questions for the client. It includes **key personas** (the 4–6 decision-makers who matter, with background, public focus, why they matter and how to approach them), and it is shown as a **visual executive page** with charts, a timeline and persona cards. It can be saved as a PDF or downloaded as one `.md`. The raw research stays behind a collapsed fact-check panel. Its template is `../schemas/company-intel/company-report.md`.
 
 It is not connected to any other agent. Pasting a report into a JD session, or anywhere else, is a manual choice.
 

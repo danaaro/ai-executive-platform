@@ -9,6 +9,8 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/field";
 import { parseJson, readAgentStream } from "@/lib/api";
 import { extractText } from "@/lib/extract-text";
+import { ReportView } from "@/components/company-intel/ReportView";
+import type { ReportData } from "@/shared/company-report";
 import { cn, relativeTime } from "@/lib/utils";
 
 /**
@@ -34,6 +36,7 @@ type Output = {
   version: number;
   mode: "full" | "culture-only";
   content: string;
+  data: ReportData | null;
   reviewed: boolean;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -92,8 +95,8 @@ export function CompanyIntel({ checklist }: { checklist: string }) {
           </span>
         }
       />
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <main className={cn("mx-auto px-4 py-8", step === "results" ? "max-w-6xl" : "max-w-4xl")}>
+        <div className="no-print flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-display text-[22px] font-semibold text-ink">Company Intelligence</h1>
           {step !== "name" && (
             <Button size="sm" variant="ghost" onClick={reset}>
@@ -101,7 +104,7 @@ export function CompanyIntel({ checklist }: { checklist: string }) {
             </Button>
           )}
         </div>
-        <p className="mt-1 text-[13px] text-muted">
+        <p className="no-print mt-1 text-[13px] text-muted">
           Internal research tool for Dana and Susan. Researches a company in depth and delivers one
           analyzed report. Not visible to customers.
         </p>
@@ -779,7 +782,7 @@ function ResultsStep({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-[18px] font-semibold text-ink">{name}</h2>
         <div className="flex flex-wrap gap-2">
           {canRebuild && (
@@ -802,21 +805,20 @@ function ResultsStep({
             : "No research yet for this company."}
         </Alert>
       ) : (
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
-            <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">
-              <span>
-                Report v{report.version} · {report.mode === "full" ? "full research" : "culture only"} ·{" "}
-                {relativeTime(report.createdAt)}
-              </span>
-              <Badge tone={report.reviewed ? "done" : "draft"}>
-                {report.reviewed ? `reviewed by ${report.reviewedBy}` : "draft"}
-              </Badge>
-            </div>
-            <div className="flex gap-2">
+        <>
+          <div className="no-print flex flex-wrap items-center justify-between gap-2 rounded-card border border-line bg-card px-4 py-2.5">
+            <Badge tone={report.reviewed ? "done" : "draft"}>
+              {report.reviewed ? `reviewed by ${report.reviewedBy}` : "draft, not yet reviewed"}
+            </Badge>
+            <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={toggleReviewed}>
                 {report.reviewed ? "Mark as draft" : "Mark reviewed"}
               </Button>
+              {report.data && (
+                <Button size="sm" onClick={() => window.print()}>
+                  Save as PDF
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="primary"
@@ -826,14 +828,29 @@ function ResultsStep({
               </Button>
             </div>
           </div>
-          <article className="max-h-[75vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
-            {report.content}
-          </article>
-        </Card>
+          {report.data ? (
+            <ReportView
+              data={report.data}
+              meta={{ company: name, mode: report.mode, version: report.version, createdAt: report.createdAt }}
+            />
+          ) : (
+            <>
+              <Alert tone="accent">
+                This report was made before the visual format. Click \u201cRe-analyze\u201d to rebuild it as a
+                visual report from the saved research (about 2 minutes, no new web research).
+              </Alert>
+              <Card>
+                <article className="max-h-[75vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
+                  {report.content}
+                </article>
+              </Card>
+            </>
+          )}
+        </>
       )}
 
       {report && (
-        <details className="rounded-card border border-line bg-card p-4">
+        <details className="no-print rounded-card border border-line bg-card p-4">
           <summary className="cursor-pointer text-[13px] font-medium text-ink">
             Review checklist (use before marking reviewed)
           </summary>
@@ -842,7 +859,7 @@ function ResultsStep({
       )}
 
       {detail.research.length > 0 && (
-        <details className="rounded-card border border-line bg-card p-4">
+        <details className="no-print rounded-card border border-line bg-card p-4">
           <summary className="cursor-pointer text-[13px] font-medium text-muted">
             Underlying research, sourced and dated (only for fact-checking)
           </summary>

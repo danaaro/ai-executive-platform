@@ -4,6 +4,13 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, desc, eq, max } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import {
+  REPORT_JSON_SCHEMA,
+  isReportShape,
+  normalizeReport,
+  reportToMarkdown,
+  type ReportData,
+} from "@/shared/company-report";
 
 /**
  * Company Intelligence runtime (ADR-009) — INTERNAL, admin-only.
@@ -199,7 +206,11 @@ async function runToCompletion(opts: {
         else if (block.name === "web_fetch" && input.url) opts.onProgress(`read: ${input.url}`);
       }
     });
-    if (opts.onText) stream.on("text", opts.onText);
+    if (opts.onText) {
+      stream.on("text", opts.onText);
+      // Tool-call arguments stream as JSON deltas — same liveness signal.
+      stream.on("inputJson", (delta) => opts.onText!(delta));
+    }
 
     const msg = await stream.finalMessage();
     content.push(...msg.content);
@@ -390,35 +401,41 @@ const REPORT_OVERRIDE = (mode: SynthesisMode) => `
 # Runtime note (SusieBrain server) — OUTPUT OVERRIDE
 
 You are running as a server-side API call and cannot read or write files. The research files and
-input filenames are in the user message. The platform saves what you return.
+input filenames are in the user message. The platform renders and saves what you return.
 
 **Output override (decided by Dana, 2026-09-26):** do NOT write company-brief.md or
-culture-profile.md. Write ONE document: the Company Intelligence Report, using the report template
-below. Everything in the instructions above still applies: interpretation rules, stated vs lived,
+culture-profile.md. Produce ONE Company Intelligence Report as structured JSON matching the
+enforced schema. The platform renders it as a visual executive page (charts, timeline, persona
+cards) and as a Markdown download. The report description below explains each section.
+Everything in the instructions above still applies: interpretation rules, stated vs lived,
 trade-offs not virtues, honest confidence, the specificity test, and all fairness rules. Only the
 output shape changes.
 
-How to write the report:
+How to write it:
 - **It is the final product, not a digest of the research.** Analyze, connect and conclude. Lead
-  with what it means, then the fact that shows it. Cut anything that doesn't change the picture.
-- **Length:** about 900–1,400 words. Tight sentences. No filler, no repetition across sections.
-- **Traceability, lightly:** do NOT put "(→ 03)"-style arrows in the text. The research files remain
-  the evidence record. Name the key fact behind a conclusion in plain words where it matters
-  ("after cutting ~30% of French roles in Jan 2026, …"). Mark weak conclusions as such in words.
-- **Audience:** Dana and Susan, preparing for client conversations (executive search, talent
-  advisory, AI consulting). Not a hiring manager and not a candidate.
-- **Dates:** keep the date on any figure that can go stale (headcount, revenue, leadership changes).
+  with what it means, then the fact that shows it. Every field is read by an executive in
+  seconds: short, concrete, no filler, no repetition across sections.
+- **Numbers are for charts.** Put only published or sourced figures in keyFigures and
+  employeeSentiment. Never estimate a rating or percentage. Use null when not found.
+- **Traceability, lightly:** no "(→ 03)" arrows. The research files remain the evidence record.
+  Name the key fact behind a conclusion in plain words where it matters. Keep dates on any
+  figure that can go stale.
+- **Key personas: public professional information ONLY** (role, tenure, official bio, public
+  statements, talks, interviews). Nothing about private life, family, health, personal social
+  media, or personality speculation. "approach" must rest on their public priorities and role,
+  never on psychological profiling or pressure tactics.
+- **Audience:** Dana and Susan, preparing client conversations (executive search, talent
+  advisory, AI consulting). Not a hiring manager, not a candidate.
 ${mode === "culture-only"
-  ? `- **Scope is culture-only:** only module 05 was researched. Fill "At a glance" only with what the
-  research shows (write "not researched" otherwise). OMIT the sections "Where the company is right
-  now" and "What happened in the last 12 months that matters". Say in "Confidence and sources" that
-  a full run would add ownership, financials, recent activity and leadership.`
-  : "- **Scope is full:** all sections apply."}
-- Reply with ONLY the report, starting with its \`---\` frontmatter line. Nothing before or after it.
+  ? `- **Scope is culture-only:** only module 05 was researched. Set currentSituation to null, and leave
+  timeline and keyPersonas empty. In atAGlance write "not researched" where the research is
+  silent. Mark areas 01–04 as "not researched" in coverage, and say in confidenceNote that a full
+  run adds ownership, financials, recent activity and leadership.`
+  : "- **Scope is full:** every section applies."}
 
 ---
 
-# Template: company-intel/templates/company-report.md
+# Report description: company-intel/templates/company-report.md
 
 `;
 
@@ -445,6 +462,8 @@ export async function runSynthesis(opts: {
   const system =
     stripFrontmatter(read("prompts/company-intel/company-synthesizer.md")) +
     REPORT_OVERRIDE(opts.mode) +
+    `Deliver the report by calling the \`save_report\` tool exactly once with the complete report. ` +
+    `Do not write the report as text.\n\n` +
     read("schemas/company-intel/company-report.md");
 
   const user =
@@ -460,13 +479,38 @@ export async function runSynthesis(opts: {
     model: SYNTHESIS_MODEL,
     system,
     user,
-    maxTokens: 16000,
+    maxTokens: 20000,
+    // Delivered as a tool call rather than enforced structured output: the
+    // schema is too large for the structured-outputs grammar compiler
+    // ("compiled grammar is too large", 2026-09-26). Tool arguments arrive as
+    // parsed JSON; isReportShape() guards the rest.
+    tools: [
+      {
+        name: "save_report",
+        description:
+          "Save the finished Company Intelligence Report. Call exactly once, with the complete report.",
+        input_schema: REPORT_JSON_SCHEMA as Anthropic.Messages.Tool.InputSchema,
+      },
+    ],
     onText: opts.onText,
   });
   if (stopReason === "max_tokens") throw new Error("The report was cut off at the length limit. Please re-run");
+  if (stopReason === "refusal") throw new Error("The model declined to write this report");
 
-  const report = fromFrontmatter(finalText(content));
-  if (!report.includes("# ")) throw new Error("The report came back empty. Please re-run");
+  const call = content.find(
+    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === "save_report"
+  );
+  if (!call || !isReportShape(call.input)) {
+    throw new Error("The report came back incomplete. Please re-run");
+  }
+  const data: ReportData = normalizeReport(call.input);
+  const markdown = reportToMarkdown(data, {
+    company: company.name,
+    slug: company.slug,
+    builtOn: today(),
+    mode: opts.mode,
+    modules: research.map((r) => r.module),
+  });
 
   const [agg] = await d
     .select({ v: max(tables.companyOutputs.version) })
@@ -481,7 +525,8 @@ export async function runSynthesis(opts: {
       kind: "report",
       version: (agg.v ?? 0) + 1,
       mode: opts.mode,
-      content: report,
+      content: markdown,
+      data,
       usage,
       createdBy: opts.userId,
     })

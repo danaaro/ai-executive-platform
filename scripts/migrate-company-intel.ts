@@ -81,6 +81,8 @@ async function main() {
       created_at   timestamptz NOT NULL DEFAULT now()
     )
   `;
+  // Structured report data for the visual page (2026-09-26).
+  await sql`ALTER TABLE company_outputs ADD COLUMN IF NOT EXISTS data jsonb`;
   console.log("   ✓ " + TABLES.join(", "));
 
   console.log("2. Constraints + indexes…");
