@@ -84,11 +84,12 @@ async function main() {
   console.log("   ✓ " + TABLES.join(", "));
 
   console.log("2. Constraints + indexes…");
+  // Re-created every run so widening the vocabulary ('report', 2026-09-26)
+  // applies to databases created with the older constraint.
+  await sql`ALTER TABLE company_outputs DROP CONSTRAINT IF EXISTS company_outputs_kind_chk`;
   await sql`
-    DO $$ BEGIN
-      ALTER TABLE company_outputs ADD CONSTRAINT company_outputs_kind_chk
-        CHECK (kind IN ('brief','culture'));
-    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    ALTER TABLE company_outputs ADD CONSTRAINT company_outputs_kind_chk
+      CHECK (kind IN ('report','brief','culture'))
   `;
   await sql`
     DO $$ BEGIN

@@ -17,7 +17,8 @@ import { cn, relativeTime } from "@/lib/utils";
  *   1. company name   → find-or-create, show what's cached
  *   2. documents      → optional uploads / pastes, highest-trust source
  *   3. run            → stale/missing modules in parallel, then synthesis
- *   → results: brief + culture profile, download .md, saved in the DB
+ *   → result: ONE analyzed report (download .md, saved in the DB); the raw
+ *     research stays behind a collapsed fact-check panel
  */
 
 type ModuleState = {
@@ -43,7 +44,7 @@ type Detail = {
   modules: ModuleState[];
   research: { module: string; content: string; researchedOn: string }[];
   inputs: { id: string; filename: string; chars: number; createdAt: string }[];
-  outputs: { brief: Output; culture: Output };
+  report: Output;
 };
 type Step = "name" | "docs" | "run" | "results";
 type Scope = "culture-only" | "full";
@@ -67,7 +68,7 @@ export function CompanyIntel({ checklist }: { checklist: string }) {
     setError(null);
     try {
       const d = await load(slug);
-      const hasOutputs = Boolean(d.outputs.culture || d.outputs.brief);
+      const hasOutputs = Boolean(d.report || d.research.length);
       setExisted(true);
       setStep(fromList && hasOutputs ? "results" : "docs");
     } catch (e) {
@@ -101,8 +102,8 @@ export function CompanyIntel({ checklist }: { checklist: string }) {
           )}
         </div>
         <p className="mt-1 text-[13px] text-muted">
-          Internal research tool for Dana and Susan. Produces a factual company brief and a culture
-          profile. Not visible to customers.
+          Internal research tool for Dana and Susan. Researches a company in depth and delivers one
+          analyzed report. Not visible to customers.
         </p>
 
         {step !== "results" && <Stepper step={step} />}
@@ -547,7 +548,7 @@ function RunStep({
     const fresh = await fetch(`/api/company-intel/companies/${slug}`).then((r) => parseJson<Detail>(r));
     const cultureOk = fresh.modules.find((m) => m.module === CULTURE)?.status !== "missing";
     const outputMissing =
-      !fresh.outputs.culture || (scope === "full" && !fresh.outputs.brief);
+      !fresh.report || (scope === "full" && fresh.report.mode !== "full");
     const anyRan = results.some(Boolean);
 
     if (!cultureOk) {
@@ -556,7 +557,7 @@ function RunStep({
       return;
     }
     if (!anyRan && !outputMissing) {
-      setNotice("Everything in scope is fresh and the outputs exist. Nothing to re-run. Showing the saved results.");
+      setNotice("Everything in scope is fresh and the outputs exist. Nothing to re-run. Showing the saved report.");
       setRunning(false);
       await onFinished();
       return;
@@ -590,14 +591,14 @@ function RunStep({
               disabled={running}
               onClick={() => setScope("culture-only")}
               title="Culture only"
-              text="Module 05 → culture profile. Faster. Use it first to test profile quality."
+              text="Culture & employee voice only → a culture-focused report. Faster."
             />
             <ScopeOption
               active={scope === "full"}
               disabled={running}
               onClick={() => setScope("full")}
               title="Full research"
-              text="All 5 modules in parallel → company brief + culture profile."
+              text="All 5 research areas in parallel → the full company report."
             />
           </div>
           <label className="flex items-center gap-2 text-[13px] text-ink">
@@ -652,7 +653,7 @@ function RunStep({
               <tr>
                 <td className="py-2 text-ink">Synthesis (Opus)</td>
                 <td colSpan={2} className="text-muted">
-                  {scope === "full" ? "brief + culture profile" : "culture profile"}
+                  {scope === "full" ? "full report" : "culture-focused report"}
                   {synth?.state === "running" && synth.chars > 0 && ` · writing (${Math.round(synth.chars / 1000)}k chars)`}
                   {synth?.error && <div className="text-[11.5px] text-danger">{synth.error}</div>}
                 </td>
@@ -734,121 +735,129 @@ function ResultsStep({
   reload: () => Promise<Detail>;
   onResearchAgain: () => void;
 }) {
-  const { slug } = detail.company;
-  const tabs = [
-    detail.outputs.culture && { id: "culture", label: "Culture profile" },
-    detail.outputs.brief && { id: "brief", label: "Company brief" },
-    detail.research.length > 0 && { id: "research", label: `Research files (${detail.research.length})` },
-  ].filter(Boolean) as { id: "culture" | "brief" | "research"; label: string }[];
-  const [tab, setTab] = useState(tabs[0]?.id ?? "research");
-  const [researchIdx, setResearchIdx] = useState(0);
-
-  const output = tab === "culture" ? detail.outputs.culture : tab === "brief" ? detail.outputs.brief : null;
-  const research = detail.research[researchIdx];
-  const content = output?.content ?? (tab === "research" ? research?.content : "") ?? "";
-  const filename =
-    tab === "culture"
-      ? `${slug}-culture-profile.md`
-      : tab === "brief"
-        ? `${slug}-company-brief.md`
-        : `${slug}-${research?.module}.md`;
+  const { slug, name } = detail.company;
+  const report = detail.report;
+  const [rebuilding, setRebuilding] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const toggleReviewed = async () => {
-    if (!output) return;
-    await fetch(`/api/company-intel/outputs/${output.id}/reviewed`, {
+    if (!report) return;
+    await fetch(`/api/company-intel/outputs/${report.id}/reviewed`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reviewed: !output.reviewed }),
+      body: JSON.stringify({ reviewed: !report.reviewed }),
     });
     await reload();
   };
 
-  if (tabs.length === 0) {
-    return (
-      <Alert tone="info">
-        No results yet for {detail.company.name}.{" "}
-        <button className="underline" onClick={onResearchAgain}>
-          Start research
-        </button>
-      </Alert>
-    );
-  }
+  /** Re-analyzes the SAVED research into a new report version. No new web research. */
+  const rebuild = async () => {
+    setRebuilding(true);
+    setErr(null);
+    try {
+      const hasAll = detail.modules.every((m) => m.status !== "missing");
+      const res = await fetch(`/api/company-intel/companies/${slug}/synthesize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: hasAll ? "full" : "culture-only" }),
+      });
+      if (!res.ok) await parseJson(res);
+      let failed = null as string | null;
+      await readAgentStream(res, (ev) => {
+        if (ev.type === "error") failed = ev.error;
+      });
+      if (failed) throw new Error(failed);
+      await reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not build the report");
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
+  const canRebuild = detail.research.some((r) => r.module === CULTURE);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {tabs.map((t) => (
-            <Button
-              key={t.id}
-              size="sm"
-              variant={tab === t.id ? "ink" : "secondary"}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
+        <h2 className="font-display text-[18px] font-semibold text-ink">{name}</h2>
+        <div className="flex flex-wrap gap-2">
+          {canRebuild && (
+            <Button size="sm" variant="ghost" onClick={rebuild} disabled={rebuilding}>
+              {rebuilding ? "Analyzing… (about 1–2 min)" : report ? "Re-analyze" : "Build report"}
             </Button>
-          ))}
+          )}
+          <Button size="sm" variant="ghost" onClick={onResearchAgain} disabled={rebuilding}>
+            Add documents / research again
+          </Button>
         </div>
-        <Button size="sm" variant="ghost" onClick={onResearchAgain}>
-          Add documents / research again
-        </Button>
       </div>
 
-      {tab === "research" && (
-        <div className="flex flex-wrap gap-1.5">
-          {detail.research.map((r, i) => (
-            <button
-              key={r.module}
-              onClick={() => setResearchIdx(i)}
-              className={cn(
-                "rounded-full border px-2.5 py-0.5 text-[12px]",
-                i === researchIdx ? "border-accent bg-accent-wash text-accent-ink" : "border-line text-muted"
-              )}
-            >
-              {r.module} · {r.researchedOn}
-            </button>
-          ))}
-        </div>
+      {err && <Alert tone="danger">{err}</Alert>}
+
+      {!report ? (
+        <Alert tone="info">
+          {canRebuild
+            ? "This company's research is saved but has no final report yet (it was researched before the report format). Click \u201cBuild report\u201d to analyze the saved research. No new web research is needed."
+            : "No research yet for this company."}
+        </Alert>
+      ) : (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
+            <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">
+              <span>
+                Report v{report.version} · {report.mode === "full" ? "full research" : "culture only"} ·{" "}
+                {relativeTime(report.createdAt)}
+              </span>
+              <Badge tone={report.reviewed ? "done" : "draft"}>
+                {report.reviewed ? `reviewed by ${report.reviewedBy}` : "draft"}
+              </Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={toggleReviewed}>
+                {report.reviewed ? "Mark as draft" : "Mark reviewed"}
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => download(`${slug}-company-report.md`, report.content)}
+              >
+                Download .md
+              </Button>
+            </div>
+          </div>
+          <article className="max-h-[75vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
+            {report.content}
+          </article>
+        </Card>
       )}
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
-          <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">
-            {output ? (
-              <>
-                <span>
-                  v{output.version} · {output.mode} · {relativeTime(output.createdAt)}
-                </span>
-                <Badge tone={output.reviewed ? "done" : "draft"}>
-                  {output.reviewed ? `reviewed by ${output.reviewedBy}` : "draft"}
-                </Badge>
-              </>
-            ) : (
-              <span>Facts layer, sourced and dated. Not interpreted.</span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            {output && (
-              <Button size="sm" onClick={toggleReviewed}>
-                {output.reviewed ? "Mark as draft" : "Mark reviewed"}
-              </Button>
-            )}
-            <Button size="sm" variant="primary" onClick={() => download(filename, content)}>
-              Download .md
-            </Button>
-          </div>
-        </div>
-        <article className="max-h-[70vh] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-[13.5px] leading-[1.7] text-ink">
-          {content}
-        </article>
-      </Card>
-
-      {output && (
+      {report && (
         <details className="rounded-card border border-line bg-card p-4">
           <summary className="cursor-pointer text-[13px] font-medium text-ink">
             Review checklist (use before marking reviewed)
           </summary>
           <div className="mt-3 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted">{checklist}</div>
+        </details>
+      )}
+
+      {detail.research.length > 0 && (
+        <details className="rounded-card border border-line bg-card p-4">
+          <summary className="cursor-pointer text-[13px] font-medium text-muted">
+            Underlying research, sourced and dated (only for fact-checking)
+          </summary>
+          <ul className="mt-3 space-y-1.5 text-[12.5px]">
+            {detail.research.map((r) => (
+              <li key={r.module} className="flex items-center justify-between gap-2">
+                <span className="text-ink">
+                  {r.module} <span className="text-muted">· researched {r.researchedOn}</span>
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => download(`${slug}-${r.module}.md`, r.content)}>
+                  Download
+                </Button>
+              </li>
+            ))}
+          </ul>
         </details>
       )}
     </div>

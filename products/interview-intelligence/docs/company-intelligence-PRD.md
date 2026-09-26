@@ -7,21 +7,19 @@
 **Seed:** `../../../../Company Intelligent Agent/` (BUILD-PLAN.md + company-intel-package)
 
 ## Purpose
-This is independent research ahead of client work. Given a company, it produces:
-- **Company brief:** a one-page factual picture covering ownership, finances, the last 12 months, leadership, and implications for hiring.
-- **Culture profile:** the company's "X-ness". It covers who thrives there, who struggles, where a new hire could add to the culture, six trade-off dimensions with interview probes, and open questions.
+This is independent research ahead of client work. Given a company, it delivers **one** analyzed document (changed 2026-09-26 from a separate brief and culture profile): a single analyzed **Company Intelligence Report** covering the bottom line, the company at a glance, where it stands now, the last 12 months, culture, gaps between what the company says and what it does, risks, conversation angles, and questions for the client. The report is shown on screen and downloadable as one `.md`. The raw research stays behind a collapsed fact-check panel. Its template is `../schemas/company-intel/company-report.md`.
 
-It is not connected to any other agent. Pasting a profile into a JD session, or anywhere else, is a manual choice.
+It is not connected to any other agent. Pasting a report into a JD session, or anywhere else, is a manual choice.
 
 ## User flow (`/internal/company-intel`)
 1. **Company name.** If the company has been researched before, the page shows each module's freshness. Fresh modules are reused. A "refresh everything" option forces a full re-run.
 2. **Existing documents.** Upload (PDF, DOCX, MD, TXT) or paste anything the company has already shared: decks, handbooks, Glassdoor exports, meeting notes. You can also skip this step. Documents rank above web sources in trust (see `company-intel-inputs-guide.md`).
 3. **Run.** Choose the scope:
-   - **Culture only** runs module 05, then writes the culture profile.
-   - **Full research** runs modules 01–05, then writes the brief and the profile.
+   - **Culture only** runs module 05, then writes a culture-focused report.
+   - **Full research** runs modules 01–05, then writes the full report.
 
    A live progress view shows the modules running in parallel. The results show on screen, can be downloaded as `.md` files, and are saved to the database.
-4. **Past research.** Open any company to see its latest outputs, download them, or mark them reviewed.
+4. **Past research.** Open any company to see its latest report, download it, mark it reviewed, or **Re-analyze** it. Re-analyzing rebuilds the report from saved research without new web searches.
 
 ## Research modules
 Brief files live in `../prompts/company-intel/briefs/`.
@@ -36,7 +34,7 @@ Brief files live in `../prompts/company-intel/briefs/`.
 
 ## Non-negotiables (from the package; not to be changed without Dana's approval)
 - Every fact carries a source and a date. "Not found" is a valid result, and gaps are never filled with guesses.
-- Facts (research modules) and interpretation (brief and profile) are kept separate.
+- Facts (research modules) and interpretation (the report) are kept separate.
 - No demographic data about employees, even when a source displays it.
 - Stakeholders: public professional information only.
 - No logged-in scraping. Deeper material, such as Glassdoor reviews, comes only from documents we upload.

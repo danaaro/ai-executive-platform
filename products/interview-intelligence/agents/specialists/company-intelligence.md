@@ -24,4 +24,5 @@ description: INTERNAL ONLY (admins: Dana + Susan). Researches one company across
 - **Guardrails:** demographic exclusion, stakeholder privacy, source + date on every fact, facts vs interpretation, no logged-in scraping. These are embedded in the prompts and must not be changed without Dana's approval.
 
 ## Changelog
+- **v1.1 (2026-09-26):** synthesis now outputs ONE final report (`schemas/company-intel/company-report.md`) instead of a brief plus a profile. The synthesizer rules are unchanged.
 - **v1 (2026-09-26):** imported from the company-intel build package. The runtime moved from local Claude Code to SusieBrain (ADR-009). JD coupling was dropped, and `approved` was replaced with `reviewed`.

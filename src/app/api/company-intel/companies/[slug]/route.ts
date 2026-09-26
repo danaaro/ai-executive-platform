@@ -28,11 +28,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
       .orderBy(asc(tables.companyInputs.createdAt)),
   ]);
 
-  const reviewers = [outputs.brief?.reviewedBy, outputs.culture?.reviewedBy].filter(
-    (x): x is string => Boolean(x)
-  );
-  const names = await getUserNames(reviewers);
-  const shape = (o: typeof outputs.brief) =>
+  const names = await getUserNames(outputs.report?.reviewedBy ? [outputs.report.reviewedBy] : []);
+  const shape = (o: typeof outputs.report) =>
     o && {
       id: o.id,
       version: o.version,
@@ -49,6 +46,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     modules,
     research: research.map((r) => ({ module: r.module, content: r.content, researchedOn: r.researchedOn })),
     inputs: inputs.map((i) => ({ id: i.id, filename: i.filename, chars: i.chars, createdAt: i.createdAt })),
-    outputs: { brief: shape(outputs.brief), culture: shape(outputs.culture) },
+    report: shape(outputs.report),
   });
 }

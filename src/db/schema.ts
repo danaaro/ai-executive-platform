@@ -323,7 +323,7 @@ export const companyResearch = pgTable(
   (t) => [index("company_research_company_module_idx").on(t.companyId, t.module, t.createdAt)]
 );
 
-/** The INTERPRETATION layer: versioned brief + culture profile per company. */
+/** The INTERPRETATION layer: the versioned final report per company. */
 export const companyOutputs = pgTable(
   "company_outputs",
   {
@@ -331,7 +331,8 @@ export const companyOutputs = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["brief", "culture"] }).notNull(),
+    // "report" is the deliverable; "brief"/"culture" = pre-2026-09-26 format, history only.
+    kind: text("kind", { enum: ["report", "brief", "culture"] }).notNull(),
     version: integer("version").notNull(),
     mode: text("mode", { enum: ["full", "culture-only"] }).notNull(),
     content: text("content").notNull(),

@@ -128,10 +128,8 @@ export async function latestOutputs(companyId: string) {
     .from(tables.companyOutputs)
     .where(eq(tables.companyOutputs.companyId, companyId))
     .orderBy(desc(tables.companyOutputs.version));
-  return {
-    brief: rows.find((r) => r.kind === "brief") ?? null,
-    culture: rows.find((r) => r.kind === "culture") ?? null,
-  };
+  // brief/culture are the pre-report format (kept as history, no longer produced).
+  return { report: rows.find((r) => r.kind === "report") ?? null };
 }
 
 async function loadInputs(companyId: string) {
@@ -371,13 +369,58 @@ export async function runResearchModule(opts: {
 }
 
 /* -------------------------------------------------------------------------
- * Synthesizer
+ * Synthesizer → ONE final report (2026-09-26)
+ *
+ * The package's synthesizer wrote two long documents (company-brief +
+ * culture-profile, 7–15k chars each, evidence arrows on every line) and the
+ * page also exposed the five raw research files. Dana's call: the deliverable
+ * is ONLY the finished, analyzed summary. So the synthesizer's interpretation
+ * and fairness rules are loaded unchanged, but its output is redirected into a
+ * single report (schemas/company-intel/company-report.md). The research files
+ * stay in the DB as the evidence record (sources + dates live there) and for
+ * the cache — they're just no longer the product.
  * ---------------------------------------------------------------------- */
 
-const BRIEF_MARK = "<<<COMPANY_BRIEF>>>";
-const CULTURE_MARK = "<<<CULTURE_PROFILE>>>";
-
 export type SynthesisMode = "full" | "culture-only";
+
+const REPORT_OVERRIDE = (mode: SynthesisMode) => `
+
+---
+
+# Runtime note (SusieBrain server) — OUTPUT OVERRIDE
+
+You are running as a server-side API call and cannot read or write files. The research files and
+input filenames are in the user message. The platform saves what you return.
+
+**Output override (decided by Dana, 2026-09-26):** do NOT write company-brief.md or
+culture-profile.md. Write ONE document: the Company Intelligence Report, using the report template
+below. Everything in the instructions above still applies: interpretation rules, stated vs lived,
+trade-offs not virtues, honest confidence, the specificity test, and all fairness rules. Only the
+output shape changes.
+
+How to write the report:
+- **It is the final product, not a digest of the research.** Analyze, connect and conclude. Lead
+  with what it means, then the fact that shows it. Cut anything that doesn't change the picture.
+- **Length:** about 900–1,400 words. Tight sentences. No filler, no repetition across sections.
+- **Traceability, lightly:** do NOT put "(→ 03)"-style arrows in the text. The research files remain
+  the evidence record. Name the key fact behind a conclusion in plain words where it matters
+  ("after cutting ~30% of French roles in Jan 2026, …"). Mark weak conclusions as such in words.
+- **Audience:** Dana and Susan, preparing for client conversations (executive search, talent
+  advisory, AI consulting). Not a hiring manager and not a candidate.
+- **Dates:** keep the date on any figure that can go stale (headcount, revenue, leadership changes).
+${mode === "culture-only"
+  ? `- **Scope is culture-only:** only module 05 was researched. Fill "At a glance" only with what the
+  research shows (write "not researched" otherwise). OMIT the sections "Where the company is right
+  now" and "What happened in the last 12 months that matters". Say in "Confidence and sources" that
+  a full run would add ownership, financials, recent activity and leadership.`
+  : "- **Scope is full:** all sections apply."}
+- Reply with ONLY the report, starting with its \`---\` frontmatter line. Nothing before or after it.
+
+---
+
+# Template: company-intel/templates/company-report.md
+
+`;
 
 export async function runSynthesis(opts: {
   companyId: string;
@@ -398,25 +441,11 @@ export async function runSynthesis(opts: {
     throw new Error("Module 05 (culture & employee voice) hasn't been researched yet");
   }
   const inputs = await loadInputs(company.id);
-  const full = opts.mode === "full";
-
-  const outputSpec = full
-    ? `Reply with BOTH files, each preceded by its marker line and nothing else:\n\n${BRIEF_MARK}\n<the complete company-brief.md, starting with its --- frontmatter>\n\n${CULTURE_MARK}\n<the complete culture-profile.md, starting with its --- frontmatter>`
-    : `Mode is culture-only: write ONLY the culture profile. Reply with:\n\n${CULTURE_MARK}\n<the complete culture-profile.md, starting with its --- frontmatter>`;
 
   const system =
     stripFrontmatter(read("prompts/company-intel/company-synthesizer.md")) +
-    `\n\n---\n\n# Runtime note (SusieBrain server)\n\n` +
-    `You are running as a server-side API call and cannot read or write files. ` +
-    `The research files and the input filenames are included in the user message. ` +
-    `The templates are included below. The platform saves what you return.\n\n` +
-    outputSpec +
-    (full
-      ? `\n\n---\n\n# Template: company-intel/templates/company-brief.md\n\n` +
-        read("schemas/company-intel/company-brief.md")
-      : "") +
-    `\n\n---\n\n# Template: company-intel/templates/culture-profile.md\n\n` +
-    read("schemas/company-intel/culture-profile.md");
+    REPORT_OVERRIDE(opts.mode) +
+    read("schemas/company-intel/company-report.md");
 
   const user =
     `Company: ${company.name}\nSlug: ${company.slug}\nToday's date: ${today()}\nMode: ${opts.mode}\n\n` +
@@ -431,54 +460,35 @@ export async function runSynthesis(opts: {
     model: SYNTHESIS_MODEL,
     system,
     user,
-    maxTokens: 24000,
+    maxTokens: 16000,
     onText: opts.onText,
   });
-  if (stopReason === "max_tokens") throw new Error("Synthesis was cut off at the length limit. Please re-run");
+  if (stopReason === "max_tokens") throw new Error("The report was cut off at the length limit. Please re-run");
 
-  const text = finalText(content);
-  const section = (mark: string, next?: string) => {
-    const start = text.indexOf(mark);
-    if (start < 0) return null;
-    const from = start + mark.length;
-    const end = next ? text.indexOf(next, from) : -1;
-    return fromFrontmatter(text.slice(from, end >= 0 ? end : undefined));
-  };
-  const culture = section(CULTURE_MARK);
-  const brief = full ? section(BRIEF_MARK, CULTURE_MARK) : null;
-  if (!culture || (full && !brief)) {
-    throw new Error("Synthesis reply was missing an expected document. Please re-run");
-  }
+  const report = fromFrontmatter(finalText(content));
+  if (!report.includes("# ")) throw new Error("The report came back empty. Please re-run");
 
-  const saved: (typeof tables.companyOutputs.$inferSelect)[] = [];
-  for (const [kind, md] of [
-    ["brief", brief],
-    ["culture", culture],
-  ] as const) {
-    if (!md) continue;
-    const [agg] = await d
-      .select({ v: max(tables.companyOutputs.version) })
-      .from(tables.companyOutputs)
-      .where(
-        and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.kind, kind))
-      );
-    const [row] = await d
-      .insert(tables.companyOutputs)
-      .values({
-        companyId: company.id,
-        kind,
-        version: (agg.v ?? 0) + 1,
-        mode: opts.mode,
-        content: md,
-        usage,
-        createdBy: opts.userId,
-      })
-      .returning();
-    saved.push(row);
-  }
+  const [agg] = await d
+    .select({ v: max(tables.companyOutputs.version) })
+    .from(tables.companyOutputs)
+    .where(
+      and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.kind, "report"))
+    );
+  const [row] = await d
+    .insert(tables.companyOutputs)
+    .values({
+      companyId: company.id,
+      kind: "report",
+      version: (agg.v ?? 0) + 1,
+      mode: opts.mode,
+      content: report,
+      usage,
+      createdBy: opts.userId,
+    })
+    .returning();
   await d
     .update(tables.companies)
     .set({ updatedAt: new Date() })
     .where(eq(tables.companies.id, company.id));
-  return saved;
+  return row;
 }
