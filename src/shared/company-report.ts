@@ -72,6 +72,8 @@ export type ReportData = {
   }[];
   /** Set once the photo step has run, so the page doesn't offer it again. */
   photosCheckedAt?: string;
+  /** Usage of the photo step, recorded for the cost line (not model output). */
+  photosUsage?: import("./ai-cost").RunUsage;
   /** Absent on reports made before module 06 (2026-09-26). */
   groupStructure?: {
     summary: string;

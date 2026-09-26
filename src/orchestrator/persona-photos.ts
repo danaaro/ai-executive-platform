@@ -1,6 +1,10 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import type { PersonaPhoto } from "@/shared/company-report";
+import type { RunUsage } from "@/shared/ai-cost";
+
+/** Accumulated by proposePages so the photo step's cost is recorded too. */
+export const photoUsage = (): RunUsage => ({ model: DEFAULT_MODEL, inputTokens: 0, outputTokens: 0, webSearches: 0, ms: 0 });
 
 /**
  * Persona photos (2026-09-26) — precision over recall.
@@ -28,6 +32,7 @@ export async function findPersonaPhotos(opts: {
   company: string;
   website: string | null;
   personas: Persona[];
+  usage?: RunUsage;
 }): Promise<Record<string, PersonaPhoto | null>> {
   const result: Record<string, PersonaPhoto | null> = {};
   for (const p of opts.personas) result[p.name] = null;
@@ -78,7 +83,9 @@ async function proposePages(opts: {
   company: string;
   website: string | null;
   personas: Persona[];
+  usage?: RunUsage;
 }): Promise<Record<string, string[]>> {
+  const started = Date.now();
   const tool: Anthropic.Messages.Tool = {
     name: "save_pages",
     description: "Save the candidate pages found for each person. Call exactly once.",
@@ -128,6 +135,12 @@ async function proposePages(opts: {
         tool,
       ],
     });
+    if (opts.usage) {
+      opts.usage.inputTokens += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0);
+      opts.usage.outputTokens += msg.usage.output_tokens;
+      opts.usage.webSearches = (opts.usage.webSearches ?? 0) + (msg.usage.server_tool_use?.web_search_requests ?? 0);
+      opts.usage.ms = Date.now() - started;
+    }
     const call = msg.content.find(
       (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === "save_pages"
     );

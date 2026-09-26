@@ -9,6 +9,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/field";
 import { parseJson, readAgentStream } from "@/lib/api";
 import { extractText } from "@/lib/extract-text";
+import { estimateRunCost, formatUsd } from "@/shared/ai-cost";
 import { CompanyLogo, ReportView } from "@/components/company-intel/ReportView";
 import type { ReportData } from "@/shared/company-report";
 import { cn, relativeTime } from "@/lib/utils";
@@ -48,6 +49,7 @@ type Detail = {
   research: { module: string; content: string; researchedOn: string }[];
   inputs: { id: string; filename: string; chars: number; createdAt: string }[];
   report: Output;
+  cost: { thisReport: number | null; allTime: number };
 };
 type Step = "name" | "docs" | "run" | "results";
 type Scope = "culture-only" | "full";
@@ -845,9 +847,18 @@ function RunStep({
         <Button variant="ghost" onClick={onBack} disabled={running}>
           ← Documents
         </Button>
-        <Button variant="primary" onClick={run} disabled={running}>
-          {running ? "Running…" : started ? "Run again" : "Start research"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {!running && (
+            <span className="text-[12.5px] text-muted" title="Approximate, at Anthropic list prices">
+              {toRun.length === 0
+                ? "Nothing new to research"
+                : `Estimated AI cost ≈ ${formatUsd(estimateRunCost(toRun.length, true, scope === "full"))}`}
+            </span>
+          )}
+          <Button variant="primary" onClick={run} disabled={running}>
+            {running ? "Running…" : started ? "Run again" : "Start research"}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -915,7 +926,18 @@ function ResultsStep({
   return (
     <div className="space-y-4">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-[18px] font-semibold text-ink">{name}</h2>
+        <div>
+          <h2 className="font-display text-[18px] font-semibold text-ink">{name}</h2>
+          {detail.cost.allTime > 0 && (
+            <p
+              className="text-[12px] text-muted"
+              title="Approximate, at Anthropic list prices. Includes research reused from earlier runs. Not shown in the PDF."
+            >
+              AI cost ≈ {detail.cost.thisReport !== null && <>{formatUsd(detail.cost.thisReport)} for this report · </>}
+              {formatUsd(detail.cost.allTime)} spent on {name} in total
+            </p>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="ghost" onClick={onUpdate}>
             Update research

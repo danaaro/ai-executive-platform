@@ -4,7 +4,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, desc, eq, max } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
-import { findPersonaPhotos } from "@/orchestrator/persona-photos";
+import { findPersonaPhotos, photoUsage } from "@/orchestrator/persona-photos";
 import { findCompanyLogo, guessWebsite } from "@/orchestrator/company-logo";
 import { readCompanySite } from "@/orchestrator/company-site";
 import { like } from "drizzle-orm";
@@ -578,7 +578,9 @@ export async function addPersonaPhotos(companyId: string) {
   const data = report.data as ReportData;
 
   await ensureCompanyLogo(companyId).catch(() => null);
+  const usage = photoUsage();
   const photos = await findPersonaPhotos({
+    usage,
     company: company.name,
     website: company.website,
     personas: data.keyPersonas.map((p) => ({ name: p.name, role: p.role })),
@@ -587,6 +589,7 @@ export async function addPersonaPhotos(companyId: string) {
     ...data,
     keyPersonas: data.keyPersonas.map((p) => ({ ...p, photo: photos[p.name] ?? null })),
     photosCheckedAt: new Date().toISOString(),
+    photosUsage: usage,
   };
   await d.update(tables.companyOutputs).set({ data: next }).where(eq(tables.companyOutputs.id, report.id));
   return next.keyPersonas.filter((p) => p.photo).length;

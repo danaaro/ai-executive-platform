@@ -4,6 +4,41 @@ import { db, tables } from "@/db";
 import { getUserNames } from "@/shared/current-user";
 import { latestOutputs, latestResearch, moduleStates } from "@/orchestrator/company-intel";
 import { adminOr404, companyBySlug } from "../../guard";
+import { usageCost, type RunUsage } from "@/shared/ai-cost";
+
+/**
+ * Approximate AI spend (ADR-009 §15):
+ *  - thisReport: the research the current report is built on (latest row per
+ *    module, even if paid in an earlier run) + writing it + its photo step;
+ *  - allTime: every research run, report and photo step for the company.
+ * Legacy rows stored one synthesis twice (brief + culture share one usage
+ * object), so identical usage objects are counted once.
+ */
+async function companyCosts(companyId: string, latest: { usage: unknown }[], report: { usage: unknown; data: unknown } | null) {
+  const d = db();
+  const [research, outputs] = await Promise.all([
+    d.select({ usage: tables.companyResearch.usage }).from(tables.companyResearch).where(eq(tables.companyResearch.companyId, companyId)),
+    d.select({ usage: tables.companyOutputs.usage, data: tables.companyOutputs.data }).from(tables.companyOutputs).where(eq(tables.companyOutputs.companyId, companyId)),
+  ]);
+  const photos = (data: unknown) => (data as { photosUsage?: RunUsage } | null)?.photosUsage ?? null;
+  const seen = new Set<string>();
+  const once = (u: unknown) => {
+    if (!u) return 0;
+    const key = JSON.stringify(u);
+    if (seen.has(key)) return 0;
+    seen.add(key);
+    return usageCost(u as RunUsage);
+  };
+  const allTime =
+    research.reduce((t, r) => t + once(r.usage), 0) +
+    outputs.reduce((t, o) => t + once(o.usage) + once(photos(o.data)), 0);
+  const thisReport = report
+    ? latest.reduce((t, r) => t + usageCost(r.usage as RunUsage), 0) +
+      usageCost(report.usage as RunUsage) +
+      usageCost(photos(report.data))
+    : null;
+  return { thisReport, allTime };
+}
 
 /** Everything the page needs for one company: cache table, inputs, outputs. */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -48,6 +83,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     research: research.map((r) => ({ module: r.module, content: r.content, researchedOn: r.researchedOn })),
     inputs: inputs.map((i) => ({ id: i.id, filename: i.filename, chars: i.chars, createdAt: i.createdAt })),
     report: shape(outputs.report),
+    cost: await companyCosts(company.id, research, outputs.report),
   });
 }
 
