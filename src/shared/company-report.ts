@@ -21,6 +21,9 @@ export const DIMENSIONS = [
 ] as const;
 
 export type Confidence = "high" | "medium" | "low";
+
+/** Added after synthesis by the photo step (orchestrator/persona-photos.ts), never by the model. */
+export type PersonaPhoto = { url: string; source: string; via: "web page" | "Wikimedia Commons" };
 export type Coverage = "full" | "partial" | "thin" | "not researched";
 
 export type ReportData = {
@@ -65,7 +68,10 @@ export type ReportData = {
     publicStance: string | null;
     whyTheyMatter: string;
     approach: string;
+    photo?: PersonaPhoto | null;
   }[];
+  /** Set once the photo step has run, so the page doesn't offer it again. */
+  photosCheckedAt?: string;
   culture: {
     thrives: { behavior: string; evidence: string }[];
     struggles: string[];

@@ -4,6 +4,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, desc, eq, max } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import { findPersonaPhotos } from "@/orchestrator/persona-photos";
 import {
   REPORT_JSON_SCHEMA,
   isReportShape,
@@ -536,4 +537,30 @@ export async function runSynthesis(opts: {
     .set({ updatedAt: new Date() })
     .where(eq(tables.companies.id, company.id));
   return row;
+}
+
+/**
+ * Adds persona photos to the latest report, in place (same version: it is an
+ * enrichment of that report, not a new analysis). Its own request, so the
+ * page search never eats into the synthesis time budget.
+ */
+export async function addPersonaPhotos(companyId: string) {
+  const d = db();
+  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
+  const { report } = await latestOutputs(companyId);
+  if (!company || !report?.data) throw new Error("No visual report to add photos to");
+  const data = report.data as ReportData;
+
+  const photos = await findPersonaPhotos({
+    company: company.name,
+    website: company.website,
+    personas: data.keyPersonas.map((p) => ({ name: p.name, role: p.role })),
+  });
+  const next: ReportData = {
+    ...data,
+    keyPersonas: data.keyPersonas.map((p) => ({ ...p, photo: photos[p.name] ?? null })),
+    photosCheckedAt: new Date().toISOString(),
+  };
+  await d.update(tables.companyOutputs).set({ data: next }).where(eq(tables.companyOutputs.id, report.id));
+  return next.keyPersonas.filter((p) => p.photo).length;
 }

@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Minus,
 } from "lucide-react";
+import { useState } from "react";
 import { DIMENSIONS, type Confidence, type Coverage, type ReportData } from "@/shared/company-report";
 import { cn } from "@/lib/utils";
 
@@ -334,15 +335,41 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+/** Official photo when one was matched by name; initials otherwise or if it fails to load. */
+function Avatar({ name, photo }: { name: string; photo: ReportData["keyPersonas"][number]["photo"] }) {
+  const [failed, setFailed] = useState(false);
+  if (photo && !failed) {
+    let host = "";
+    try {
+      host = new URL(photo.source).hostname.replace(/^www\./, "");
+    } catch {}
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- external, unknown hosts; next/image would need each domain allow-listed
+      <img
+        src={photo.url}
+        alt={name}
+        title={`Photo: ${photo.via === "Wikimedia Commons" ? "Wikimedia Commons" : host}`}
+        referrerPolicy="no-referrer"
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="size-14 shrink-0 rounded-full bg-canvas-subtle object-cover object-top ring-2 ring-accent-wash"
+      />
+    );
+  }
+  return (
+    <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-accent-wash font-display text-[17px] font-semibold text-accent-ink">
+      {initials(name)}
+    </span>
+  );
+}
+
 function Personas({ items }: { items: ReportData["keyPersonas"] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((p, i) => (
         <article key={i} className="print-avoid-break flex flex-col rounded-card border border-line p-4">
           <div className="flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-wash font-display text-[15px] font-semibold text-accent-ink">
-              {initials(p.name)}
-            </span>
+            <Avatar name={p.name} photo={p.photo ?? null} />
             <div className="min-w-0">
               <h3 className="text-[15px] font-semibold leading-tight text-ink">{p.name}</h3>
               <p className="text-[12.5px] leading-snug text-muted">

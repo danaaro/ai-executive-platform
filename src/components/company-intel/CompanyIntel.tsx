@@ -483,6 +483,7 @@ function RunStep({
   const [running, setRunning] = useState(false);
   const [states, setStates] = useState<Record<string, { state: RunState; log: string[]; error?: string }>>({});
   const [synth, setSynth] = useState<{ state: RunState; chars: number; error?: string } | null>(null);
+  const [photos, setPhotos] = useState<RunState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -572,6 +573,15 @@ function RunStep({
         setSynth((s) => (s ? { ...s, chars: s.chars + t.length } : s))
       );
       setSynth((s) => (s ? { ...s, state: "done" } : s));
+      if (scope === "full") {
+        setPhotos("running");
+        try {
+          await stream(`/api/company-intel/companies/${slug}/photos`, {}, () => {});
+          setPhotos("done");
+        } catch {
+          setPhotos("failed"); // non-fatal: the report is saved; initials stay
+        }
+      }
       setRunning(false);
       await onFinished();
     } catch (e) {
@@ -662,6 +672,13 @@ function RunStep({
                 </td>
                 <td>{synth ? <RunBadge state={synth.state} /> : <Badge>after research</Badge>}</td>
               </tr>
+              {scope === "full" && (
+                <tr>
+                  <td className="py-2 text-ink">Persona photos</td>
+                  <td colSpan={2} className="text-muted">official photos, matched by name</td>
+                  <td>{photos ? <RunBadge state={photos} /> : <Badge>after report</Badge>}</td>
+                </tr>
+              )}
             </tbody>
           </table>
 
@@ -770,6 +787,7 @@ function ResultsStep({
         if (ev.type === "error") failed = ev.error;
       });
       if (failed) throw new Error(failed);
+      if (hasAll) await findPhotos(false);
       await reload();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not build the report");
@@ -777,6 +795,20 @@ function ResultsStep({
       setRebuilding(false);
     }
   };
+
+  const [findingPhotos, setFindingPhotos] = useState(false);
+  /** Photo pass on the current report. Non-fatal: failures leave initials. */
+  const findPhotos = async (reloadAfter = true) => {
+    setFindingPhotos(true);
+    try {
+      const res = await fetch(`/api/company-intel/companies/${slug}/photos`, { method: "POST" });
+      if (res.ok) await readAgentStream(res, () => {});
+      if (reloadAfter) await reload();
+    } finally {
+      setFindingPhotos(false);
+    }
+  };
+  const canFindPhotos = Boolean(report?.data?.keyPersonas.length);
 
   const canRebuild = detail.research.some((r) => r.module === CULTURE);
 
@@ -788,6 +820,15 @@ function ResultsStep({
           {canRebuild && (
             <Button size="sm" variant="ghost" onClick={rebuild} disabled={rebuilding}>
               {rebuilding ? "Analyzing… (about 1–2 min)" : report ? "Re-analyze" : "Build report"}
+            </Button>
+          )}
+          {canFindPhotos && (
+            <Button size="sm" variant="ghost" onClick={() => findPhotos()} disabled={rebuilding || findingPhotos}>
+              {findingPhotos
+                ? "Finding photos… (about 1 min)"
+                : report?.data?.photosCheckedAt
+                  ? "Look for photos again"
+                  : "Find persona photos"}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={onResearchAgain} disabled={rebuilding}>
