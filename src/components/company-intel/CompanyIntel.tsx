@@ -528,7 +528,23 @@ function RunStep({
     if (!done) throw new Error("The connection closed before the run finished");
   };
 
+  /**
+   * Every failure — including the browser losing the connection mid-run
+   * ("Failed to fetch": the server restarted, the laptop slept, Wi-Fi dropped)
+   * — ends as a readable note and a usable Run button, never as an uncaught
+   * error. Finished modules are already saved and are reused on the next run.
+   */
   const run = async () => {
+    try {
+      await runSteps();
+    } catch (e) {
+      setNotice(friendlyError(e));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const runSteps = async () => {
     setRunning(true);
     setNotice(null);
     setStartedAt(Date.now());
@@ -551,7 +567,7 @@ function RunStep({
           patch(m.module, { state: "done" });
           return true;
         } catch (e) {
-          patch(m.module, { state: "failed", error: e instanceof Error ? e.message : "failed" });
+          patch(m.module, { state: "failed", error: friendlyError(e) });
           return false;
         }
       })
@@ -594,7 +610,7 @@ function RunStep({
       setRunning(false);
       await onFinished();
     } catch (e) {
-      setSynth((s) => (s ? { ...s, state: "failed", error: e instanceof Error ? e.message : "failed" } : s));
+      setSynth((s) => (s ? { ...s, state: "failed", error: friendlyError(e) } : s));
       setRunning(false);
     }
   };
@@ -711,6 +727,14 @@ function RunStep({
       </div>
     </div>
   );
+}
+
+function friendlyError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/failed to fetch|load failed|networkerror|network error|connection closed/i.test(msg)) {
+    return "Lost the connection to the server, so this step stopped. Anything already finished is saved and will be reused. Click Run again.";
+  }
+  return msg || "Something went wrong. Click Run again.";
 }
 
 function ScopeOption(props: {
