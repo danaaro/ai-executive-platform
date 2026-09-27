@@ -913,7 +913,20 @@ function download(filename: string, content: string) {
 }
 
 // The browser's "Save as PDF" names the file after document.title.
-function printAsPdf(companyName: string) {
+// Persona photos are lazy-loaded; below-the-fold ones would print as blanks,
+// so they are forced to load first (capped at 8s so a dead host can't block it).
+async function printAsPdf(companyName: string) {
+  const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("main img"));
+  imgs.forEach((img) => (img.loading = "eager"));
+  await Promise.race([
+    Promise.all(
+      imgs.filter((img) => !img.complete).map((img) => new Promise((ok) => {
+        img.addEventListener("load", ok, { once: true });
+        img.addEventListener("error", ok, { once: true });
+      }))
+    ),
+    new Promise((ok) => setTimeout(ok, 8000)),
+  ]);
   const previous = document.title;
   document.title = `${companyName.replace(/[^\p{L}\p{N}]+/gu, "")}_CompanyIntel`;
   window.addEventListener("afterprint", () => (document.title = previous), { once: true });

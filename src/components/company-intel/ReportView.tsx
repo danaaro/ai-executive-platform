@@ -35,19 +35,46 @@ export type ReportMeta = {
   logoUrl?: string | null;
 };
 
+/** Numbered sections, in page order; the PDF cover lists the same numbers as its contents. */
+function sectionList(r: ReportData): string[] {
+  const hasGroup = Boolean(r.groupStructure && (r.groupStructure.entities.length > 0 || r.groupStructure.parent));
+  return [
+    "At a glance",
+    "Where the company is right now",
+    ...(hasGroup ? ["Group structure"] : []),
+    "Last 12 months: what matters",
+    "Key personas",
+    "Culture: who thrives here",
+    "Culture DNA",
+    "Employee sentiment",
+    ...(r.sayVsDo.length > 0 ? ["Say vs. do"] : []),
+    "Risks and watch-outs",
+    "Opportunities and conversation angles",
+    "Questions to raise with the client",
+    "Confidence and sources",
+  ];
+}
+
 export function ReportView({ data: r, meta }: { data: ReportData; meta: ReportMeta }) {
   const full = meta.mode === "full";
+  const toc = sectionList(r);
+  const no = (title: string) => toc.indexOf(title) + 1;
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="space-y-6 print:space-y-5">
+      <PrintCover r={r} meta={meta} toc={toc} />
       <Hero r={r} meta={meta} />
       <BottomLine items={r.bottomLine} />
       {r.keyFigures.length > 0 && <KeyFigures items={r.keyFigures} />}
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
-        <Section title="At a glance" className="lg:col-span-2">
+      <div className="grid items-start gap-6 lg:grid-cols-5 print:grid-cols-5 print:gap-4">
+        <Section n={no("At a glance")} title="At a glance" className="lg:col-span-2 print:col-span-2">
           <AtAGlance g={r.atAGlance} />
         </Section>
-        <Section title="Where the company is right now" className="lg:col-span-3">
+        <Section
+          n={no("Where the company is right now")}
+          title="Where the company is right now"
+          className="lg:col-span-3 print:col-span-3"
+        >
           {r.currentSituation ? (
             <p className="text-[14px] leading-[1.75] text-ink">{r.currentSituation}</p>
           ) : (
@@ -64,16 +91,21 @@ export function ReportView({ data: r, meta }: { data: ReportData; meta: ReportMe
       </div>
 
       {r.groupStructure && (r.groupStructure.entities.length > 0 || r.groupStructure.parent) && (
-        <Section title="Group structure" subtitle="One level up, one level down">
+        <Section n={no("Group structure")} title="Group structure" subtitle="One level up, one level down">
           <GroupStructure g={r.groupStructure} />
         </Section>
       )}
 
-      <Section title="Last 12 months: what matters">
+      <Section n={no("Last 12 months: what matters")} title="Last 12 months: what matters">
         {r.timeline.length ? <Timeline items={r.timeline} /> : <NotResearched what="Recent activity" />}
       </Section>
 
-      <Section title="Key personas" subtitle="Public professional information only">
+      <Section
+        n={no("Key personas")}
+        title="Key personas"
+        subtitle="Public professional information only"
+        className="print:break-before-page"
+      >
         {r.keyPersonas.length ? (
           <Personas items={r.keyPersonas} />
         ) : (
@@ -81,39 +113,48 @@ export function ReportView({ data: r, meta }: { data: ReportData; meta: ReportMe
         )}
       </Section>
 
-      <Section title="Culture: who thrives here" subtitle={`The ${meta.company}-ness`}>
+      <Section
+        n={no("Culture: who thrives here")}
+        title="Culture: who thrives here"
+        subtitle={`The ${meta.company}-ness`}
+        className="print:break-before-page"
+      >
         <CultureColumns c={r.culture} />
       </Section>
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <Section title="Culture DNA" subtitle="Where they sit on six trade-offs (1–5)">
+      <div className="grid items-start gap-6 lg:grid-cols-2 print:grid-cols-2 print:gap-4">
+        <Section n={no("Culture DNA")} title="Culture DNA" subtitle="Where they sit on six trade-offs (1–5)">
           <CultureDNA dims={r.culture.dimensions} />
           <p className="mt-4 rounded-lg border-l-2 border-accent bg-accent-wash/60 px-3 py-2 text-[13px] leading-relaxed text-ink">
             <span className="font-semibold">What actually gets rewarded: </span>
             {r.culture.whatGetsRewarded}
           </p>
         </Section>
-        <Section title="Employee sentiment" subtitle={sentimentSubtitle(r.employeeSentiment)}>
+        <Section
+          n={no("Employee sentiment")}
+          title="Employee sentiment"
+          subtitle={sentimentSubtitle(r.employeeSentiment)}
+        >
           <Sentiment s={r.employeeSentiment} />
         </Section>
       </div>
 
       {r.sayVsDo.length > 0 && (
-        <Section title="Say vs. do" subtitle="Where the story and the evidence part ways">
+        <Section n={no("Say vs. do")} title="Say vs. do" subtitle="Where the story and the evidence part ways">
           <SayVsDo items={r.sayVsDo} />
         </Section>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <Section title="Risks and watch-outs">
+      <div className="grid items-start gap-6 lg:grid-cols-2 print:break-before-page print:grid-cols-2 print:gap-4">
+        <Section n={no("Risks and watch-outs")} title="Risks and watch-outs">
           <Risks items={r.risks} />
         </Section>
-        <Section title="Opportunities and conversation angles">
+        <Section n={no("Opportunities and conversation angles")} title="Opportunities and conversation angles">
           <Opportunities items={r.opportunities} />
         </Section>
       </div>
 
-      <Section title="Questions to raise with the client">
+      <Section n={no("Questions to raise with the client")} title="Questions to raise with the client">
         <ol className="grid gap-2 sm:grid-cols-2">
           {r.questions.map((q, i) => (
             <li key={i} className="flex gap-3 rounded-lg border border-line p-3 text-[13.5px] leading-snug text-ink">
@@ -126,7 +167,7 @@ export function ReportView({ data: r, meta }: { data: ReportData; meta: ReportMe
         </ol>
       </Section>
 
-      <Section title="Confidence and sources">
+      <Section n={no("Confidence and sources")} title="Confidence and sources">
         <CoverageStrip r={r} />
       </Section>
     </div>
@@ -136,11 +177,13 @@ export function ReportView({ data: r, meta }: { data: ReportData; meta: ReportMe
 /* ---------------------------------------------------------------------- */
 
 function Section({
+  n,
   title,
   subtitle,
   className,
   children,
 }: {
+  n: number;
   title: string;
   subtitle?: string;
   className?: string;
@@ -149,15 +192,106 @@ function Section({
   return (
     <section
       className={cn(
-        "print-avoid-break rounded-card border border-line bg-card p-5 shadow-[0_1px_2px_rgba(10,17,25,0.04)] sm:p-6",
+        "print-avoid-break rounded-card border border-line bg-card p-5 shadow-[0_1px_2px_rgba(10,17,25,0.04)] sm:p-6 print:p-5 print:shadow-none",
         className
       )}
     >
-      <header className="mb-4">
-        <h2 className="font-display text-[16px] font-semibold text-ink">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-[12.5px] text-muted">{subtitle}</p>}
+      <header className="print-keep-with-next mb-4 flex items-start gap-3 border-b border-line pb-3">
+        <span className="mt-px flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md bg-ink-soft px-1.5 font-display text-[12px] font-semibold tabular-nums text-accent">
+          {String(n).padStart(2, "0")}
+        </span>
+        <div className="min-w-0">
+          <h2 className="font-display text-[16px] font-semibold leading-snug text-ink">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-[12.5px] text-muted">{subtitle}</p>}
+        </div>
       </header>
       {children}
+    </section>
+  );
+}
+
+/**
+ * Page 1 of the PDF only (hidden on screen): full-bleed navy cover with the
+ * logo, headline, the at-a-glance signals and the numbered contents. The
+ * `@page :first` rule in globals.css removes the margins for this page.
+ */
+function PrintCover({ r, meta, toc }: { r: ReportData; meta: ReportMeta; toc: string[] }) {
+  const date = new Date(meta.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return (
+    <section className="hidden h-[296mm] break-after-page flex-col overflow-hidden bg-ink-soft text-canvas print:flex">
+      <div className="h-2 bg-accent" />
+      <div className="flex flex-1 flex-col px-[18mm] pb-[16mm] pt-[20mm]">
+        <div className="flex items-center justify-between">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.22em] text-accent">
+            Susan Pike &amp; Partners
+          </p>
+          <p className="text-[10.5px] uppercase tracking-[0.16em] text-canvas/60">Confidential</p>
+        </div>
+
+        <div className="mt-[34mm] flex items-end justify-between gap-8">
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-accent">
+              Company Intelligence Report · {meta.mode === "full" ? "Full research" : "Culture focus"}
+            </p>
+            <h1 className="mt-3 font-display text-[52px] font-semibold leading-[1.02]">{meta.company}</h1>
+          </div>
+          {meta.logoUrl && <CompanyLogo url={meta.logoUrl} name={meta.company} size="xl" />}
+        </div>
+        <div className="mt-6 h-px w-24 bg-accent" />
+        <p className="mt-6 max-w-[150mm] text-[19px] leading-[1.5] text-canvas/90">{r.headline}</p>
+
+        <dl className="mt-10 grid grid-cols-4 gap-4 border-y border-canvas/15 py-5 text-[12px]">
+          <div>
+            <dt className="text-canvas/55">Trajectory</dt>
+            <dd className="mt-1 flex items-center gap-1.5 font-semibold capitalize">
+              <TrajectoryIcon direction={r.trajectory.direction} light />
+              {r.trajectory.direction}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-canvas/55">Confidence</dt>
+            <dd className="mt-1.5 flex items-center gap-2 font-semibold capitalize">
+              <span className="flex gap-1" aria-hidden>
+                {[1, 2, 3].map((i) => (
+                  <span
+                    key={i}
+                    className={cn("h-1.5 w-4 rounded-full", i <= CONF_STEPS[r.overallConfidence] ? "bg-accent" : "bg-canvas/20")}
+                  />
+                ))}
+              </span>
+              {r.overallConfidence}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-canvas/55">Sources</dt>
+            <dd className="mt-1 font-semibold">{r.sourcesCount ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-canvas/55">Prepared</dt>
+            <dd className="mt-1 font-semibold">
+              {date} · v{meta.version}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-auto">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-accent">Contents</p>
+          <ol className="mt-3 grid grid-cols-2 gap-x-10 gap-y-1.5 text-[12.5px]">
+            {toc.map((t, i) => (
+              <li key={t} className="flex gap-3 border-b border-canvas/10 pb-1.5">
+                <span className="w-5 font-display font-semibold tabular-nums text-accent">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="text-canvas/85">{t}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-8 text-[10px] leading-relaxed text-canvas/50">
+            Every fact is sourced and dated in the underlying research. Interpretation is marked as such. Public
+            professional information only. Prepared for internal use by Susan Pike &amp; Partners.
+          </p>
+        </div>
+      </div>
     </section>
   );
 }
@@ -177,7 +311,7 @@ const CONF_STEPS: Record<Confidence, number> = { low: 1, medium: 2, high: 3 };
 
 function Hero({ r, meta }: { r: ReportData; meta: ReportMeta }) {
   return (
-    <section className="print-avoid-break overflow-hidden rounded-card bg-ink-soft text-canvas">
+    <section className="print-avoid-break overflow-hidden rounded-card bg-ink-soft text-canvas print:hidden">
       <div className="p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -230,14 +364,18 @@ function Hero({ r, meta }: { r: ReportData; meta: ReportMeta }) {
  * so the tile keeps them legible on the dark hero. Hides itself if the image
  * fails to load.
  */
-export function CompanyLogo({ url, name, size }: { url: string; name: string; size: "sm" | "lg" }) {
+export function CompanyLogo({ url, name, size }: { url: string; name: string; size: "sm" | "lg" | "xl" }) {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
   return (
     <span
       className={cn(
         "flex shrink-0 items-center justify-center overflow-hidden bg-white",
-        size === "lg" ? "size-16 rounded-xl p-2 sm:size-20 sm:p-2.5" : "size-7 rounded-md border border-line p-0.5"
+        size === "xl"
+          ? "size-28 rounded-2xl p-3"
+          : size === "lg"
+            ? "size-16 rounded-xl p-2 sm:size-20 sm:p-2.5"
+            : "size-7 rounded-md border border-line p-0.5"
       )}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- external, unknown hosts */}
@@ -274,13 +412,13 @@ function BottomLine({ items }: { items: string[] }) {
   return (
     <section className="print-avoid-break">
       <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Bottom line</h2>
-      <ol className="grid gap-3 md:grid-cols-2">
+      <ol className="grid gap-3 md:grid-cols-2 print:grid-cols-2">
         {items.map((t, i) => (
           <li
             key={i}
             className={cn(
               "flex gap-3 rounded-card border border-line bg-card p-4 text-[14px] leading-snug text-ink",
-              i === 0 && "md:col-span-2 border-accent/50 bg-accent-wash/50 text-[15px] font-medium"
+              i === 0 && "md:col-span-2 print:col-span-2 border-accent/50 bg-accent-wash/50 text-[15px] font-medium"
             )}
           >
             <span className="font-display text-[20px] font-semibold leading-none text-accent-ink">{i + 1}</span>
@@ -294,11 +432,11 @@ function BottomLine({ items }: { items: string[] }) {
 
 function KeyFigures({ items }: { items: ReportData["keyFigures"] }) {
   return (
-    <section className="print-avoid-break grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+    <section className="print-avoid-break grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5 print:grid-cols-5 print:gap-2">
       {items.slice(0, 5).map((k, i) => (
-        <div key={i} className="rounded-card border border-line bg-card p-4">
+        <div key={i} className="rounded-card border border-line border-t-accent bg-card p-4 print:border-t-2 print:p-3">
           <p className="text-[12px] text-muted">{k.label}</p>
-          <p className="mt-1 text-[24px] font-semibold leading-tight text-ink">{k.value}</p>
+          <p className="mt-1 text-[24px] print:text-[19px] font-semibold leading-tight text-ink">{k.value}</p>
           <p className="mt-1 text-[11.5px] leading-snug text-muted">
             {k.context}
             {k.asOf && <span className="whitespace-nowrap"> · {k.asOf}</span>}
@@ -386,7 +524,7 @@ function GroupStructure({ g }: { g: NonNullable<ReportData["groupStructure"]> })
         </div>
       )}
       {g.entities.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
           {g.entities.map((e, i) => (
             <article key={i} className="print-avoid-break flex flex-col rounded-card border border-line p-4">
               <div className="flex items-start justify-between gap-2">
@@ -464,7 +602,7 @@ function Avatar({ name, photo }: { name: string; photo: ReportData["keyPersonas"
 
 function Personas({ items }: { items: ReportData["keyPersonas"] }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2 print:gap-3">
       {items.map((p, i) => (
         <article key={i} className="print-avoid-break flex flex-col rounded-card border border-line p-4">
           <div className="flex items-start gap-3">
@@ -515,7 +653,7 @@ function Personas({ items }: { items: ReportData["keyPersonas"] }) {
 
 function CultureColumns({ c }: { c: ReportData["culture"] }) {
   return (
-    <div className="grid gap-5 md:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-3 print:grid-cols-3">
       <div className="md:col-span-1">
         <h3 className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink">
           <CheckCircle2 className="size-4 text-accent-ink" aria-hidden /> Thrives
@@ -751,21 +889,21 @@ function ThemeList({ title, items, icon }: { title: string; items: string[]; ico
 function SayVsDo({ items }: { items: ReportData["sayVsDo"] }) {
   return (
     <div className="space-y-3">
-      <div className="hidden grid-cols-2 gap-3 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted md:grid">
+      <div className="hidden grid-cols-2 gap-3 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted md:grid print:grid">
         <span>They say</span>
         <span>The evidence shows</span>
       </div>
       {items.map((x, i) => (
         <div key={i} className="print-avoid-break rounded-lg border border-line">
-          <div className="grid md:grid-cols-2">
-            <p className="p-3 text-[13.5px] leading-snug text-ink md:border-r md:border-line">
-              <span className="mb-0.5 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted md:hidden">
+          <div className="grid md:grid-cols-2 print:grid-cols-2">
+            <p className="p-3 text-[13.5px] leading-snug text-ink md:border-r md:border-line print:border-r print:border-line">
+              <span className="mb-0.5 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted md:hidden print:hidden">
                 They say
               </span>
               “{x.says}”
             </p>
-            <p className="border-t border-line p-3 text-[13.5px] leading-snug text-ink md:border-t-0">
-              <span className="mb-0.5 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted md:hidden">
+            <p className="border-t border-line p-3 text-[13.5px] leading-snug text-ink md:border-t-0 print:border-t-0">
+              <span className="mb-0.5 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted md:hidden print:hidden">
                 The evidence shows
               </span>
               {x.does}
@@ -839,7 +977,7 @@ const COVERAGE: Record<Coverage, { label: string; icon: React.ReactNode; cls: st
 function CoverageStrip({ r }: { r: ReportData }) {
   return (
     <div className="space-y-3">
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5 print:grid-cols-5">
         {r.coverage.map((c) => {
           const v = COVERAGE[c.level] ?? COVERAGE["not researched"];
           return (

@@ -21,7 +21,7 @@ export function AppHeader({
   const isAdmin = user?.publicMetadata?.role === "admin";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
+    <header className="no-print sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
         <Link href="/projects" className="flex items-center gap-2.5">
           <span className="flex size-7 items-center justify-center rounded-[6px] bg-accent font-display text-[13px] font-bold text-white">

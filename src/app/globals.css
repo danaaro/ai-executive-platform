@@ -98,7 +98,8 @@
   --radius: 14px;
 }
 
-@media (prefers-color-scheme: dark) {
+/* Screen only: a PDF is always the light, paper version. */
+@media screen and (prefers-color-scheme: dark) {
   :root {
     --canvas: #0a1119;
     --canvas-subtle: #0e1620;
@@ -129,9 +130,44 @@
   }
 }
 
-/* Save as PDF / print: the report alone, on white, no app chrome. */
+/*
+ * Save as PDF / print: the report alone, on white, no app chrome.
+ * A4 with a full-bleed cover (page 1, margin 0) and a running footer on every
+ * other page. Margin boxes need Chrome 131+; older browsers just omit them.
+ */
+@page {
+  size: A4;
+  margin: 14mm 12mm 16mm;
+
+  @bottom-left {
+    content: "Susan Pike & Partners · Company Intelligence · Confidential";
+    font: 7.5pt/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #4b535d;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font: 7.5pt/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #4b535d;
+  }
+}
+@page :first {
+  margin: 0;
+
+  @bottom-left {
+    content: none;
+  }
+  @bottom-right {
+    content: none;
+  }
+}
+
 @media print {
-  header,
+  /* Browsers drop backgrounds by default: the dark cover, chart bars and
+     badges would print as white-on-white. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   .no-print {
     display: none !important;
   }
@@ -141,6 +177,9 @@
   }
   .print-avoid-break {
     break-inside: avoid;
+  }
+  .print-keep-with-next {
+    break-after: avoid;
   }
   main {
     max-width: none !important;
