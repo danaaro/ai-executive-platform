@@ -32,6 +32,10 @@ Brief files live in `../prompts/company-intel/briefs/`.
 | 04 | People & structure | 180 days |
 | 05 | Culture & employee voice | 365 days |
 | 06 | Group & portfolio (parent, major companies and their leaders) | 180 days |
+| 07 | Business model & strategy (v2) | 90 days |
+| 08 | Performance, talent & external ecosystem (v2) | 180 days |
+
+**v2 (2026-10-01):** the report answers the **Company Context framework** (`company-context-framework.md`): 15 categories, each answer Found, Inferred or Unknown. Unknowns go to **Include these questions in your interview**. The page is grouped by category. See ADR-009 §17.
 
 Before the modules run, the platform reads the company's own website (team, companies, about, news, careers) and gives it to every module as a primary source dated that day.
 

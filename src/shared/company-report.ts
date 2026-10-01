@@ -340,7 +340,11 @@ export function normalizeReport(raw: ReportData): ReportData {
     ...raw,
     culture: {
       ...raw.culture,
-      dimensions: dims.map((d) => ({ ...d, position: clamp(d.position, 1, 5) ?? 3 })),
+      // No default midpoint: a dimension without a usable position is dropped,
+      // never shown as an invented 3/5 (ADR-009 §17, "never made up").
+      dimensions: dims
+        .map((d) => ({ ...d, position: clamp(d.position, 1, 5) }))
+        .filter((d): d is typeof d & { position: number } => d.position !== null),
     },
     employeeSentiment: {
       ...s,

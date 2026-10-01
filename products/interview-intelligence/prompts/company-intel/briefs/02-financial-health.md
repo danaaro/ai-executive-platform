@@ -1,5 +1,6 @@
 # Brief 02 — Financial Health
 **Shelf life:** 90 days · **Output:** `research/02-financial-health.md`
+**Version:** 2
 
 ## Goal
 Capture the company's financial situation and direction: growing, stable, or under
@@ -14,6 +15,15 @@ pressure. This strongly shapes culture (investment mode vs cost-cutting mode).
 6. **Private companies:** funding rounds (date, amount, investors), valuation if
    reported, revenue estimates only if published by a credible source.
 7. **Market signals (public):** share-price trend over 12 months, notable analyst themes.
+
+## Company Context questions (added in v2; see the framework §3)
+1. **Recurring vs non-recurring revenue:** the published share, if any.
+2. **Margin profile:** high-margin vs volume, using published margins only.
+3. **Capital intensity:** published CapEx relative to revenue, asset-heavy vs asset-light, as stated by the company.
+4. **Geographic concentration of revenue:** published splits by country or region.
+- Each finding keeps the module's normal rule: **[source, date]** on every fact. If a question
+  can't be answered from public sources, list it under "Not found". **Never fill it with a guess.**
+  Most of these are only partly public, and "not found" is the expected, useful answer.
 
 ## Sources, in priority order
 1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`

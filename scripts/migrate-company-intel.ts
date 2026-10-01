@@ -85,6 +85,16 @@ async function main() {
   await sql`ALTER TABLE company_outputs ADD COLUMN IF NOT EXISTS data jsonb`;
   // Company logo for the report header (2026-09-26).
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url text`;
+  // Company Context framework, v2 (2026-10-01): brief versions + run grouping.
+  await sql`ALTER TABLE company_research ADD COLUMN IF NOT EXISTS brief_version integer`;
+  await sql`ALTER TABLE company_outputs ADD COLUMN IF NOT EXISTS run_id uuid`;
+  // Section rows (v2 writers) all carry version 0, so the per-kind version
+  // uniqueness applies to reports only.
+  await sql`DROP INDEX IF EXISTS company_outputs_company_kind_version_uq`;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS company_outputs_company_kind_version_uq
+    ON company_outputs (company_id, kind, version) WHERE kind <> 'section'
+  `;
   console.log("   ✓ " + TABLES.join(", "));
 
   console.log("2. Constraints + indexes…");
@@ -93,7 +103,7 @@ async function main() {
   await sql`ALTER TABLE company_outputs DROP CONSTRAINT IF EXISTS company_outputs_kind_chk`;
   await sql`
     ALTER TABLE company_outputs ADD CONSTRAINT company_outputs_kind_chk
-      CHECK (kind IN ('report','brief','culture'))
+      CHECK (kind IN ('report','section','brief','culture'))
   `;
   await sql`
     DO $$ BEGIN

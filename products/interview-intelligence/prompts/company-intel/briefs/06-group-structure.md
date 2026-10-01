@@ -1,5 +1,6 @@
 # Brief 06 — Group & Portfolio
 **Shelf life:** 180 days · **Output:** `research/06-group-structure.md`
+**Version:** 1
 
 ## Goal
 Map the group this company belongs to and the companies it owns, so we understand where

@@ -24,6 +24,7 @@ description: INTERNAL ONLY (admins: Dana + Susan). Researches one company across
 - **Guardrails:** demographic exclusion, stakeholder privacy, source + date on every fact, facts vs interpretation, no logged-in scraping. These are embedded in the prompts and must not be changed without Dana's approval.
 
 ## Changelog
+- **v2.0 (2026-10-01):** answers the Company Context framework across 15 categories, with Found, Inferred and Unknown states validated in code. Unknowns become interview questions. New modules 07 and 08; briefs 01–05 extended and versioned. Four category writers plus an overview. A category-based page (ADR-009 §17).
 - **v1.5 (2026-09-26):** step 0 reads the company's own website. Current roles now require an official or recent source, with aggregators as leads only. New module 06, Group & portfolio, and a Group structure section in the report (ADR-009 §12–13).
 - **v1.4 (2026-09-26):** company logo from the company's own site, stored in `companies.logo_url` (ADR-009 §10).
 - **v1.3 (2026-09-26):** persona photos come from public pages or Wikimedia and are matched strictly by name, with initials as the fallback. They are found in a separate step after the report (ADR-009 §9).

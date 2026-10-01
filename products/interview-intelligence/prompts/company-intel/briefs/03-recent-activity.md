@@ -1,5 +1,6 @@
 # Brief 03 — Recent Activity (last 12 months)
 **Shelf life:** 30 days · **Output:** `research/03-recent-activity.md`
+**Version:** 2
 
 ## Goal
 Build a dated picture of what the company has done and what has happened to it in the
@@ -20,6 +21,13 @@ last 12 months, counted back from today's date.
 1. **Timeline table:** date | event | category | source (newest first, max ~25 rows)
 2. **Recurring themes:** 3–6 bullets of patterns visible across events
    (a factual pattern, e.g. "4 AI-related launches in 12 months")
+
+## Company Context questions (added in v2; see the framework §2)
+- Extend the window to **24 months** for **pivots, transformations, turnarounds, IPO or exit steps, mergers and integrations**. These are the signals of which chapter the company is in.
+- Record every **leadership departure** as well as every arrival, with dates. Turnover at the top is evidence for the talent-philosophy section.
+- Each finding keeps the module's normal rule: **[source, date]** on every fact. If a question
+  can't be answered from public sources, list it under "Not found". **Never fill it with a guess.**
+  Most of these are only partly public, and "not found" is the expected, useful answer.
 
 ## Sources, in priority order
 1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`

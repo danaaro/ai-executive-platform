@@ -1,5 +1,6 @@
 # Brief 05 — Culture & Employee Voice
 **Shelf life:** 365 days · **Output:** `research/05-culture-voice.md`
+**Version:** 2
 
 ## Goal
 Capture how the company describes its culture (**STATED**) and how employees experience
@@ -23,6 +24,25 @@ the most important output of the whole system.
    provides it.
 8. Differences by role family or location, if clearly visible (e.g. engineering vs sales).
 9. Any Glassdoor exports or review files in `inputs/`: analyze these for themes too.
+
+## Company Context questions (added in v2; see the framework §9, §11, §12)
+For each **Erin Meyer scale**, record evidence only, in both stated and lived form, without scoring:
+- **Communicating:** low- ↔ high-context
+- **Feedback:** direct ↔ indirect
+- **Leading:** egalitarian ↔ hierarchical
+- **Deciding:** consensual ↔ top-down
+- **Trusting:** task- ↔ relationship-based
+- **Disagreeing:** confrontational ↔ avoidant
+- **Scheduling:** linear ↔ flexible
+- **Persuading:** principles- ↔ applications-first
+
+Also record:
+- **Information-flow signals in reviews:** "bad news is punished", "decisions made behind closed doors", "transparent all-hands", "silos".
+- **Reward signals:** what reviews and the careers page say gets people promoted or recognised.
+- **Country differences** visible in reviews (for example the France office vs Germany), kept separate from the company-wide picture.
+- Each finding keeps the module's normal rule: **[source, date]** on every fact. If a question
+  can't be answered from public sources, list it under "Not found". **Never fill it with a guess.**
+  Most of these are only partly public, and "not found" is the expected, useful answer.
 
 ## Sources, in priority order
 1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`

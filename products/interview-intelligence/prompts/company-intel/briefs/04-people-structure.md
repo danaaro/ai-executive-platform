@@ -1,5 +1,6 @@
 # Brief 04 — People & Structure
 **Shelf life:** 180 days · **Output:** `research/04-people-structure.md`
+**Version:** 2
 
 ## Goal
 Understand how the company is organized, where its people are, and who leads it.
@@ -16,6 +17,18 @@ Understand how the company is organized, where its people are, and who leads it.
    business units most relevant to hiring. For each: name, role, time in role, prior
    background (from official bio), and 1–2 notable public statements or themes they
    speak about (with source).
+
+## Company Context questions (added in v2; see the framework §5–8, §10, §13)
+1. **Structural archetype as stated or evidenced:** functional, divisional, geographic, product-led, customer-led, business units, holding company, federation, matrix, platform, or hybrid.
+2. **Hierarchy as published:** shareholders → board → group CEO → group functions → business units or regions → countries.
+3. **Centralisation signals by area:** strategy, budget, P&L, pricing, product, technology, sales, marketing, brand, hiring, compensation, senior hiring, CapEx, M&A, partnerships. Only record explicit evidence, for example "group-wide shared platform", "country MDs run their own P&L" or "central procurement". **Do not score; just record the evidence.**
+4. **Decision signals:** who announces or signs big decisions (CEO, board, owner, regional heads). Any stated governance, such as an investment committee or regional approval.
+5. **Founder / chair / long-tenure roles,** and any founder confidants named publicly in senior roles.
+6. **For each executive on the leadership team:** where they came from (previous employers and their type: founder-led, PE-backed, public, corporate), and their tenure. Note leaders who left within about 18 months of joining.
+7. **Management-style statements by leaders:** public quotes about how they lead or decide.
+- Each finding keeps the module's normal rule: **[source, date]** on every fact. If a question
+  can't be answered from public sources, list it under "Not found". **Never fill it with a guess.**
+  Most of these are only partly public, and "not found" is the expected, useful answer.
 
 ## Sources, in priority order
 1. **Official company website: the source of truth.** `company-website-*.md` in `inputs/`

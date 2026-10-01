@@ -32,14 +32,14 @@ import {
  */
 
 const ROOT = path.join(process.cwd(), "products/interview-intelligence");
-const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8");
-const stripFrontmatter = (md: string) => md.replace(/^---\n[\s\S]*?\n---\n/, "");
+export const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8");
+export const stripFrontmatter = (md: string) => md.replace(/^---\n[\s\S]*?\n---\n/, "");
 
 /** Inputs whose filename starts with this are the platform's read of the official website. */
 const SITE_INPUT_PREFIX = "company-website-";
 
 const RESEARCH_MODEL = DEFAULT_MODEL; // claude-sonnet-5 — high-volume research
-const SYNTHESIS_MODEL = "claude-opus-5-5"; // judgment lives here (package ADR #10)
+export const SYNTHESIS_MODEL = "claude-opus-5-5"; // judgment lives here (package ADR #10)
 
 /* -------------------------------------------------------------------------
  * Modules and the cache rule
@@ -52,6 +52,9 @@ export const MODULES = [
   { id: "04-people-structure", title: "People & structure" },
   { id: "05-culture-voice", title: "Culture & employee voice" },
   { id: "06-group-structure", title: "Group & portfolio" },
+  // Company Context framework v2 (2026-10-01, ADR-009 §17)
+  { id: "07-business-strategy", title: "Business model & strategy" },
+  { id: "08-performance-talent-ecosystem", title: "Performance, talent & ecosystem" },
 ] as const;
 
 export type ModuleId = (typeof MODULES)[number]["id"];
@@ -59,6 +62,12 @@ export const CULTURE_MODULE: ModuleId = "05-culture-voice";
 
 export function isModuleId(s: string): s is ModuleId {
   return MODULES.some((m) => m.id === s);
+}
+
+/** "**Version:** N" in the brief; briefs without one are version 1. */
+export function briefVersion(module: ModuleId): number {
+  const m = read(`prompts/company-intel/briefs/${module}.md`).match(/\*\*Version:\*\*\s*(\d+)/);
+  return m ? Number(m[1]) : 1;
 }
 
 /** The brief is the source of truth for shelf life ("**Shelf life:** 90 days"). */
@@ -88,6 +97,8 @@ export type ModuleState = {
   module: ModuleId;
   title: string;
   status: "fresh" | "stale" | "missing";
+  /** Researched with an earlier version of its brief: reused, but new questions show as Unknown. */
+  briefOutdated: boolean;
   researchedOn: string | null;
   coverage: string | null;
   sourcesCount: number | null;
@@ -111,13 +122,14 @@ export async function moduleStates(companyId: string): Promise<ModuleState[]> {
   return MODULES.map(({ id, title }) => {
     const latest = rows.find((r) => r.module === id);
     if (!latest) {
-      return { module: id, title, status: "missing", researchedOn: null, coverage: null, sourcesCount: null };
+      return { module: id, title, status: "missing", briefOutdated: false, researchedOn: null, coverage: null, sourcesCount: null };
     }
     const expires = addDays(latest.researchedOn, latest.shelfLifeDays);
     return {
       module: id,
       title,
       status: expires > now ? "fresh" : "stale",
+      briefOutdated: (latest.briefVersion ?? 1) < briefVersion(id),
       researchedOn: latest.researchedOn,
       coverage: latest.coverage,
       sourcesCount: latest.sourcesCount,
@@ -143,11 +155,12 @@ export async function latestOutputs(companyId: string) {
     .from(tables.companyOutputs)
     .where(eq(tables.companyOutputs.companyId, companyId))
     .orderBy(desc(tables.companyOutputs.version));
-  // brief/culture are the pre-report format (kept as history, no longer produced).
+  // brief/culture are the pre-report format (kept as history, no longer produced);
+  // "section" rows are intermediate v2 writer outputs, never shown on their own.
   return { report: rows.find((r) => r.kind === "report") ?? null };
 }
 
-async function loadInputs(companyId: string) {
+export async function loadInputs(companyId: string) {
   return db()
     .select({ filename: tables.companyInputs.filename, content: tables.companyInputs.content })
     .from(tables.companyInputs)
@@ -176,7 +189,7 @@ type Progress = (line: string) => void;
  * continue). Streams so a long run never looks idle, and reports each web
  * search / fetch as a progress line.
  */
-async function runToCompletion(opts: {
+export async function runToCompletion(opts: {
   model: string;
   system: string;
   user: string;
@@ -266,9 +279,10 @@ function fromFrontmatter(text: string): string {
 }
 
 function frontmatterField(md: string, key: string): string | null {
-  const fm = md.match(/^---\n([\s\S]*?)\n---/);
-  if (!fm) return null;
-  const line = fm[1].match(new RegExp(`^${key}:\\s*(.+?)\\s*(#.*)?$`, "m"));
+  // Tolerant: models sometimes add a blank line after the opening fence or
+  // drop the closing one, so look at the header lines before the first heading.
+  const head = md.split(/\n#\s/)[0].slice(0, 2000);
+  const line = head.match(new RegExp(`^${key}:\\s*(.+?)\\s*(#.*)?$`, "m"));
   return line ? line[1].replace(/^["']|["']$/g, "") : null;
 }
 
@@ -386,6 +400,7 @@ export async function runResearchModule(opts: {
       coverage: frontmatterField(md, "coverage"),
       sourcesCount: Number.isFinite(sources) ? sources : null,
       usage,
+      briefVersion: briefVersion(opts.module),
       createdBy: opts.userId,
     })
     .returning();

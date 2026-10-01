@@ -63,6 +63,18 @@ The runtime is adapted as follows:
     - **Profile-page rule:** on a person's own page (title or address carries their full name), its og:image is used.
 
     Results: VLU has 5 of 6 from vlu.co.il, and the missing person isn't on the site. Aviv Group has 6 of 6 at $0.00. Both were checked visually.
+17. **v2: the Company Context framework, with "never made up" enforced in code (Dana, 2026-10-01).** The report now answers Dana's 19-section "Company Context → Hiring Fit" methodology (`products/interview-intelligence/docs/company-context-framework.md`). This build covers the 15 company sections; the role-based sections 16–19 come later through a role input.
+    - **Three answer states:** Found (sourced and dated), Inferred (labelled, with `basedOn`), and Unknown, which becomes "Include these questions in your interview".
+    - **Validation:** `validateSection()` in `src/shared/company-context.ts` checks every cited source or URL against the research text the writer was given.
+      - A failed check downgrades the item to Unknown.
+      - Unknown never carries a value: no default scores, and the old v1 default of 3/5 is removed.
+      - Key figures and employee-sentiment numbers must appear in the research.
+      - Numbers in the overview that can't be traced to the findings are listed on the Sources page.
+    - **Research:** the 6 existing modules are kept and their saved research is reused. Briefs 01–05 were extended with a versioned `**Version:**` line (`company_research.brief_version`; a lower version shows "earlier brief"), and modules 07 (business model & strategy) and 08 (performance, talent & ecosystem) are new.
+    - **Writing:** four category writers run as separate 300-second requests (A ownership/evolution/business/strategy; B organisation/centralisation/decisions/power/information; C leadership/culture/performance/talent; D change/ecosystem), each fed only its modules. Their results are saved as `section` rows grouped by `run_id`. An overview then writes from the validated findings only. Personas and verified photos carry over from earlier reports.
+    - **Schema shape:** each category is a top-level field of the `save_section` tool. When it was nested, a writer returned the whole object as a JSON-encoded string.
+    - **Page:** grouped by category, with a sidebar organised by the framework's layers, a coverage bar per category, deep links via `#hash`, and dedicated visuals: centralisation heatmap, RAPID table, Meyer's 8-scale culture map, stage track, power map and stakeholder grid. It includes an interview-questions page with copy and download, and a Sources & validation page. The PDF prints every view.
+    - **v1 reports** still render; the next run rebuilds them as v2.
 6. **The cache is read from the database.** A module counts as fresh when `researched_on + shelf_life_days` is later than today. Every run inserts a new row and the latest row wins, so history is kept.
 
 ## Consequences

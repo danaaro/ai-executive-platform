@@ -11,7 +11,9 @@ import { parseJson, readAgentStream } from "@/lib/api";
 import { extractText } from "@/lib/extract-text";
 import { estimateRunCost, formatUsd } from "@/shared/ai-cost";
 import { CompanyLogo, ReportView } from "@/components/company-intel/ReportView";
+import { ContextReport } from "@/components/company-intel/ContextReport";
 import type { ReportData } from "@/shared/company-report";
+import { WRITERS, WRITER_IDS, isContextReport, type ContextReportData, type WriterId } from "@/shared/company-context";
 import { cn, relativeTime } from "@/lib/utils";
 
 /**
@@ -28,6 +30,7 @@ type ModuleState = {
   module: string;
   title: string;
   status: "fresh" | "stale" | "missing";
+  briefOutdated?: boolean;
   researchedOn: string | null;
   coverage: string | null;
   sourcesCount: number | null;
@@ -37,7 +40,7 @@ type Output = {
   version: number;
   mode: "full" | "culture-only";
   content: string;
-  data: ReportData | null;
+  data: ReportData | ContextReportData | null;
   reviewed: boolean;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -568,6 +571,7 @@ function RunStep({
   const [states, setStates] = useState<Record<string, { state: RunState; log: string[]; error?: string }>>({});
   const [synth, setSynth] = useState<{ state: RunState; chars: number; error?: string } | null>(null);
   const [photos, setPhotos] = useState<RunState | null>(null);
+  const [writers, setWriters] = useState<Partial<Record<WriterId, { state: RunState; chars: number; error?: string }>>>({});
   const [site, setSite] = useState<RunState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -670,8 +674,10 @@ function RunStep({
     // Anything the current format expects but the saved report lacks is
     // rebuilt from saved research here — no separate "re-analyze" or
     // "find photos" buttons (Dana, 2026-09-26).
+    // v2 (ADR-009 §17): an older-format report counts as missing, so it is
+    // rebuilt as a Company Context report from the saved research.
     const outputMissing =
-      !fresh.report || !fresh.report.data || (scope === "full" && fresh.report.mode !== "full");
+      !fresh.report || !isContextReport(fresh.report.data) || (scope === "full" && fresh.report.mode !== "full");
     const photosMissing =
       scope === "full" && Boolean(fresh.report?.data?.keyPersonas.length) && !fresh.report?.data?.photosCheckedAt;
     const anyRan = results.some(Boolean);
@@ -692,7 +698,26 @@ function RunStep({
     setSynth(synthesize ? { state: "running", chars: 0 } : { state: "skipped", chars: 0 });
     try {
       if (synthesize) {
-        await stream(`/api/company-intel/companies/${slug}/synthesize`, { mode: scope }, (t) =>
+        // 3 · the category writers, in parallel, one request each; 4 · the overview.
+        const runId = crypto.randomUUID();
+        const ids: WriterId[] = scope === "full" ? WRITER_IDS : ["C"];
+        setWriters(Object.fromEntries(ids.map((id) => [id, { state: "running", chars: 0 }])));
+        const ok = await Promise.all(
+          ids.map(async (id) => {
+            try {
+              await stream(`/api/company-intel/companies/${slug}/sections/${id}`, { runId, mode: scope }, (t) =>
+                setWriters((w) => ({ ...w, [id]: { ...(w[id] ?? { state: "running", chars: 0 }), chars: (w[id]?.chars ?? 0) + t.length } }))
+              );
+              setWriters((w) => ({ ...w, [id]: { ...w[id]!, state: "done" } }));
+              return true;
+            } catch (e) {
+              setWriters((w) => ({ ...w, [id]: { state: "failed", chars: 0, error: friendlyError(e) } }));
+              return false;
+            }
+          })
+        );
+        if (!ok.some(Boolean)) throw new Error("None of the category sections could be written. Click Run again.");
+        await stream(`/api/company-intel/companies/${slug}/overview`, { runId, mode: scope }, (t) =>
           setSynth((s) => (s ? { ...s, chars: s.chars + t.length } : s))
         );
         setSynth((s) => (s ? { ...s, state: "done" } : s));
@@ -735,7 +760,7 @@ function RunStep({
               disabled={running}
               onClick={() => setScope("full")}
               title="Full research"
-              text="All 5 research areas in parallel → the full company report."
+              text="All 8 research areas in parallel → the full Company Context report (15 categories)."
             />
           </div>
           <label className="flex items-center gap-2 text-[13px] text-ink">
@@ -799,6 +824,11 @@ function RunStep({
                       <Badge tone={m.status === "fresh" ? "done" : m.status === "stale" ? "warn" : "neutral"}>
                         {m.status}
                       </Badge>
+                      {m.status === "fresh" && m.briefOutdated && (
+                        <span className="mt-0.5 block text-[10.5px] text-muted" title="Researched with an earlier brief: reused for free; its new questions show as Unknown. Tick Refresh everything to re-research it.">
+                          earlier brief
+                        </span>
+                      )}
                     </td>
                     <td className="hidden text-[12px] text-muted sm:table-cell">
                       {m.researchedOn ?? "—"}
@@ -811,10 +841,30 @@ function RunStep({
                 );
               })}
               <tr>
+                <td colSpan={4} className="pb-1 pt-3 font-medium text-ink">
+                  3 · Write the report, by category{scope === "full" ? " — 4 writers in parallel" : ""}
+                </td>
+              </tr>
+              {(scope === "full" ? WRITER_IDS : (["C"] as WriterId[])).map((id) => {
+                const w = writers[id];
+                return (
+                  <tr key={id} className="align-top">
+                    <td colSpan={3} className="min-w-0 py-2 pl-4 pr-2 text-ink">
+                      {WRITERS[id].label}
+                      {w?.state === "running" && w.chars > 0 && (
+                        <span className="block text-[11.5px] text-muted">writing ({Math.round(w.chars / 1000)}k chars)</span>
+                      )}
+                      {w?.error && <span className="block text-[11.5px] text-danger">{w.error}</span>}
+                    </td>
+                    <td>{w ? <RunBadge state={w.state} /> : synth?.state === "skipped" ? <RunBadge state="skipped" /> : <Badge>waiting</Badge>}</td>
+                  </tr>
+                );
+              })}
+              <tr>
                 <td colSpan={3} className="py-2 pt-3">
-                  <span className="font-medium text-ink">3 · Write the report</span>
+                  <span className="font-medium text-ink">4 · Overview & interview questions</span>
                   <span className="block text-[12px] text-muted">
-                    {scope === "full" ? "The analyzed company report" : "A culture-focused report"}
+                    Bottom line, risks and angles from the validated categories
                     {synth?.state === "running" && synth.chars > 0 && ` · writing (${Math.round(synth.chars / 1000)}k chars)`}
                   </span>
                   {synth?.error && <span className="block text-[11.5px] text-danger">{synth.error}</span>}
@@ -824,7 +874,7 @@ function RunStep({
               {scope === "full" && (
                 <tr>
                   <td colSpan={3} className="py-2">
-                    <span className="font-medium text-ink">4 · Find photos of key people</span>
+                    <span className="font-medium text-ink">5 · Find photos of key people</span>
                     <span className="block text-[12px] text-muted">Official photos, matched by name</span>
                   </td>
                   <td>{photos ? <RunBadge state={photos} /> : <Badge>waiting</Badge>}</td>
@@ -852,7 +902,7 @@ function RunStep({
             <span className="text-[12.5px] text-muted" title="Approximate, at Anthropic list prices">
               {toRun.length === 0
                 ? "Nothing new to research"
-                : `Estimated AI cost ≈ ${formatUsd(estimateRunCost(toRun.length, true, scope === "full"))}`}
+                : `Estimated AI cost ≈ ${formatUsd(estimateRunCost(toRun.length, scope === "full" ? WRITER_IDS.length : 1, scope === "full"))}`}
             </span>
           )}
           <Button variant="primary" onClick={run} disabled={running}>
@@ -988,9 +1038,20 @@ function ResultsStep({
         </Alert>
       ) : null}
 
-      {report?.data ? (
-        <ReportView
+      {report?.data && isContextReport(report.data) ? (
+        <ContextReport
           data={report.data}
+          meta={{
+            company: name,
+            mode: report.mode,
+            version: report.version,
+            createdAt: report.createdAt,
+            logoUrl: detail.company.logoUrl,
+          }}
+        />
+      ) : report?.data ? (
+        <ReportView
+          data={report.data as ReportData}
           meta={{
             company: name,
             mode: report.mode,

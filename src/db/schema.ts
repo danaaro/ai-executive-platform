@@ -317,6 +317,10 @@ export const companyResearch = pgTable(
     coverage: text("coverage"), // full | partial | thin (as reported by the researcher)
     sourcesCount: integer("sources_count"),
     usage: jsonb("usage"), // tokens + web searches, the cost signal
+    // The brief's "**Version:**" when researched; null = written before
+    // versioning (treated as 1). A lower version than the current brief means
+    // "saved — earlier brief": reused, but its new questions show as Unknown.
+    briefVersion: integer("brief_version"),
     createdBy: text("created_by")
       .notNull()
       .references(() => users.id),
@@ -334,7 +338,10 @@ export const companyOutputs = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     // "report" is the deliverable; "brief"/"culture" = pre-2026-09-26 format, history only.
-    kind: text("kind", { enum: ["report", "brief", "culture"] }).notNull(),
+    // "section" = one category writer's output within a v2 run (ADR-009 §17).
+    kind: text("kind", { enum: ["report", "section", "brief", "culture"] }).notNull(),
+    /** Groups the section rows and the final report of one v2 run. */
+    runId: uuid("run_id"),
     version: integer("version").notNull(),
     mode: text("mode", { enum: ["full", "culture-only"] }).notNull(),
     content: text("content").notNull(),
@@ -352,6 +359,8 @@ export const companyOutputs = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("company_outputs_company_kind_version_uq").on(t.companyId, t.kind, t.version),
+    uniqueIndex("company_outputs_company_kind_version_uq")
+      .on(t.companyId, t.kind, t.version)
+      .where(sql`${t.kind} <> 'section'`),
   ]
 );

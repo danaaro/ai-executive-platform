@@ -215,7 +215,7 @@ function Section({
  * logo, headline, the at-a-glance signals and the numbered contents. The
  * `@page :first` rule in globals.css removes the margins for this page.
  */
-function PrintCover({ r, meta, toc }: { r: ReportData; meta: ReportMeta; toc: string[] }) {
+export function PrintCover({ r, meta, toc }: { r: ReportData; meta: ReportMeta; toc: string[] }) {
   const date = new Date(meta.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   return (
     <section className="hidden h-[296mm] break-after-page flex-col overflow-hidden bg-ink-soft text-canvas print:flex">
@@ -309,7 +309,7 @@ function NotResearched({ what, hint }: { what: string; hint?: string }) {
 
 const CONF_STEPS: Record<Confidence, number> = { low: 1, medium: 2, high: 3 };
 
-function Hero({ r, meta }: { r: ReportData; meta: ReportMeta }) {
+export function Hero({ r, meta }: { r: ReportData; meta: ReportMeta }) {
   return (
     <section className="print-avoid-break overflow-hidden rounded-card bg-ink-soft text-canvas print:hidden">
       <div className="p-6 sm:p-8">
@@ -390,7 +390,7 @@ export function CompanyLogo({ url, name, size }: { url: string; name: string; si
   );
 }
 
-function TrajectoryIcon({ direction, light }: { direction: ReportData["trajectory"]["direction"]; light?: boolean }) {
+export function TrajectoryIcon({ direction, light }: { direction: ReportData["trajectory"]["direction"]; light?: boolean }) {
   const cls = cn("size-4 shrink-0", light ? "text-accent" : "text-accent-ink");
   switch (direction) {
     case "growing":
@@ -408,7 +408,7 @@ function TrajectoryIcon({ direction, light }: { direction: ReportData["trajector
 
 /* ---------------------------------------------------------------------- */
 
-function BottomLine({ items }: { items: string[] }) {
+export function BottomLine({ items }: { items: string[] }) {
   return (
     <section className="print-avoid-break">
       <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Bottom line</h2>
@@ -430,7 +430,7 @@ function BottomLine({ items }: { items: string[] }) {
   );
 }
 
-function KeyFigures({ items }: { items: ReportData["keyFigures"] }) {
+export function KeyFigures({ items }: { items: ReportData["keyFigures"] }) {
   return (
     <section className="print-avoid-break grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5 print:grid-cols-5 print:gap-2">
       {items.slice(0, 5).map((k, i) => (
@@ -470,7 +470,7 @@ function AtAGlance({ g }: { g: ReportData["atAGlance"] }) {
 
 /* ---------------------------------------------------------------------- */
 
-function Timeline({ items }: { items: ReportData["timeline"] }) {
+export function Timeline({ items }: { items: ReportData["timeline"] }) {
   return (
     <ol className="relative ml-2 border-l border-line-strong">
       {items.map((t, i) => (
@@ -493,7 +493,7 @@ function Timeline({ items }: { items: ReportData["timeline"] }) {
   );
 }
 
-function formatDate(d: string): string {
+export function formatDate(d: string): string {
   const m = d.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?/);
   if (!m) return d;
   const month = new Date(Number(m[1]), Number(m[2]) - 1, 1).toLocaleString("en-GB", { month: "short" });
@@ -502,7 +502,7 @@ function formatDate(d: string): string {
 
 /* ---------------------------------------------------------------------- */
 
-function GroupStructure({ g }: { g: NonNullable<ReportData["groupStructure"]> }) {
+export function GroupStructure({ g }: { g: NonNullable<ReportData["groupStructure"]> }) {
   return (
     <div className="space-y-4">
       <p className="max-w-4xl text-[14px] leading-[1.7] text-ink">{g.summary}</p>
@@ -600,7 +600,7 @@ function Avatar({ name, photo }: { name: string; photo: ReportData["keyPersonas"
   );
 }
 
-function Personas({ items }: { items: ReportData["keyPersonas"] }) {
+export function Personas({ items }: { items: ReportData["keyPersonas"] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2 print:gap-3">
       {items.map((p, i) => (
@@ -776,12 +776,12 @@ function CultureDNA({ dims }: { dims: ReportData["culture"]["dimensions"] }) {
 
 /* ---------------------------------------------------------------------- */
 
-function sentimentSubtitle(s: ReportData["employeeSentiment"]) {
+export function sentimentSubtitle(s: ReportData["employeeSentiment"]) {
   if (!s.available) return "No employee-review data found";
   return [s.source, s.period].filter(Boolean).join(" · ");
 }
 
-function Sentiment({ s }: { s: ReportData["employeeSentiment"] }) {
+export function Sentiment({ s }: { s: ReportData["employeeSentiment"] }) {
   if (!s.available) {
     return (
       <p className="text-[13px] leading-relaxed text-muted">
@@ -886,7 +886,7 @@ function ThemeList({ title, items, icon }: { title: string; items: string[]; ico
 
 /* ---------------------------------------------------------------------- */
 
-function SayVsDo({ items }: { items: ReportData["sayVsDo"] }) {
+export function SayVsDo({ items }: { items: ReportData["sayVsDo"] }) {
   return (
     <div className="space-y-3">
       <div className="hidden grid-cols-2 gap-3 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted md:grid print:grid">
@@ -925,7 +925,7 @@ const SEVERITY = {
   low: { label: "Low", cls: "border-line bg-canvas-subtle text-muted" },
 } as const;
 
-function Risks({ items }: { items: ReportData["risks"] }) {
+export function Risks({ items }: { items: ReportData["risks"] }) {
   const order = { high: 0, medium: 1, low: 2 };
   return (
     <ul className="space-y-3">
@@ -951,7 +951,7 @@ function Risks({ items }: { items: ReportData["risks"] }) {
   );
 }
 
-function Opportunities({ items }: { items: ReportData["opportunities"] }) {
+export function Opportunities({ items }: { items: ReportData["opportunities"] }) {
   return (
     <ul className="space-y-3">
       {items.map((x, i) => (

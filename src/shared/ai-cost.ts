@@ -38,6 +38,7 @@ export function formatUsd(n: number): string {
  * the photo step $0–0.53 (free when the official team page has everyone; web search only
  * for people it misses). Reused (fresh) modules cost nothing.
  */
-export function estimateRunCost(modulesToRun: number, writeReport: boolean, findPhotos: boolean): number {
-  return modulesToRun * 0.7 + (writeReport ? 0.4 : 0) + (findPhotos ? 0.25 : 0);
+export function estimateRunCost(modulesToRun: number, writers: number, findPhotos: boolean): number {
+  // v2 (ADR-009 §17): each category writer ≈ $0.40, the overview ≈ $0.15.
+  return modulesToRun * 0.7 + (writers > 0 ? writers * 0.4 + 0.15 : 0) + (findPhotos ? 0.25 : 0);
 }

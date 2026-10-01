@@ -14,11 +14,18 @@ import { usageCost, type RunUsage } from "@/shared/ai-cost";
  * Legacy rows stored one synthesis twice (brief + culture share one usage
  * object), so identical usage objects are counted once.
  */
-async function companyCosts(companyId: string, latest: { usage: unknown }[], report: { usage: unknown; data: unknown } | null) {
+async function companyCosts(
+  companyId: string,
+  latest: { usage: unknown }[],
+  report: { usage: unknown; data: unknown; runId?: string | null } | null
+) {
   const d = db();
   const [research, outputs] = await Promise.all([
     d.select({ usage: tables.companyResearch.usage }).from(tables.companyResearch).where(eq(tables.companyResearch.companyId, companyId)),
-    d.select({ usage: tables.companyOutputs.usage, data: tables.companyOutputs.data }).from(tables.companyOutputs).where(eq(tables.companyOutputs.companyId, companyId)),
+    d
+      .select({ usage: tables.companyOutputs.usage, data: tables.companyOutputs.data, runId: tables.companyOutputs.runId, kind: tables.companyOutputs.kind })
+      .from(tables.companyOutputs)
+      .where(eq(tables.companyOutputs.companyId, companyId)),
   ]);
   const photos = (data: unknown) => (data as { photosUsage?: RunUsage } | null)?.photosUsage ?? null;
   const seen = new Set<string>();
@@ -35,7 +42,11 @@ async function companyCosts(companyId: string, latest: { usage: unknown }[], rep
   const thisReport = report
     ? latest.reduce((t, r) => t + usageCost(r.usage as RunUsage), 0) +
       usageCost(report.usage as RunUsage) +
-      usageCost(photos(report.data))
+      usageCost(photos(report.data)) +
+      // v2: the four category writers of this report's run (ADR-009 §17)
+      (report.runId
+        ? outputs.filter((o) => o.kind === "section" && o.runId === report.runId).reduce((t, o) => t + usageCost(o.usage as RunUsage), 0)
+        : 0)
     : null;
   return { thisReport, allTime };
 }
