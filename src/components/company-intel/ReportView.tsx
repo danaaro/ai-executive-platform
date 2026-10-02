@@ -524,15 +524,16 @@ export function GroupStructure({ g }: { g: NonNullable<ReportData["groupStructur
         </div>
       )}
       {g.entities.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
+        <div className="@container">
+        <div className="grid gap-3 @lg:grid-cols-2 @4xl:grid-cols-3 print:grid-cols-2">
           {g.entities.map((e, i) => (
-            <article key={i} className="print-avoid-break flex flex-col rounded-card border border-line p-4">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-[15px] font-semibold leading-tight text-ink">{e.name}</h3>
-                <span className="shrink-0 rounded-full border border-accent/40 bg-accent-wash px-2 py-px text-[10.5px] font-medium text-accent-ink">
+            <article key={i} className="print-avoid-break flex min-w-0 flex-col rounded-card border border-line p-4">
+              <h3 className="text-[15px] font-semibold leading-tight text-ink">{e.name}</h3>
+              {e.role && (
+                <span className="mt-1.5 self-start rounded-lg border border-accent/40 bg-accent-wash px-2 py-0.5 text-[10.5px] font-medium leading-snug text-accent-ink">
                   {e.role}
                 </span>
-              </div>
+              )}
               <p className="mt-1 text-[12px] text-muted">
                 {e.market}
                 {e.size && <> · {e.size}</>}
@@ -556,6 +557,7 @@ export function GroupStructure({ g }: { g: NonNullable<ReportData["groupStructur
               )}
             </article>
           ))}
+        </div>
         </div>
       )}
     </div>
@@ -604,7 +606,7 @@ export function Personas({ items }: { items: ReportData["keyPersonas"] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2 print:gap-3">
       {items.map((p, i) => (
-        <article key={i} className="print-avoid-break flex flex-col rounded-card border border-line p-4">
+        <article key={i} className="print-avoid-break flex min-w-0 flex-col rounded-card border border-line p-4">
           <div className="flex items-start gap-3">
             <Avatar name={p.name} photo={p.photo ?? null} />
             <div className="min-w-0">
