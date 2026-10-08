@@ -14,6 +14,7 @@ import {
 import {
   CATEGORIES,
   WRITERS,
+  WRITER_IDS,
   categoryById,
   contextToMarkdown,
   untracedNumbers,
@@ -280,6 +281,11 @@ export async function runOverview(opts: {
     .orderBy(desc(tables.companyOutputs.createdAt));
   const sections = sectionRows.map((r) => r.data as SectionData);
   if (!sections.length) throw new Error("No category sections were written in this run");
+  // All or nothing: a report missing a writer's categories looks complete but isn't.
+  const expected: WriterId[] = opts.mode === "full" ? WRITER_IDS : ["C"];
+  const written = new Set(sectionRows.map((r) => r.content.replace(/^section\s+/, "").trim()));
+  const missing = expected.filter((w) => !written.has(w));
+  if (missing.length) throw new Error(`Section ${missing.join(", ")} is missing from this run, so no report was saved. Please re-run`);
 
   const categories: Partial<Record<CategoryId, CategoryResult>> = {};
   const extras: Partial<ContextReportData> = {};

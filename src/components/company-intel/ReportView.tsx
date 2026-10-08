@@ -927,22 +927,27 @@ const SEVERITY = {
   low: { label: "Low", cls: "border-line bg-canvas-subtle text-muted" },
 } as const;
 
+// A risk the model returned without a valid severity shows as unrated — never
+// a guessed level (www.mu.se, 2026-10-08: all five came back without one).
+const UNRATED = { label: "Unrated", cls: "border-line bg-canvas-subtle text-muted" };
+const severityOf = (s: unknown) => SEVERITY[s as keyof typeof SEVERITY] ?? UNRATED;
+
 export function Risks({ items }: { items: ReportData["risks"] }) {
-  const order = { high: 0, medium: 1, low: 2 };
+  const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
   return (
     <ul className="space-y-3">
-      {[...items]
-        .sort((a, b) => order[a.severity] - order[b.severity])
+      {[...(items ?? [])]
+        .sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3))
         .map((x, i) => (
           <li key={i} className="flex gap-3">
             <span
               className={cn(
                 "inline-flex h-6 shrink-0 items-center gap-1 rounded-full border px-2 text-[11px] font-semibold",
-                SEVERITY[x.severity].cls
+                severityOf(x.severity).cls
               )}
             >
               <AlertTriangle className="size-3" aria-hidden />
-              {SEVERITY[x.severity].label}
+              {severityOf(x.severity).label}
             </span>
             <p className="text-[13.5px] leading-snug text-ink">
               <span className="font-semibold">{x.risk}.</span> <span className="text-muted">{x.detail}</span>

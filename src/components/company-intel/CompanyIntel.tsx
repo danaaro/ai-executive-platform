@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -716,7 +716,13 @@ function RunStep({
             }
           })
         );
-        if (!ok.some(Boolean)) throw new Error("None of the category sections could be written. Click Run again.");
+        // A report built from some sections only looks complete but isn't (and
+        // broke the page for www.mu.se, 2026-10-08) — so all or nothing.
+        const failedIds = ids.filter((_, i) => !ok[i]);
+        if (failedIds.length)
+          throw new Error(
+            `Section ${failedIds.join(", ")} couldn't be written, so no report was saved. Click Run again: saved research is reused, only the report is rewritten.`
+          );
         await stream(`/api/company-intel/companies/${slug}/overview`, { runId, mode: scope }, (t) =>
           setSynth((s) => (s ? { ...s, chars: s.chars + t.length } : s))
         );
@@ -983,6 +989,35 @@ async function printAsPdf(companyName: string) {
   window.print();
 }
 
+/**
+ * A saved report the page can't draw (bad data from a model run) must never
+ * leave a dead page: it shows what happened and the way out — rebuild it from
+ * the saved research, or take the Markdown that was saved alongside.
+ */
+class ReportBoundary extends Component<{ children: ReactNode; onRebuild: () => void }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <Alert tone="danger">
+        <div className="space-y-2">
+          <p>
+            <strong>This report couldn&apos;t be displayed.</strong> Part of it came back from the AI in an unexpected
+            shape. Rebuild it: the saved research is reused, so only the report is written again.
+          </p>
+          <Button size="sm" variant="primary" onClick={this.props.onRebuild}>
+            Rebuild report
+          </Button>
+          <p className="text-[11.5px] opacity-70">Technical detail: {this.state.error.message}</p>
+        </div>
+      </Alert>
+    );
+  }
+}
+
 function ResultsStep({
   detail,
   onUpdate,
@@ -1030,7 +1065,12 @@ function ResultsStep({
         </div>
       </div>
 
-      {!report || legacy ? (
+      {!report && detail.research.length > 0 ? (
+        <Alert tone="accent">
+          The last run didn&apos;t finish the report. Click &ldquo;Update research&rdquo; and Run: the saved research is
+          reused (no new web searches), only the report is written again.
+        </Alert>
+      ) : !report || legacy ? (
         <Alert tone="accent">
           {detail.research.length
             ? "This company was researched before the current report format. Click \u201cUpdate research\u201d and Run: saved research that is still fresh is reused (no new web searches) and the full visual report is built from it."
@@ -1038,6 +1078,7 @@ function ResultsStep({
         </Alert>
       ) : null}
 
+      <ReportBoundary key={report?.id ?? "none"} onRebuild={onUpdate}>
       {report?.data && isContextReport(report.data) ? (
         <ContextReport
           data={report.data}
@@ -1067,6 +1108,7 @@ function ResultsStep({
           </article>
         </Card>
       ) : null}
+      </ReportBoundary>
 
       {detail.research.length > 0 && (
         <details className="no-print rounded-card border border-line bg-card p-4">
