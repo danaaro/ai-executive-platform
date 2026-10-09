@@ -39,25 +39,7 @@ const isTestOpenRoute = createRouteMatcher([
 const testRoutesAllowed =
   process.env.NODE_ENV !== "production" && process.env.ALLOW_UNAUTHED_AGENT_ROUTES === "1";
 
-/**
- * The public customer presentation (ADR-010). Static files live in
- * public/presentation/; exec10x.ai's home page and /presentation on any host
- * are served from it without a Clerk session.
- */
-const PRESENTATION_HOSTS = new Set(["exec10x.ai", "www.exec10x.ai"]);
-const PRESENTATION_PAGE = "/presentation/index.html";
-
 export default clerkMiddleware(async (auth, req) => {
-  const { pathname } = req.nextUrl;
-  const hostname = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
-  if (
-    pathname === "/presentation" ||
-    pathname === "/presentation/" ||
-    (pathname === "/" && PRESENTATION_HOSTS.has(hostname))
-  ) {
-    return NextResponse.rewrite(new URL(PRESENTATION_PAGE, req.url));
-  }
-
   if (isPublicRoute(req)) return;
   if (testRoutesAllowed && isTestOpenRoute(req)) {
     console.warn(`[middleware] TEST MODE: serving ${req.nextUrl.pathname} without auth`);
