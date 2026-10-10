@@ -17,4 +17,5 @@ products/<product>/
 
 Current products:
 - `interview-intelligence/` — AI-powered hiring transformation (first; in build)
+- `launch/` — Exec10X Launch: agentic team for newly appointed executives (Strategy Advisor v0.1 draft)
 - (planned) training — sold training offering

@@ -4,7 +4,7 @@
 
 **Audience:** Dana and Susan only (Clerk admins). It is never customer-facing.
 **Decision record:** `../../../docs/adrs/ADR-009-Company-Intelligence-Agent.md`
-**Seed:** `../../../../Company Intelligent Agent/` (BUILD-PLAN.md + company-intel-package)
+**Seed:** Susan's originals in `../../../../input/company-intel/`; the original BUILD-PLAN.md + company-intel-package are archived (fully migrated) in `../../../../_archive/2026-10-10-cleanup/zombies/`
 
 ## Purpose
 **v3 (2026-10-09) — current.** The report is Susan's **Exec10X Company Intelligence Cockpit** (`../prompts/company-intel/exec10x-master-prompt.md`). It answers one question: what does it take for an executive to succeed at this company, under these conditions? It has three tabs:

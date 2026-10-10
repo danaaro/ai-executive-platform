@@ -1,6 +1,6 @@
 # Company Context Framework (Company Context → Hiring Fit)
 
-> STATUS: 🟢 ready. Converted from Dana's `Company Intelligent Agent/context to add .docx` (2026-10-01).
+> STATUS: 🟢 ready. Converted from Dana's `input/company-intel/context to add .docx` (workspace root; moved 2026-10-10) (2026-10-01).
 > It is the methodology the Company Intelligence agent answers (ADR-009 §17). The machine-readable
 > question list is the category registry in `src/shared/company-context.ts`; this file explains it.
 
