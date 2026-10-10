@@ -1,0 +1,1873 @@
+{
+ "schemaVersion": "1.0",
+ "meta": {
+  "company": "Groupe SeLoger (Digital Classifieds France SAS)",
+  "shortName": "SeLoger Group",
+  "subtitle": "AVIV Group · France",
+  "country": "France",
+  "asOf": "9 Oct 2026",
+  "status": "Public-source research · not client-validated"
+ },
+ "snapshot": {
+  "thesis": "France's leading specialist property portal is rebuilding itself as a smaller, French-run, field-facing business under KKR/CPP ownership, after cutting 28.5% of its staff, while Leboncoin, Bien'ici and newcomer Idealista compete for the same agency budgets.",
+  "kpis": [
+   {
+    "value": "964 → 689",
+    "label": "France staff before/after 2026 PSE (689 derived: 964 − 275)"
+   },
+   {
+    "value": "28.5%",
+    "label": "Share of France roles cut in 2026; ~80% were engineering roles"
+   },
+   {
+    "value": "9m",
+    "label": "Monthly unique visitors, SeLoger + MA (company-reported, Jan 2025)"
+   },
+   {
+    "value": "20,000",
+    "label": "Partner agencies (company-reported, Oct 2026)"
+   },
+   {
+    "value": "14.6%",
+    "label": "Private-seller listings share vs Leboncoin 70.6% (Pretto, Aug 2026)"
+   },
+   {
+    "value": "925k",
+    "label": "French sales forecast 2025 (company barometer) vs 1.2m in 2021"
+   },
+   {
+    "value": "+30%",
+    "label": "Planned 2026 advertising spend vs 2025 (AIM Group, Mar 2026)"
+   }
+  ]
+ },
+ "business": {
+  "title": "Turning a cut, re-localised SeLoger back into the agencies' first-choice portal before rivals and owners lose patience",
+  "rows": [
+   {
+    "label": "Model",
+    "text": "Free search for consumers; paid listing-diffusion and visibility packages (Ancien, Néo, Delta, Luxury, Bureaux & Commerces, plus boosts such as Duo Prime and Top Position) sold to agencies, developers and luxury specialists. Private sellers list free since 2023. Referral placements (mortgage, insurance, moving) add a secondary stream. No revenue or margin is published."
+   },
+   {
+    "label": "Stage",
+    "text": "**Transformation.** A mature 1989-born brand, owned since April 2025 through AVIV by KKR and CPP Investments, two job plans in two years (90 roles in 2024, 275 of 964 in 2026), a new local tech team and a fresh regional acquisition."
+   },
+   {
+    "label": "Priorities",
+    "text": "Re-regionalise sales and bring product, marketing and support close to agencies; turn salespeople into performance consultants; ship product (AI search, My SeLoger Pro, 75+ innovations planned for H1 2026); spend 30% more on advertising; integrate Ouest-France Immo with joint offers by end-2026."
+   },
+   {
+    "label": "Pressure",
+    "text": "Leboncoin has roughly double SeLoger's traffic; Bien'ici grew visits 14% in 2025; Idealista entered France on 10 Sep 2026. Transactions fell from 1.2m (2021) to 778k (2023) and recovered more slowly than hoped. Some agency clients reportedly dispute billing and cancellations."
+   }
+  ],
+  "positionTitle": "Specialist leader, distant second overall",
+  "swot": {
+   "strengths": [
+    "Leading 100%-real-estate portal in France, with over 33% listings share in Île-de-France (Yanport, third-party).",
+    "Brand family covering new-build, luxury, commercial and valuation (Meilleurs Agents), sold to 20,000 partner agencies.",
+    "Listings database legally defended: three rulings against Jinka between Dec 2025 and Jul 2026."
+   ],
+   "weaknesses": [
+    "Roughly half of Leboncoin's traffic and 14.6% of private-seller listings versus 70.6%.",
+    "Engineering bench cut hard: about 80% of the 275 roles removed in 2026 were developers and engineers.",
+    "CEO himself says the company lost its 'ADN de commerçant'; senior-management rating on Glassdoor is 2.6/5."
+   ],
+   "opportunities": [
+    "Regional consolidation: Ouest-France Immo gives 75–80% of listings in Brittany, Pays de la Loire and Normandy.",
+    "Market recovery from the 2023 low of 778k transactions.",
+    "AI natural-language search (launched Sep 2026) as a differentiator while rivals catch up."
+   ],
+   "threats": [
+    "Idealista's French launch, led by a former Leboncoin Immobilier executive.",
+    "Agency churn and billing disputes in a subscription model.",
+    "Political uncertainty the company itself flags: government instability, sovereign debt, unclear housing policy."
+   ]
+  }
+ },
+ "organisation": {
+  "title": "A French brand cluster inside a Berlin-run, PE-owned European group",
+  "owners": [
+   {
+    "name": "KKR",
+    "detail": "US-headquartered private-equity firm; joint majority owner of AVIV with CPP Investments since 29 Apr 2025 (~90% together; split not disclosed)."
+   },
+   {
+    "name": "CPP Investments",
+    "detail": "Canadian pension investor; joint majority owner of AVIV. Deal valued Axel Springer's classifieds at about €10bn."
+   },
+   {
+    "name": "Axel Springer SE",
+    "detail": "~10% minority stake plus economic participation of the Springer grandchildren; represented via AS Classifieds (CEO Julian Deutz from Jun 2025) and Jan Bayer on AVIV's shareholder board."
+   }
+  ],
+  "group": {
+   "name": "AVIV Group (Berlin)",
+   "detail": "CEO Vladimir Pravdivy since 10 Mar 2025 (ex-Avito CEO and CFO). COO Ovidiu Solomonov reported appointed Mar 2025, not confirmed current. Other group C-suite names exist only on aggregator sites and conflict."
+  },
+  "units": [
+   {
+    "name": "Groupe SeLoger / Digital Classifieds France SAS",
+    "detail": "Paris 9e. DG Baptiste Capron (since Sep 2024); CTO Valentin Stackler (Feb 2026); CMO Anaïs Lesueur. One P&L across all French brands; 964 staff before the 2026 PSE.",
+    "focus": true,
+    "former": false,
+    "brands": [
+     "SeLoger",
+     "SeLoger Neuf",
+     "SeLoger Construire",
+     "SeLoger Bureaux & Commerces",
+     "Meilleurs Agents",
+     "Logic-Immo",
+     "Belles Demeures",
+     "Lux Résidence"
+    ]
+   },
+   {
+    "name": "Ouest-France Immo (Additi Multimédia)",
+    "detail": "100% acquired by Groupe SeLoger, announced 1 Oct 2026. 35 staff kept in Rennes; brand kept separate; joint offers due by end-2026.",
+    "focus": false,
+    "former": false,
+    "brands": [
+     "Ouest-France Immo",
+     "BellesPierres"
+    ]
+   },
+   {
+    "name": "AVIV Germany",
+    "detail": "Sister unit; job cuts also planned in Germany in 2026.",
+    "focus": false,
+    "former": false,
+    "brands": [
+     "Immowelt",
+     "Neuraum"
+    ]
+   },
+   {
+    "name": "AVIV Belgium",
+    "detail": "Sister unit; a restructuring was reported around the same period as France.",
+    "focus": false,
+    "former": false,
+    "brands": [
+     "Immoweb",
+     "Realo"
+    ]
+   },
+   {
+    "name": "Yad2 (Israel)",
+    "detail": "Sold by AVIV to Apax Partners, reported ~$950m, closing around Dec 2025.",
+    "focus": false,
+    "former": true,
+    "brands": [
+     "Yad2"
+    ]
+   },
+   {
+    "name": "Vacation rentals (Amivac)",
+    "detail": "Sold by Groupe SeLoger to HomeToGo in 2022.",
+    "focus": false,
+    "former": true,
+    "brands": [
+     "Amivac"
+    ]
+   }
+  ],
+  "note": "**Federated country model with shared group functions, not an evidenced matrix.** AVIV centralised tech (a shared cross-country listings platform) and sales (a CCO Europe role, 2023–Jan 2025), then reversed course in 2026: the platform project ended and France re-localised tech and product teams. Who Capron reports to after the CCO Europe role ended is not public.",
+  "decisionRights": [
+   {
+    "decision": "Pro package pricing and new offers (Duo Prime, Top Position)",
+    "locus": "France leadership launches and markets them; any group pricing framework is unknown",
+    "c": "I"
+   },
+   {
+    "decision": "Product and tech roadmap",
+    "locus": "Moving to Paris after the 2026 re-localisation (local CTO since Feb 2026); legacy shared-platform dependencies unclear",
+    "c": "I"
+   },
+   {
+    "decision": "M&A (e.g. Ouest-France Immo)",
+    "locus": "Executed by Digital Classifieds France; approval by AVIV and owners likely but not documented",
+    "c": "H"
+   },
+   {
+    "decision": "Annual budget and headcount envelope",
+    "locus": "Likely set with AVIV Berlin under owner oversight",
+    "c": "H"
+   },
+   {
+    "decision": "Restructuring (PSE)",
+    "locus": "Announced and negotiated in France by the DG with staff representatives; mirrored by cuts in Germany",
+    "c": "V"
+   },
+   {
+    "decision": "Marketing and brand spend",
+    "locus": "France leadership (ad spend +30% in 2026; +20% planned next year)",
+    "c": "I"
+   },
+   {
+    "decision": "Senior hiring in France",
+    "locus": "France DG, with unknown AVIV sign-off",
+    "c": "U"
+   },
+   {
+    "decision": "Legal and IP enforcement (anti-scraping)",
+    "locus": "Digital Classifieds France litigates in its own name",
+    "c": "V"
+   }
+  ]
+ },
+ "culture": {
+  "cultures": [
+   {
+    "key": "fr",
+    "code": "FR",
+    "label": "France (local teams, agencies, staff representatives, France leadership)"
+   },
+   {
+    "key": "de",
+    "code": "DE",
+    "label": "Germany (AVIV group headquarters in Berlin, Axel Springer heritage)"
+   },
+   {
+    "key": "ru",
+    "code": "RU",
+    "label": "Russia (where the AVIV CEO's documented career was built, at Avito)"
+   },
+   {
+    "key": "us",
+    "code": "US",
+    "label": "US-led investor style (KKR; co-owner CPP Investments is Canadian)"
+   }
+  ],
+  "mapTitle": "Four business cultures meet in a SeLoger decision",
+  "mapNote": "Positions are approximate readings of Erin Meyer's published work, not official Erin Meyer scores. The Russia track reflects the business culture of Avito, where AVIV's CEO spent about a decade; it says nothing about anyone's nationality, which is not documented.",
+  "map": [
+   {
+    "dimension": "Communicating",
+    "left": "Low-context",
+    "right": "High-context",
+    "positions": {
+     "fr": 70,
+     "de": 15,
+     "ru": 65,
+     "us": 5
+    }
+   },
+   {
+    "dimension": "Evaluating",
+    "left": "Direct negative feedback",
+    "right": "Indirect negative feedback",
+    "positions": {
+     "fr": 25,
+     "de": 15,
+     "ru": 10,
+     "us": 50
+    }
+   },
+   {
+    "dimension": "Persuading",
+    "left": "Principles-first",
+    "right": "Applications-first",
+    "positions": {
+     "fr": 10,
+     "de": 25,
+     "ru": 20,
+     "us": 85
+    }
+   },
+   {
+    "dimension": "Leading",
+    "left": "Egalitarian",
+    "right": "Hierarchical",
+    "positions": {
+     "fr": 70,
+     "de": 45,
+     "ru": 90,
+     "us": 30
+    }
+   },
+   {
+    "dimension": "Deciding",
+    "left": "Consensual",
+    "right": "Top-down",
+    "positions": {
+     "fr": 70,
+     "de": 25,
+     "ru": 90,
+     "us": 60
+    }
+   },
+   {
+    "dimension": "Trusting",
+    "left": "Task-based",
+    "right": "Relationship-based",
+    "positions": {
+     "fr": 60,
+     "de": 20,
+     "ru": 85,
+     "us": 10
+    }
+   },
+   {
+    "dimension": "Disagreeing",
+    "left": "Confrontational",
+    "right": "Avoids confrontation",
+    "positions": {
+     "fr": 15,
+     "de": 25,
+     "ru": 20,
+     "us": 55
+    }
+   },
+   {
+    "dimension": "Scheduling",
+    "left": "Linear-time",
+    "right": "Flexible-time",
+    "positions": {
+     "fr": 55,
+     "de": 10,
+     "ru": 75,
+     "us": 25
+    }
+   }
+  ],
+  "leaders": {
+   "title": "Who sets the tone",
+   "note": "Career geography is taken from press and company announcements only. No nationality is inferred. Several AVIV C-suite names appear only on aggregator sites and are excluded.",
+   "rows": [
+    {
+     "role": "Directeur Général, Groupe SeLoger (France)",
+     "person": "Baptiste Capron · since Sep 2024",
+     "career": "Managing Director Europe at Stuart (last-mile delivery); General Manager at NUMA (B2B edtech); marketing and sales lead at Ueni. No real-estate background. Country base of earlier roles not confirmed.",
+     "c": "V"
+    },
+    {
+     "role": "CEO, AVIV Group (Berlin)",
+     "person": "Vladimir Pravdivy · since 10 Mar 2025",
+     "career": "About a decade at Avito, the Russian classifieds marketplace: CFO from 2014, then CEO for seven years, with 30x revenue growth (company-reported).",
+     "c": "V"
+    },
+    {
+     "role": "COO, AVIV Group",
+     "person": "Ovidiu Solomonov · reported Mar 2025",
+     "career": "Career geography not found; appointment only in 2025 trade press, not confirmed as current.",
+     "c": "U"
+    },
+    {
+     "role": "CTO, Groupe SeLoger",
+     "person": "Valentin Stackler · since Feb 2026",
+     "career": "Nine years inside SeLoger/AVIV, from mobile engineer to Senior Director of Engineering for Mobile, Data & AI.",
+     "c": "V"
+    },
+    {
+     "role": "CMO, SeLoger",
+     "person": "Anaïs Lesueur · date unknown",
+     "career": "Quoted as CMO in Sep 2026; appointment date and career history not found.",
+     "c": "U"
+    },
+    {
+     "role": "Majority owners",
+     "person": "KKR and CPP Investments · since 29 Apr 2025",
+     "career": "US-headquartered PE firm and Canadian pension investor. Board representatives for AVIV not found.",
+     "c": "V"
+    },
+    {
+     "role": "Search-partner input",
+     "person": "None supplied",
+     "career": "No search-partner input received for this run. Any user-reported names or styles would be added here and coded P until verified.",
+     "c": "P"
+    }
+   ]
+  },
+  "dynamics": {
+   "eyebrow": "How the cultures interact",
+   "title": "French field culture regains control, but money and the last word sit in Berlin and with the owners",
+   "items": [
+    {
+     "tag": "Ownership history",
+     "c": "I",
+     "text": "SeLoger has had four owner regimes: founders, a Paris listing (2006), Axel Springer (2011) and, since April 2025, KKR and CPP via AVIV. Employees experienced the AVIV era as cost pressure: one former sales executive alleges pay fell sharply after the Meilleurs Agents takeover. That is a single unverified review."
+    },
+    {
+     "tag": "Centralisation swings",
+     "c": "V",
+     "text": "AVIV built a shared European listings platform and a CCO Europe role (2023–Jan 2025), then in 2026 ended the platform project and moved tech and product back to France. Staff have lived through both directions inside three years."
+    },
+    {
+     "tag": "Weight versus control",
+     "c": "H",
+     "text": "Customers, brands, the sales force and now engineering sit in France. Budget, group functions and owner reporting sit in Berlin and with KKR/CPP. France's share of AVIV revenue is not published, so its negotiating weight is unknown."
+    },
+    {
+     "tag": "Tone at the top",
+     "c": "I",
+     "text": "Capron sets a commercial, field-first tone ('ADN de commerçant', consultants not subscription sellers). Pravdivy brings a marketplace-operator background built at Avito. The owners bring PE return discipline. Glassdoor approval is low at both levels: 2.6/5 for SeLoger senior management and 2.1/5 for AVIV."
+    },
+    {
+     "tag": "Working languages",
+     "c": "I",
+     "text": "Capron said all teams 'will be local and speak French', which implies the previous group-run teams often worked in English. AVIV recruits in English and opens some roles to Paris or Berlin interchangeably."
+    }
+   ],
+   "note": "France and the Avito-shaped leadership style cluster on high-context, hierarchical and relationship-based working. Germany and the US-led investor style cluster on low-context and task-based working. The investor style is the outlier on persuading: it wants applications first, while the other three want the reasoning first."
+  },
+  "dimensionsTitle": "Where friction is most likely, by Meyer dimension",
+  "dimensions": [
+   {
+    "dimension": "Persuading",
+    "gap": "Large",
+    "tension": "France leadership ↔ owners' reporting expectations",
+    "views": {
+     "fr": "Persuasion starts with the principle and the logic; a conclusion without reasoning feels unearned.",
+     "de": "Reasoning and thorough analysis are expected before recommendations.",
+     "ru": "Theory and reasoning carry weight, then a strong conclusion.",
+     "us": "Lead with the recommendation and the numbers; theory comes later, if at all."
+    },
+    "scene": "At an owner or AVIV business review, the France team opens with why the regional model fits French agencies. The investor side wants leads per agency, churn and the payback of the extra 30% ad spend on page one.",
+    "helps": "Prepare two versions of every case: answer-first for owners, reasoning-first for French teams and staff representatives."
+   },
+   {
+    "dimension": "Leading",
+    "gap": "Large",
+    "tension": "Paris teams ↔ Berlin group functions",
+    "views": {
+     "fr": "The boss is expected to set direction visibly; hierarchy is real even when the tone is informal.",
+     "de": "Moderate hierarchy; expertise and process carry authority.",
+     "ru": "Strong hierarchy; the leader is expected to decide and to be seen deciding.",
+     "us": "Fairly egalitarian; leaders are expected to be accessible and to empower."
+    },
+    "scene": "After the PSE, a Paris engineering manager waits for the new CTO to set priorities before re-planning. Group colleagues used to self-organising squads read the pause as passivity.",
+    "helps": "Give French teams explicit direction from a named leader, and tell group colleagues who owns which decision now."
+   },
+   {
+    "dimension": "Trusting",
+    "gap": "Large",
+    "tension": "France ↔ Berlin and the owners",
+    "views": {
+     "fr": "Trust grows through relationships and time spent together, including lunches and regional events.",
+     "de": "Trust comes from reliable, competent work delivered as promised.",
+     "ru": "Trust is personal and built over time; formal processes alone do not create it.",
+     "us": "Trust is earned through delivery and can be built and dropped quickly."
+    },
+    "scene": "Integrating Ouest-France Immo, the 35 Rennes staff and the region's agencies judge SeLoger by who shows up in person. A group integration plan run by video and dashboards can look cold.",
+    "helps": "Invest early face time in Rennes and with regional agencies, while showing Berlin and the owners delivery milestones."
+   },
+   {
+    "dimension": "Communicating",
+    "gap": "Large",
+    "tension": "French teams ↔ group and investor communications",
+    "views": {
+     "fr": "Much is implied; people read between the lines and value nuance.",
+     "de": "Explicit, precise and written; repetition is normal.",
+     "ru": "High-context; meaning sits in relationships and what is left unsaid.",
+     "us": "Very explicit; say it, then repeat it in writing."
+    },
+    "scene": "A terse English-language group note ends the shared listings platform. French engineers who survived the PSE read job risk into what it leaves out.",
+    "helps": "Re-explain group messages in French, in person, and state explicitly what does not change."
+   },
+   {
+    "dimension": "Deciding",
+    "gap": "Moderate",
+    "tension": "Group consensus processes ↔ France and leadership top-down habits",
+    "views": {
+     "fr": "The senior person decides after debate; decisions can be revisited.",
+     "de": "Consensus is built slowly; once made, decisions stick.",
+     "ru": "Decisions come from the top and quickly.",
+     "us": "One owner decides fast; adjustment follows."
+    },
+    "scene": "Pricing the joint SeLoger–Ouest-France Immo offers before end-2026 needs a call from Capron. Group finance may expect a longer alignment loop.",
+    "helps": "Agree up front who decides and who is only consulted; record the decision and the date."
+   },
+   {
+    "dimension": "Evaluating",
+    "gap": "Moderate",
+    "tension": "Direct French, German and Avito-shaped feedback ↔ more cushioned investor style",
+    "views": {
+     "fr": "Criticism is fairly direct, often framed intellectually.",
+     "de": "Direct and factual; little softening.",
+     "ru": "Very direct, including in front of others.",
+     "us": "Positive framing first, criticism wrapped in encouragement."
+    },
+    "scene": "In a post-PSE performance review, a French manager critiques a team's delivery bluntly. Teams already hurt by two job plans hear it as a signal of the next cut.",
+    "helps": "Keep feedback direct on the work, and say explicitly whether a person's role is at risk."
+   },
+   {
+    "dimension": "Scheduling",
+    "gap": "Moderate",
+    "tension": "German and investor timelines ↔ French consultation rhythm",
+    "views": {
+     "fr": "Plans flex; legal consultation and negotiation set the real pace.",
+     "de": "Linear; deadlines are commitments.",
+     "ru": "Flexible; plans adapt to events.",
+     "us": "Fairly linear; time is money."
+    },
+    "scene": "A group integration deadline meets French information-consultation steps. The 2026 PSE took several weeks of negotiation, and it moved the outcome from 354 to 275 roles.",
+    "helps": "Build consultation steps into the critical path and tell the owners the real date early."
+   },
+   {
+    "dimension": "Disagreeing",
+    "gap": "Small",
+    "tension": "Open French debate ↔ investor preference for alignment",
+    "views": {
+     "fr": "Open disagreement is normal and does not harm the relationship.",
+     "de": "Open, factual disagreement is expected.",
+     "ru": "Disagreement can be open and sharp.",
+     "us": "Moderate; disagreement is softened to keep momentum."
+    },
+    "scene": "In the comité de direction, managers challenge the localisation plan hard. That is a normal sign of engagement, not resistance.",
+    "helps": "Invite challenge explicitly, then close with a clear decision."
+   }
+  ],
+  "joining": {
+   "eyebrow": "For an executive joining from outside France",
+   "title": "What to expect in the first six months",
+   "items": [
+    {
+     "title": "French is the operating language again",
+     "text": "Capron has said all teams will be local and French-speaking. Expect leadership meetings, CSE dialogue and agency visits in French."
+    },
+    {
+     "title": "Staff representatives are a standing counterpart",
+     "text": "The 2026 PSE was negotiated over weeks and cut from 354 to 275 roles. Any reorganisation, including small ones, needs early consultation."
+    },
+    {
+     "title": "Teams are tired of change",
+     "text": "Two job plans in two years and reviews citing 'constant change' mean people will judge you on stability and follow-through before vision."
+    },
+    {
+     "title": "Reasoning before asks",
+     "text": "French colleagues expect to hear why before what. A one-slide answer may land in Berlin but not in Paris."
+    },
+    {
+     "title": "The regions count",
+     "text": "The strategy is re-regionalisation. Visiting agencies outside Paris and in Rennes is part of the job, not a courtesy."
+    },
+    {
+     "title": "Two reporting worlds",
+     "text": "Paris decides more than it did in 2025, but budgets and owner reviews run through Berlin. Learn both rhythms early."
+    }
+   ]
+  },
+  "hiring": {
+   "title": "Assessing cultural adaptability",
+   "items": [
+    {
+     "title": "Evidence of bridging",
+     "text": "Look for roles where the candidate represented a country unit to a foreign headquarters or sponsor and brought back decisions."
+    },
+    {
+     "title": "References from both sides",
+     "text": "Take one reference from a French direct report or staff-representative counterpart and one from a group or owner-side stakeholder."
+    },
+    {
+     "title": "Explicit language requirement",
+     "text": "Professional French and English are likely needed. Validate with the client and state it as a skill requirement."
+    },
+    {
+     "title": "Onboarding pairing",
+     "text": "Pair a newcomer with a long-tenured insider, such as CTO Valentin Stackler (nine years in the company), for context on past reorganisations."
+    }
+   ],
+   "note": "Nationality and cultural similarity to the leadership are never selection criteria. Culture analysis informs collaboration and onboarding only."
+  }
+ },
+ "transformation": {
+  "title": "Five years of ownership, leadership and organisation resets",
+  "timeline": [
+   {
+    "time": "2021",
+    "text": "Ait Voncke becomes AVIV CEO; Caroline Evans de Gantès joins as MD of Groupe SeLoger."
+   },
+   {
+    "time": "2022",
+    "text": "Vacation-rental unit (Amivac) sold to HomeToGo."
+   },
+   {
+    "time": "2023",
+    "text": "De Gantès becomes AVIV CCO Europe for France, Germany and Belgium. SeLoger opens free listings to private sellers."
+   },
+   {
+    "time": "Sep 2024",
+    "text": "KKR/CPP deal signed. VP Operations Franck Le Tendre leaves. Capron arrives. Collective plan for 90 roles across 1,112 staff."
+   },
+   {
+    "time": "Jan–Mar 2025",
+    "text": "De Gantès leaves the CCO Europe role. Vladimir Pravdivy becomes AVIV CEO on 10 Mar."
+   },
+   {
+    "time": "29 Apr 2025",
+    "text": "KKR and CPP Investments take about 90% of AVIV; Axel Springer keeps 10%."
+   },
+   {
+    "time": "Oct–Nov 2025",
+    "text": "Voluntary-departure plan targeting 354 roles announced. My SeLoger Pro agent app launched at RENT."
+   },
+   {
+    "time": "Jan–Feb 2026",
+    "text": "PSE closes at 275 of 964 roles, ~80% engineering, as the pan-European platform ends. Stackler promoted to CTO."
+   },
+   {
+    "time": "Mar–Jul 2026",
+    "text": "Ad spend +30% and national TV campaign. Third court win against Jinka in seven months."
+   },
+   {
+    "time": "Sep–Oct 2026",
+    "text": "AI 'Recherche Intelligente' launched. Idealista enters France. Ouest-France Immo acquired."
+   }
+  ]
+ },
+ "metrics": {
+  "title": "Market cycle and headcount",
+  "groups": [
+   {
+    "label": "French residential transactions",
+    "bars": [
+     {
+      "label": "2021",
+      "value": 1200000,
+      "display": "1.2m",
+      "muted": true
+     },
+     {
+      "label": "2023",
+      "value": 778000,
+      "display": "778k",
+      "muted": true
+     },
+     {
+      "label": "2024",
+      "value": 855000,
+      "display": "~855k (derived)",
+      "muted": true
+     },
+     {
+      "label": "2025F",
+      "value": 925000,
+      "display": "925k (forecast)",
+      "muted": true
+     }
+    ]
+   },
+   {
+    "label": "France headcount, SeLoger + Meilleurs Agents",
+    "bars": [
+     {
+      "label": "Sep 2024",
+      "value": 1112,
+      "display": "1,112",
+      "muted": false
+     },
+     {
+      "label": "Jan 2026",
+      "value": 964,
+      "display": "964",
+      "muted": false
+     },
+     {
+      "label": "After PSE",
+      "value": 689,
+      "display": "~689 (derived)",
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "note": "2024 transactions are derived from the company's +8.2% forecast for 2025. The 1,112 figure (l'Informé, Sep 2024) and the 964 figure (Jan 2026) may use different scopes. 689 is 964 minus 275, not a reported number."
+ },
+ "businessInsights": {
+  "title": "Where SeLoger wins, where it is exposed",
+  "cards": [
+   {
+    "title": "Leader of the specialist niche, second to Leboncoin overall",
+    "text": "SeLoger claims leadership among 100%-real-estate portals and has over 33% of listings in Île-de-France. Leboncoin still has roughly double its traffic (42m vs ~21m monthly visits) and 70.6% of private-seller listings against SeLoger's 14.6%. All figures are third-party.",
+    "c": "V",
+    "findings": [
+     "F16"
+    ]
+   },
+   {
+    "title": "The listings database is the moat, and it is defended in court",
+    "text": "Three rulings against aggregator Jinka (Dec 2025 to Jul 2026) rested on database-producer rights and misleading advertising: €60,000 damages and an order to stop scraping and delete data.",
+    "c": "V",
+    "findings": [
+     "F18"
+    ]
+   },
+   {
+    "title": "Buying regional share rather than building it",
+    "text": "Ouest-France Immo (1.3m monthly visitors and 3.5m agency leads a year, company-reported) gives 75–80% of listings in three western regions. The brands stay separate and joint offers are due by end-2026.",
+    "c": "V",
+    "findings": [
+     "F19"
+    ]
+   },
+   {
+    "title": "Growth is being bought with marketing and product",
+    "text": "Ad spend rises 30% in 2026, with a further 20% in marketing planned next year. AI search, My SeLoger Pro and 75+ planned innovations underpin a company-reported 1,500 new agency clients in H1 2025.",
+    "c": "V",
+    "findings": [
+     "F20",
+     "F21",
+     "F22"
+    ]
+   },
+   {
+    "title": "No financial transparency",
+    "text": "No revenue, margin or churn figures exist for SeLoger or AVIV. The only number is the ~€10bn value of Axel Springer's whole classifieds business. Aggregator estimates disagree by orders of magnitude.",
+    "c": "U",
+    "findings": [
+     "F24"
+    ]
+   },
+   {
+    "title": "Function-specific: commercial and tech roles inherit the hardest repairs",
+    "text": "Commercial leaders must rebuild agency trust and handle reported billing and cancellation disputes, turning sellers into performance consultants. Tech leaders inherit a team cut mostly in engineering and a platform handed back from AVIV.",
+    "c": "I",
+    "findings": [
+     "F10",
+     "F13",
+     "F14"
+    ]
+   }
+  ],
+  "competitors": [
+   {
+    "player": "Leboncoin",
+    "model": "Horizontal classifieds; Adevinta-owned",
+    "edge": "42m monthly visits, 70.6% of private-seller listings, >1m listings",
+    "move": "Also sued Jinka; trading audience claims with SeLoger and Bien'ici in 2026",
+    "threat": "High"
+   },
+   {
+    "player": "Bien'ici",
+    "model": "Vertical portal backed by agency networks; map-centric, cheaper",
+    "edge": "220m visits in 2025, +14% year on year (company-reported)",
+    "move": "Continued marketing and product investment to challenge SeLoger",
+    "threat": "High"
+   },
+   {
+    "player": "Idealista (idealista.fr)",
+    "model": "Southern European portal (Spain, Italy, Portugal); ownership not researched",
+    "edge": "Multi-country scale; led in France by ex-Leboncoin Immobilier exec Aurélien Flament",
+    "move": "Launched in France on 10 Sep 2026, targeting individuals and professionals",
+    "threat": "Medium"
+   },
+   {
+    "player": "PAP",
+    "model": "Private-seller-only portal",
+    "edge": "Owner-to-owner niche with no agency fees",
+    "move": "No recent move found",
+    "threat": "Low–med"
+   },
+   {
+    "player": "Jinka",
+    "model": "Aggregator app across portals",
+    "edge": "'One app, all property sites' convenience for searchers",
+    "move": "Lost three rulings in seven months; ordered to stop scraping SeLoger",
+    "threat": "Low"
+   }
+  ],
+  "vulnerability": {
+   "title": "Agency trust and proof of ROI",
+   "intro": "Agencies pay the bills. The CEO says SeLoger drifted into managing clients 'from an open space' and talking only about subscription prices. A trade outlet reports billing and cancellation litigation with around twenty agencies, which is not corroborated by a primary source.",
+   "timeline": [
+    {
+     "time": "2023",
+     "text": "Free listings for private sellers widen the audience; positioning as the agencies' partner is tested."
+    },
+    {
+     "time": "Nov 2024",
+     "text": "Capron's first priorities: partnerships with professionals, qualified leads, sales presence beyond Paris."
+    },
+    {
+     "time": "H1 2025",
+     "text": "About 1,500 new agency clients (company-reported)."
+    },
+    {
+     "time": "Nov 2025",
+     "text": "My SeLoger Pro agent app launched after a 30-agent beta."
+    },
+    {
+     "time": "Mar 2026",
+     "text": "Trade press reports ~20 agency clients in billing and cancellation disputes and warns about churn."
+    },
+    {
+     "time": "Apr 2026",
+     "text": "Capron: sales re-regionalised, more regional events, salespeople to become consultants on performance."
+    },
+    {
+     "time": "End 2026",
+     "text": "Joint SeLoger–Ouest-France Immo offers due to western agencies."
+    }
+   ],
+   "note": "Churn, litigation status and agency satisfaction are not published. Treat the dispute report as a hypothesis until the client confirms it."
+  }
+ },
+ "environment": {
+  "conditions": [
+   {
+    "title": "PE owners with an undisclosed clock",
+    "facts": "KKR and CPP Investments have held about 90% of AVIV since 29 Apr 2025, after a deal valuing Axel Springer's classifieds at ~€10bn. No exit horizon, board roster or return targets are public.",
+    "dayToDay": "Expect owner-driven reporting through AVIV, short planning cycles and value milestones that France may not see first-hand. Results need to show in quarters, not years.",
+    "helps": "A few hard metrics reported consistently, such as leads per euro, agency churn and release cadence, and early warning when a number will miss.",
+    "derails": "Waiting for a published multi-year plan before committing, or presenting effort instead of results.",
+    "c": "I",
+    "findings": [
+     "F2",
+     "F3",
+     "F24"
+    ],
+    "skills": [
+     1,
+     3
+    ]
+   },
+   {
+    "title": "Decision rights moving from Berlin back to Paris",
+    "facts": "AVIV built a shared listings platform and a CCO Europe role (2023–Jan 2025). In 2026 the platform project ended and France re-localised tech and product. Capron's reporting line into AVIV is not public.",
+    "dayToDay": "Some decisions are newly French, others still sit with AVIV group functions, and the boundary is being drawn as you work.",
+    "helps": "Writing down who decides what, testing it with AVIV counterparts and escalating rarely but clearly.",
+    "derails": "Assuming the old group process still applies, or acting as if Paris now owns everything.",
+    "c": "I",
+    "findings": [
+     "F4",
+     "F6",
+     "F8",
+     "F11",
+     "F28"
+    ],
+    "skills": [
+     3,
+     5
+    ]
+   },
+   {
+    "title": "A thinner organisation after two job plans",
+    "facts": "Staff fell from 1,112 (Sep 2024) through a 90-role plan to 964, then lost 275 more in 2026, ~80% in engineering. Glassdoor shows 2.6/5 for senior management and 55% would recommend the company.",
+    "dayToDay": "Leaders run with fewer people, some lost know-how and wary teams. Every new initiative competes for the same remaining capacity.",
+    "helps": "Ruthless prioritisation, visible stability and quick recognition of the people who stayed.",
+    "derails": "Launching a fresh reorganisation, or planning on headcount that no longer exists.",
+    "c": "V",
+    "findings": [
+     "F9",
+     "F10",
+     "F25",
+     "F26"
+    ],
+    "skills": [
+     1,
+     2
+    ]
+   },
+   {
+    "title": "French social dialogue sets the pace of change",
+    "facts": "The 2026 PSE was negotiated for weeks with staff representatives and cut from 354 to 275 roles. Unions are quoted in press on leadership exits. Employees value intéressement, RTT and CSE benefits.",
+    "dayToDay": "Changes to roles, organisation or working conditions run through information-consultation. Staff representatives are an informed counterpart.",
+    "helps": "Early, reasoned dialogue with the CSE and timelines that include consultation.",
+    "derails": "Announcing first and consulting later, or treating representatives as an obstacle.",
+    "c": "V",
+    "findings": [
+     "F6",
+     "F10"
+    ],
+    "skills": [
+     1,
+     2
+    ]
+   },
+   {
+    "title": "Many brands, a stack in hand-over, a new acquisition",
+    "facts": "Eight French brands and several pro packages and boosts run on one P&L. The shared AVIV platform ended in 2026, and Ouest-France Immo (with BellesPierres) joined on 1 Oct 2026 as a separate brand.",
+    "dayToDay": "Every simplification touches live revenue, while a smaller tech team takes ownership of systems built for a group.",
+    "helps": "Clear keep, merge or stop calls, sequenced so agencies keep receiving leads.",
+    "derails": "Adding offers and brands without retiring any, or breaking the Rennes team during integration.",
+    "c": "I",
+    "findings": [
+     "F1",
+     "F11",
+     "F19",
+     "F20",
+     "F27"
+    ],
+    "skills": [
+     5
+    ]
+   },
+   {
+    "title": "Agencies to win back, region by region",
+    "facts": "Capron says SeLoger lost its 'merchant DNA'. Sales were re-regionalised, and app users in the provinces rose 30% (company-reported). Some agencies reportedly dispute billing and cancellations.",
+    "dayToDay": "Every function is judged by how it feels to an agency outside Paris: invoices, product, support and data.",
+    "helps": "Regular time with agencies and decisions explained in terms of their leads and costs.",
+    "derails": "Running the function from the 9th arrondissement on dashboards alone.",
+    "c": "I",
+    "findings": [
+     "F13",
+     "F14",
+     "F22",
+     "F23"
+    ],
+    "skills": [
+     4
+    ]
+   },
+   {
+    "title": "A bigger rival, new entrants and a fragile cycle",
+    "facts": "Leboncoin has about twice the traffic, Bien'ici grew 14% and Idealista launched on 10 Sep 2026. Transactions fell from 1.2m to 778k (2021–2023). Both France and AVIV have changed leaders since 2024.",
+    "dayToDay": "Plans get reset by market data, competitor moves and political news; resource calls must be revisited often.",
+    "helps": "Fast, evidence-based bets with explicit stop criteria and calm through the cycle.",
+    "derails": "Defending last year's plan, or reacting to every rival claim.",
+    "c": "V",
+    "findings": [
+     "F6",
+     "F15",
+     "F16",
+     "F17",
+     "F18",
+     "F30"
+    ],
+    "skills": [
+     6,
+     1
+    ]
+   }
+  ],
+  "opportunity": "The role-holder can help define what a 'local' SeLoger means in practice: which decisions sit in Paris rather than Berlin, how Ouest-France Immo is integrated, and how agencies measure the value they get."
+ },
+ "confidence": {
+  "unknowns": [
+   "Revenue, margin, agency churn and France's share of AVIV results.",
+   "Who Capron reports to at AVIV, and which decisions need group or owner approval.",
+   "Owners' exit horizon, value-creation plan and AVIV board composition.",
+   "Post-PSE attrition, engagement and current hiring plans (careers page unreadable).",
+   "CMO and other France executive committee members' tenure and backgrounds."
+  ],
+  "hypotheses": [
+   "Owner reporting runs on short cycles with value-creation milestones, as is typical of KKR-style ownership.",
+   "The reported agency billing disputes reflect broader churn pressure in the subscription base.",
+   "English remains the working language of AVIV group forums while France now works in French.",
+   "The job-ad ambition to 'capture 50% of France's residential GMV by 2030' reflects current strategy."
+  ],
+  "contradictions": [
+   "Reason for the 2026 PSE: management cites the end of a pan-European project; Eurofound records a response to a national social crisis.",
+   "AVIV CEO: the register and press show Pravdivy since Mar 2025; a 2026 recruiter case study describes a new CEO search involving Ait Voncke.",
+   "Headcount: 1,112 (Sep 2024) vs 964 (Jan 2026) vs 530–684 on aggregators, likely different scopes.",
+   "Market tone: 'weaker than hoped' (Sep 2025 barometer) vs 'a real return to balance' (Oct 2025 interview).",
+   "Glassdoor still lists Caroline de Gantès as CEO; press confirms Capron. Reports also differ on whether she moved to CCO Europe in 2023 or Oct 2024."
+  ],
+  "sourcesNote": "Sources accessed 9 Oct 2026. aviv-group.com, the AVIV pressroom and SeLoger's careers pages could not be read, so AVIV facts rely on press. Audience, client and traction figures are company-reported. Glassdoor data is indicative (tens to hundreds of reviews). The full URL of S15 was truncated in research; the outlet section is linked."
+ },
+ "questions": [
+  {
+   "question": "Who does Baptiste Capron report to at AVIV, and which France decisions need group or owner approval?",
+   "why": "Sets the decision-rights table and the weight of the bridging capability (3)."
+  },
+  {
+   "question": "What are the owners' value-creation milestones, reporting cadence and expected holding period?",
+   "why": "Confirms or downgrades the PE-pace execution capability (1) as first priority."
+  },
+  {
+   "question": "Which tech and product decisions moved to Paris after the shared platform ended, and what still depends on AVIV systems?",
+   "why": "Shapes capabilities 3 and 5 and the onboarding for any tech-adjacent role."
+  },
+  {
+   "question": "What are France's revenue, margin and agency churn trends since 2024?",
+   "why": "Tests the agency-trust vulnerability and the ranking of capability 4."
+  },
+  {
+   "question": "Is there live litigation with agency clients over billing or cancellations, and how many accounts are involved?",
+   "why": "Turns the vulnerability panel from hypothesis to fact, or removes it."
+  },
+  {
+   "question": "How has the organisation performed since the PSE: voluntary attrition, engagement, key-person losses?",
+   "why": "Calibrates the culture-leadership capability (2) and red flags around change fatigue."
+  },
+  {
+   "question": "What is the working language of the executive committee and of AVIV group forums?",
+   "why": "Determines whether French and English are explicit requirements."
+  },
+  {
+   "question": "Who owns the Ouest-France Immo integration, and are further regional acquisitions planned?",
+   "why": "Changes the scope of capability 5 and of M&A decision rights."
+  },
+  {
+   "question": "Is 'capture 50% of France's residential GMV by 2030' the current strategic goal?",
+   "why": "Would reframe strategy toward transactions and lift capability 6."
+  },
+  {
+   "question": "Who sits on AVIV's current executive team (COO, CFO, CPO), and is a CEO change under way?",
+   "why": "Resolves the leadership contradiction and the 'who sets the tone' table."
+  },
+  {
+   "question": "How is the relationship with staff representatives now, and are further plans foreseen in 2027?",
+   "why": "Changes how heavily social-dialogue experience is weighted in capabilities 1 and 2."
+  },
+  {
+   "question": "Which role is being hired, with what reporting line and scope across brands?",
+   "why": "Allows role adaptation and possible re-ranking of the Contextual Skills."
+  }
+ ],
+ "skills": [
+  {
+   "name": "Delivering at KKR/CPP pace while France is still being redrawn",
+   "definition": "Producing visible results within months with the smaller, re-localised organisation, while running French consultation processes properly and keeping the owners' clock in view.",
+   "whyHere": "KKR and CPP took control of AVIV on 29 Apr 2025. France then completed a 275-of-964 job plan, ~80% in engineering, one year after cutting 90 roles. The same team must deliver 75+ planned innovations, absorb Ouest-France Immo and justify a 30% rise in ad spend. No exit horizon is public, so the pace has to be assumed rather than scheduled.",
+   "markers": [
+    {
+     "title": "Plans on the team that stayed",
+     "text": "Builds commitments on the ~689 people in post, not on the 964-person organisation chart."
+    },
+    {
+     "title": "Commits in numbers",
+     "text": "Agrees a few measurable outcomes, such as leads per euro, churn and release cadence, and reports against them every cycle."
+    },
+    {
+     "title": "Consultation on the critical path",
+     "text": "Schedules CSE information-consultation as part of delivery, as the 354-to-275 negotiation showed it changes outcomes."
+    },
+    {
+     "title": "Closes what the last reorganisation opened",
+     "text": "Finishes or explicitly stops inherited projects instead of letting them drift."
+    }
+   ],
+   "evidence": [
+    "Delivered results within 6–12 months of a 20%+ headcount reduction in their own area.",
+    "Worked under a PE or sponsor change of control with a value-creation plan and owner reviews.",
+    "Led or co-led a French PSE/RCC, or a comparable EU collective process, with documented outcomes."
+   ],
+   "redFlags": [
+    "Treats staff-representative consultation as something to work around.",
+    "Describes success by the quality of the plan, not results delivered.",
+    "Needs a settled organisation before committing to targets."
+   ],
+   "question": "Tell me about a time you had to deliver a committed result within two quarters while your team was being cut or reorganised. What did you stop doing?",
+   "probe": "Which number would your owners or board have checked first, and what did you report when it slipped?",
+   "c": "I",
+   "confidenceNote": "Inferred from ownership and restructuring facts. The owners' actual reporting cadence and milestones are unknown. Applies to any function; validate the reporting rhythm with AVIV.",
+   "findings": [
+    "F2",
+    "F3",
+    "F9",
+    "F10",
+    "F20",
+    "F21"
+   ]
+  },
+  {
+   "name": "Leading French teams through a second cut in two years",
+   "definition": "Leading Paris and regional teams in a French business culture after two consecutive job plans, so that key people stay, engage and re-plan.",
+   "whyHere": "Staff went through a 90-role plan in 2024 and a 275-role PSE in 2026, negotiated with staff representatives. Glassdoor rates SeLoger senior management 2.6/5, and reviews cite 'constant change' and slow decisions. Capron now wants every team local and French-speaking.",
+   "markers": [
+    {
+     "title": "Reasoning before conclusions (Persuading)",
+     "text": "Explains the logic and the principle behind a decision before asking for action."
+    },
+    {
+     "title": "Clear authority, reachable person (Leading)",
+     "text": "Decides visibly as the accountable leader while staying accessible on the floor and in the regions."
+    },
+    {
+     "title": "Relationships before transactions (Trusting)",
+     "text": "Invests time with managers and staff representatives, so trust exists before the hard conversation."
+    },
+    {
+     "title": "Welcomes challenge, then closes (Disagreeing)",
+     "text": "Invites open debate in management forums without reading it as disloyalty, then ends with a clear decision."
+    }
+   ],
+   "evidence": [
+    "Led teams in France, or a similar business culture, through restructuring and kept named key people.",
+    "A working relationship with a CSE or works council that references from both sides describe as constructive.",
+    "References from French-speaking direct reports on how decisions were explained."
+   ],
+   "redFlags": [
+    "Answers objections with 'the decision is made' and no reasoning.",
+    "Reads debate as resistance.",
+    "Builds trust only through dashboards and email."
+   ],
+   "question": "Describe how you led a team after a significant layoff. What did you say in the first week, and how did you know whether people believed you?",
+   "probe": "Who pushed back hardest, and how did your relationship with them change?",
+   "c": "I",
+   "confidenceNote": "Assessed in every candidate, French nationals included; it is a capability, never a proxy for nationality. The French language requirement must be validated with the client.",
+   "findings": [
+    "F9",
+    "F10",
+    "F11",
+    "F25",
+    "F26"
+   ]
+  },
+  {
+   "name": "Bridging Paris, Berlin and the owners without becoming a messenger",
+   "definition": "Representing France's needs in AVIV group forums and owner reviews in their format, and bringing back decisions that French teams understand and accept.",
+   "whyHere": "France reports into AVIV in Berlin, led since Mar 2025 by Vladimir Pravdivy, whose career was built at Avito. KKR and CPP sit above, and Axel Springer keeps 10% with Jan Bayer on AVIV's shareholder board. The 2026 re-localisation moved decisions to Paris, but Capron's reporting line and group sign-offs are not public. AVIV senior management rates 2.1/5 on Glassdoor.",
+   "markers": [
+    {
+     "title": "Brings the French case in group format",
+     "text": "Turns a local argument into the answer-first, data-led form an AVIV or investor review expects."
+    },
+    {
+     "title": "Explains Berlin in Paris",
+     "text": "Tells French teams what the group decided and why, without hiding behind 'the group'."
+    },
+    {
+     "title": "Maps the new boundary",
+     "text": "Writes down which decisions are now local since 2026 and tests the map with group counterparts."
+    },
+    {
+     "title": "One message in every room",
+     "text": "Says the same thing to owners, group and French teams, adjusting only the format."
+    }
+   ],
+   "evidence": [
+    "Ran a country unit or function inside a foreign-headquartered group and changed an HQ decision.",
+    "References from both a headquarters or owner-side stakeholder and a local team member.",
+    "Worked productively in both French and English settings."
+   ],
+   "redFlags": [
+    "Blames 'Berlin' or 'the owners' for unpopular decisions.",
+    "Fully takes one side and loses credibility with the other.",
+    "Escalates every disagreement to the group."
+   ],
+   "question": "Tell me about a time you needed a headquarters or owner decision changed for your local business. How did you make the case, and what came back?",
+   "probe": "How did you explain the outcome to your local team when you did not get what you asked for?",
+   "c": "I",
+   "confidenceNote": "Decision rights after the 2026 re-localisation are unknown. Weight rises if many sign-offs remain with AVIV or the owners.",
+   "findings": [
+    "F4",
+    "F8",
+    "F11",
+    "F28",
+    "F31",
+    "F34"
+   ]
+  },
+  {
+   "name": "Running your function as close to the agencies as sales now is",
+   "definition": "Using the experience of the 20,000 partner agencies, including those outside Paris, as the test for decisions in every function: finance, tech, product, people and marketing.",
+   "whyHere": "Capron says SeLoger lost its 'ADN de commerçant' and managed clients 'from an open space'. He re-regionalised sales and wants consultants talking performance. App users in the provinces are up 30% and 1,500 agencies were added in H1 2025 (company-reported). Some agencies reportedly dispute billing and cancellations, and Ouest-France Immo was bought for regional roots.",
+   "markers": [
+    {
+     "title": "Shows up in the regions",
+     "text": "Spends regular time with agencies outside Paris, including the newly acquired western markets."
+    },
+    {
+     "title": "Speaks in agency ROI",
+     "text": "Explains the effect of a decision on an agency's leads, costs or workload."
+    },
+    {
+     "title": "Fixes the irritant behind the complaint",
+     "text": "Traces agency complaints, such as a billing or cancellation issue, to the process that caused them and changes it."
+    },
+    {
+     "title": "Lets field evidence overrule the dashboard",
+     "text": "Changes course when agency feedback contradicts internal metrics."
+    }
+   ],
+   "evidence": [
+    "Led a function serving many small B2B customers, with measurable retention or satisfaction gains.",
+    "Redesigned a customer-facing process (billing, onboarding, support, product) after complaints.",
+    "Ran pilots with real users before rollout, as My SeLoger Pro did with 30 agents."
+   ],
+   "redFlags": [
+    "Cannot name a customer conversation from the last quarter.",
+    "Treats customer proximity as the sales team's job.",
+    "Measures success only on internal efficiency."
+   ],
+   "question": "Give an example of a decision in your function that you changed because of what customers told you directly. How did you hear it?",
+   "probe": "What did the change cost internally, and how did you measure whether customers noticed?",
+   "c": "I",
+   "confidenceNote": "The scale of agency dissatisfaction is unconfirmed; the litigation report is a hypothesis. For non-commercial roles, validate how much direct agency contact is expected.",
+   "findings": [
+    "F13",
+    "F14",
+    "F19",
+    "F22",
+    "F23"
+   ]
+  },
+  {
+   "name": "Simplifying a multi-brand estate while absorbing Ouest-France Immo",
+   "definition": "Deciding what to merge, keep separate or stop across brands, offers and systems, while the tech stack moves from AVIV's shared platform to a smaller French team and the business keeps selling.",
+   "whyHere": "One P&L carries SeLoger, SeLoger Neuf, SeLoger Construire, SeLoger Bureaux & Commerces, Meilleurs Agents, Logic-Immo, Belles Demeures and Lux Résidence. It also carries five core packages plus boosts such as Duo Prime and Top Position. The pan-European platform ended in 2026 after engineering cuts. Ouest-France Immo and BellesPierres arrived on 1 Oct 2026, kept as a separate brand with joint offers due by end-2026.",
+   "markers": [
+    {
+     "title": "Keep, merge or stop with a reason",
+     "text": "Makes explicit portfolio calls tied to agency value and cost, rather than letting offers accumulate."
+    },
+    {
+     "title": "Owns the inherited platform",
+     "text": "Takes responsibility for systems built for a group, including their debts, instead of waiting for Berlin."
+    },
+    {
+     "title": "Integrates without breaking what was bought",
+     "text": "Protects the 35-person Rennes team and its regional agency relationships during integration."
+    },
+    {
+     "title": "Keeps the leads flowing",
+     "text": "Sequences changes so agencies never see a drop in service."
+    }
+   ],
+   "evidence": [
+    "Rationalised brands, products or systems in a live business with no revenue disruption.",
+    "Integrated an acquired company while retaining its key people and customers.",
+    "Took over a platform or shared service from a group function."
+   ],
+   "redFlags": [
+    "Adds new offers without retiring old ones.",
+    "Runs integration as a pure cost exercise.",
+    "Underestimates the work hidden in inherited group systems."
+   ],
+   "question": "Tell me about a time you simplified a portfolio of products, brands or systems while revenue depended on them. What did you cut, and what did you protect?",
+   "probe": "What broke that you did not expect, and how did customers find out?",
+   "c": "I",
+   "confidenceNote": "Integration ownership and remaining AVIV platform dependencies are unknown. Weight is higher for tech, product, finance and marketing roles.",
+   "findings": [
+    "F1",
+    "F11",
+    "F19",
+    "F20",
+    "F27"
+   ]
+  },
+  {
+   "name": "Competing for agency budgets against Leboncoin, Bien'ici and Idealista",
+   "definition": "Making fast, evidence-based resource calls in a market where SeLoger leads the specialist niche but trails a much larger rival, new entrants arrive and AI changes search.",
+   "whyHere": "Leboncoin has ~42m monthly visits to SeLoger's ~21m and 70.6% of private-seller listings to 14.6%. Bien'ici reported 220m visits in 2025 (+14%). Idealista launched on 10 Sep 2026, and Jinka lost three rulings. Transactions fell from 1.2m to 778k (2021–2023). SeLoger answered with AI search, +30% ad spend and an acquisition, while flagging political and housing-policy risk.",
+   "markers": [
+    {
+     "title": "Reads the market, not just the plan",
+     "text": "Tracks competitor moves, transaction volumes and agency budgets, and adjusts priorities when they shift."
+    },
+    {
+     "title": "Bets with exit criteria",
+     "text": "Funds initiatives such as AI search or marketing pushes with explicit success and stop thresholds."
+    },
+    {
+     "title": "Protects the moat",
+     "text": "Treats the listings database, lead quality and agency relationships as assets to defend in their own function."
+    },
+    {
+     "title": "Steady through the cycle",
+     "text": "Avoids overreacting to rival audience claims or a single weak quarter."
+    }
+   ],
+   "evidence": [
+    "Competed as number two or challenger against a larger platform and won share in a segment.",
+    "Reallocated budget or people mid-year in response to market data, with results.",
+    "Managed through a cyclical downturn in a transaction-linked market."
+   ],
+   "redFlags": [
+    "Defends last year's plan despite new data.",
+    "Copies competitor moves without a thesis.",
+    "Cannot quantify the impact of past bets."
+   ],
+   "question": "Describe a moment when a competitor's move or a market shift forced you to change priorities mid-year. What did you stop funding?",
+   "probe": "How did you decide the threat was real and not noise?",
+   "c": "I",
+   "confidenceNote": "Competitive data is third-party or company-reported. If the client confirms the 50%-of-GMV ambition, this capability may move up for strategy and commercial roles.",
+   "findings": [
+    "F15",
+    "F16",
+    "F17",
+    "F18",
+    "F20",
+    "F21",
+    "F29",
+    "F30"
+   ]
+  }
+ ],
+ "findings": [
+  {
+   "id": "F1",
+   "title": "SeLoger is operated by Digital Classifieds France SAS (Paris 9e) within AVIV Group, running eight French brands",
+   "c": "V",
+   "sources": [
+    "S1",
+    "S2",
+    "S3"
+   ]
+  },
+  {
+   "id": "F2",
+   "title": "KKR and CPP Investments jointly hold ~90% of AVIV since 29 Apr 2025; Axel Springer keeps 10%",
+   "c": "V",
+   "sources": [
+    "S4",
+    "S5",
+    "S6"
+   ]
+  },
+  {
+   "id": "F3",
+   "title": "No public exit horizon, board roster or KKR/CPP stake split",
+   "c": "U",
+   "sources": [
+    "S4",
+    "S5"
+   ]
+  },
+  {
+   "id": "F4",
+   "title": "Vladimir Pravdivy AVIV CEO since 10 Mar 2025; ~decade at Avito as CFO then CEO",
+   "c": "V",
+   "sources": [
+    "S7",
+    "S8",
+    "S9"
+   ]
+  },
+  {
+   "id": "F5",
+   "title": "Baptiste Capron DG of Groupe SeLoger since Sep 2024; ex-Stuart, NUMA, Ueni",
+   "c": "V",
+   "sources": [
+    "S11",
+    "S12",
+    "S51"
+   ]
+  },
+  {
+   "id": "F6",
+   "title": "Leadership churn: de Gantès left CCO Europe Jan 2025; VP Ops Le Tendre left Sep 2024, per union sources",
+   "c": "V",
+   "sources": [
+    "S12",
+    "S13",
+    "S14",
+    "S15"
+   ]
+  },
+  {
+   "id": "F7",
+   "title": "Valentin Stackler promoted CTO Feb 2026; Anaïs Lesueur CMO (date unknown)",
+   "c": "V",
+   "sources": [
+    "S30",
+    "S38"
+   ]
+  },
+  {
+   "id": "F8",
+   "title": "Capron's reporting line into AVIV not public after the CCO Europe role ended",
+   "c": "U",
+   "sources": [
+    "S13",
+    "S7"
+   ]
+  },
+  {
+   "id": "F9",
+   "title": "2024 collective plan cut 90 roles across 1,112 staff (538 SeLoger, 574 Meilleurs Agents)",
+   "c": "V",
+   "sources": [
+    "S15",
+    "S23"
+   ]
+  },
+  {
+   "id": "F10",
+   "title": "2026 PSE: 354 targeted, 275 of 964 cut after negotiation with staff reps; ~80% engineering",
+   "c": "V",
+   "sources": [
+    "S22",
+    "S24",
+    "S25",
+    "S26",
+    "S27"
+   ]
+  },
+  {
+   "id": "F11",
+   "title": "Stated rationale: end of pan-European platform; teams to be local and French-speaking",
+   "c": "V",
+   "sources": [
+    "S19",
+    "S27",
+    "S28",
+    "S29"
+   ]
+  },
+  {
+   "id": "F12",
+   "title": "Eurofound records a different PSE rationale (national social crisis)",
+   "c": "U",
+   "sources": [
+    "S25"
+   ]
+  },
+  {
+   "id": "F13",
+   "title": "Capron: lost 'ADN de commerçant', sales re-regionalised, sellers to become consultants",
+   "c": "V",
+   "sources": [
+    "S16",
+    "S19"
+   ]
+  },
+  {
+   "id": "F14",
+   "title": "Trade press reports ~20 agency clients in billing/cancellation litigation (uncorroborated)",
+   "c": "H",
+   "sources": [
+    "S32"
+   ]
+  },
+  {
+   "id": "F15",
+   "title": "Transactions 1.2m (2021) to 778k (2023); 925k forecast for 2025, recovery weaker than hoped",
+   "c": "V",
+   "sources": [
+    "S20",
+    "S21",
+    "S23"
+   ]
+  },
+  {
+   "id": "F16",
+   "title": "Third-party: Leboncoin 70.6% vs SeLoger 14.6% private-seller listings; SeLoger >33% in Île-de-France",
+   "c": "V",
+   "sources": [
+    "S40",
+    "S41"
+   ]
+  },
+  {
+   "id": "F17",
+   "title": "Bien'ici 220m visits in 2025 (+14%); Idealista launched in France 10 Sep 2026",
+   "c": "V",
+   "sources": [
+    "S31",
+    "S39",
+    "S54"
+   ]
+  },
+  {
+   "id": "F18",
+   "title": "Three rulings against Jinka Dec 2025 to Jul 2026 on database rights and misleading advertising",
+   "c": "V",
+   "sources": [
+    "S34",
+    "S35"
+   ]
+  },
+  {
+   "id": "F19",
+   "title": "Ouest-France Immo 100% acquired 1 Oct 2026; 75–80% regional listings; brands kept; 35 Rennes staff",
+   "c": "V",
+   "sources": [
+    "S42",
+    "S43",
+    "S44",
+    "S45",
+    "S53"
+   ]
+  },
+  {
+   "id": "F20",
+   "title": "Product push: AI search (Sep 2026), My SeLoger Pro (Nov 2025), Duo Prime, Top Position, 75+ innovations",
+   "c": "V",
+   "sources": [
+    "S19",
+    "S20",
+    "S36",
+    "S37",
+    "S38"
+   ]
+  },
+  {
+   "id": "F21",
+   "title": "Ad spend +30% in 2026 with a national TV campaign",
+   "c": "V",
+   "sources": [
+    "S33"
+   ]
+  },
+  {
+   "id": "F22",
+   "title": "Company-reported traction: ~1,500 new agencies H1 2025, +30% provincial app users",
+   "c": "V",
+   "sources": [
+    "S17",
+    "S18",
+    "S20"
+   ]
+  },
+  {
+   "id": "F23",
+   "title": "Company-reported reach: 9m monthly unique visitors (with MA), 20,000 partner agencies",
+   "c": "V",
+   "sources": [
+    "S2",
+    "S44"
+   ]
+  },
+  {
+   "id": "F24",
+   "title": "No published SeLoger or AVIV financials; only ~€10bn value for all Axel Springer classifieds",
+   "c": "U",
+   "sources": [
+    "S6"
+   ]
+  },
+  {
+   "id": "F25",
+   "title": "Glassdoor: SeLoger culture 2.9, senior mgmt 2.6, 55% recommend; AVIV 2.6, 2.1, 34%",
+   "c": "V",
+   "sources": [
+    "S46",
+    "S47"
+   ]
+  },
+  {
+   "id": "F26",
+   "title": "Review themes: constant change, disorganisation, slow decisions, pay pressure after MA takeover",
+   "c": "I",
+   "sources": [
+    "S46",
+    "S48"
+   ]
+  },
+  {
+   "id": "F27",
+   "title": "Portfolio moves: Yad2 sold to Apax (~$950m, Dec 2025); Amivac sold to HomeToGo (2022)",
+   "c": "V",
+   "sources": [
+    "S44",
+    "S50"
+   ]
+  },
+  {
+   "id": "F28",
+   "title": "Federated model: group functions in Berlin, country MDs; centralising CCO Europe role ended",
+   "c": "I",
+   "sources": [
+    "S13",
+    "S28",
+    "S52"
+   ]
+  },
+  {
+   "id": "F29",
+   "title": "Job ad cites ambition to capture 50% of French residential GMV by 2030",
+   "c": "H",
+   "sources": [
+    "S49"
+   ]
+  },
+  {
+   "id": "F30",
+   "title": "Company flags political instability, sovereign debt and unclear housing policy",
+   "c": "V",
+   "sources": [
+    "S20"
+   ]
+  },
+  {
+   "id": "F31",
+   "title": "AVIV recruits in English with some roles open in Paris or Berlin",
+   "c": "I",
+   "sources": [
+    "S19",
+    "S52"
+   ]
+  },
+  {
+   "id": "F32",
+   "title": "AVIV CEO conflict: register shows Pravdivy; recruiter case study describes a new CEO search",
+   "c": "U",
+   "sources": [
+    "S9",
+    "S10"
+   ]
+  },
+  {
+   "id": "F33",
+   "title": "Headcount scope conflict: 1,112 (Sep 2024) vs 964 (Jan 2026)",
+   "c": "U",
+   "sources": [
+    "S15",
+    "S27"
+   ]
+  },
+  {
+   "id": "F34",
+   "title": "Axel Springer ties: AS Classifieds CEO Julian Deutz; Jan Bayer on AVIV shareholder board",
+   "c": "V",
+   "sources": [
+    "S5"
+   ]
+  }
+ ],
+ "sources": [
+  {
+   "id": "S1",
+   "title": "SeLoger.com homepage and footer, fetched 9 Oct 2026",
+   "url": "https://www.seloger.com"
+  },
+  {
+   "id": "S2",
+   "title": "Groupe SeLoger Pro (pro-seloger.com), fetched 9 Oct 2026",
+   "url": "https://pro-seloger.com"
+  },
+  {
+   "id": "S3",
+   "title": "Wikipédia (FR), accessed 9 Oct 2026: Groupe SeLoger",
+   "url": "https://fr.wikipedia.org/wiki/Groupe_SeLoger"
+  },
+  {
+   "id": "S4",
+   "title": "CPP Investments, 19 Sep 2024: Axel Springer announces new corporate structure",
+   "url": "https://www.cppinvestments.com/newsroom/axel-springer-announces-signing-of-definitive-agreement-on-new-corporate-structure-to-unlock-future-growth-potential/"
+  },
+  {
+   "id": "S5",
+   "title": "BusinessWire, 29 Apr 2025: Axel Springer implements new corporate structure",
+   "url": "https://www.businesswire.com/news/home/20250429202732/en/Axel-Springer-Implements-New-Corporate-Structure"
+  },
+  {
+   "id": "S6",
+   "title": "Online Marketplaces, 20 Sep 2024: Axel Springer confirms $11.1bn media/classifieds split",
+   "url": "https://www.onlinemarketplaces.com/articles/axel-springer-confirms-11-1-billion-media-classifieds-split/"
+  },
+  {
+   "id": "S7",
+   "title": "Immoweb / AVIV Group, 25 Feb 2025: AVIV Group announces CEO change",
+   "url": "https://www.immoweb.be/en/page/aviv-group-annonce-un-changement-de-pdg"
+  },
+  {
+   "id": "S8",
+   "title": "Online Marketplaces, 27 Feb 2025: Axel Springer appoints ex-Avito CEO to lead AVIV",
+   "url": "https://www.onlinemarketplaces.com/articles/axel-springer-appoints-ex-avito-ceo-to-lead-aviv-group-as-ait-voncke-departs/"
+  },
+  {
+   "id": "S9",
+   "title": "Northdata, updated 2026: AVIV Group GmbH register (Berlin HRB 172136 B)",
+   "url": "https://www.northdata.com/AVIV%20Group%20GmbH,%20Berlin/Amtsgericht%20Charlottenburg%20(Berlin)%20HRB%20172136%20B"
+  },
+  {
+   "id": "S10",
+   "title": "The Up Group, ~May 2026: AVIV Group CEO case study",
+   "url": "https://www.theupgroup.com/client-stories/Blog%20Post%20Title%20One-3zaa9-zlxng-g36lt-5na2e"
+  },
+  {
+   "id": "S11",
+   "title": "Immo Matin, 22 Oct 2024: Baptiste Capron nommé directeur général France du groupe AVIV",
+   "url": "https://www.immomatin.com/portails/sites-professionnels/baptiste-capron-nomme-directeur-general-france-du-groupe-aviv-seloger-et-meilleurs-agents.html"
+  },
+  {
+   "id": "S12",
+   "title": "MySweetImmo, 22 Oct 2024: Baptiste Capron nommé à la tête de SeLoger et Meilleurs Agents",
+   "url": "https://www.mysweetimmo.com/2024/10/22/immobilier-baptiste-capron-nomme-a-la-tete-de-seloger-et-de-meilleurs-agents/"
+  },
+  {
+   "id": "S13",
+   "title": "Online Marketplaces, 29 Jan 2025: People roundup (AVIV CCO departure)",
+   "url": "https://www.onlinemarketplaces.com/articles/people-roundup-rea-group-bienici-aviv-group-adevinta-homelike-and-compass/"
+  },
+  {
+   "id": "S14",
+   "title": "Online Marketplaces, Aug 2024: People roundup (Franck Le Tendre)",
+   "url": "https://www.onlinemarketplaces.com/articles/people-roundup-hemnet-scout24-tsukuruba-qasa"
+  },
+  {
+   "id": "S15",
+   "title": "L'Informé, 2 Sep 2024: le numéro 2 du groupe SeLoger quitte ses fonctions (90-role plan, 1,112 staff)",
+   "url": "https://www.linforme.com/immobilier/"
+  },
+  {
+   "id": "S16",
+   "title": "Journal de l'Agence, Nov 2024: Salon RENT 2024, Baptiste Capron dévoile ses priorités",
+   "url": "https://www.journaldelagence.com/1402252-salon-rent-2024-baptiste-capron-nouveau-dg-de-seloger-devoile-ses-priorites"
+  },
+  {
+   "id": "S17",
+   "title": "Journal de l'Agence, 5 Nov 2025: RENT 2025, one year of transformation",
+   "url": "https://www.journaldelagence.com/1408364"
+  },
+  {
+   "id": "S18",
+   "title": "MySweetImmo, 3 Dec 2025: « On n'a jamais eu autant de nouveaux clients » (Capron)",
+   "url": "https://www.mysweetimmo.com/2025/12/03/immobilier-on-na-jamais-eu-autant-de-nouveaux-clients-baptiste-capron-seloger/"
+  },
+  {
+   "id": "S19",
+   "title": "Journal de l'Agence, 13 Apr 2026: interview with Baptiste Capron",
+   "url": "https://www.journaldelagence.com/1410740-la-relation-avec-les-agences-est-un-capital-precieux-baptiste-capron-directeur-general-de-seloger"
+  },
+  {
+   "id": "S20",
+   "title": "Journal de l'Agence, ~Oct 2025: SeLoger en 2025, +20% de contacts",
+   "url": "https://www.journaldelagence.com/1407779-seloger-en-2025-20-de-contacts-delivres-et-1er-sur-la-qualite-des-leads"
+  },
+  {
+   "id": "S21",
+   "title": "SeLoger-Meilleurs Agents press release, 2 Sep 2025: market conference 2025",
+   "url": "https://www.diagnostiqueur-immobilier.fr/wp-content/uploads/2025/09/SeLoger-CP-conference-2025.pdf"
+  },
+  {
+   "id": "S22",
+   "title": "L'Informé, 31 Oct 2025: SeLoger-MeilleursAgents veut supprimer un tiers de ses effectifs",
+   "url": "https://www.linforme.com/immobilier/article/le-groupe-seloger-meilleursagents-veut-supprimer-un-tiers-de-ses-effectifs_3357.html"
+  },
+  {
+   "id": "S23",
+   "title": "Online Marketplaces, 4 Nov 2025: Big job losses confirmed at SeLoger",
+   "url": "https://www.onlinemarketplaces.com/articles/big-job-losses-confirmed-at-seloger-amid-continued-market-downturn-and-increased-competition/"
+  },
+  {
+   "id": "S24",
+   "title": "Presse83, 30 Jan 2026: SeLoger-MeilleursAgents, un plan social aux contours précis",
+   "url": "https://presse83.fr/2026/01/30/seloger-meilleursagents-un-plan-social-aux-contours-precis/"
+  },
+  {
+   "id": "S25",
+   "title": "Eurofound European Restructuring Monitor, event 30 Jan 2026: factsheet 204187",
+   "url": "https://apps.eurofound.europa.eu/restructuring-events/detail/204187"
+  },
+  {
+   "id": "S26",
+   "title": "AIM Group, 2 Feb 2026: SeLoger-MeilleursAgents to lay off 30% of workforce",
+   "url": "https://aimgroup.com/2026/02/02/seloger-meilleursagents-to-lay-off-30-of-it-workforce/"
+  },
+  {
+   "id": "S27",
+   "title": "MySweetImmo, 3 Feb 2026: SeLoger-Meilleurs Agents engage un plan de suppression de 275 postes",
+   "url": "https://www.mysweetimmo.com/2026/02/03/portail-immobilier-le-groupe-seloger-meilleurs-agents-engage-un-plan-de-suppression-de-275-postes/"
+  },
+  {
+   "id": "S28",
+   "title": "AIM Group, 13 Feb 2026: Capron says redundancies part of shift to local structure",
+   "url": "https://aimgroup.com/2026/02/13/seloger-ceo-capron-says-redundancies-part-of-shift-to-more-local-organizational-structure/"
+  },
+  {
+   "id": "S29",
+   "title": "Immobilier 2.0, Feb 2026: SeLoger-Meilleurs Agents supprime 275 emplois",
+   "url": "https://immo2.pro/actualite-immobilier/le-groupe-seloger-meilleurs-agents-supprime-275-emplois/"
+  },
+  {
+   "id": "S30",
+   "title": "AIM Group, 24 Feb 2026: SeLoger promotes Stackler to CTO",
+   "url": "https://aimgroup.com/2026/02/24/seloger-promotes-stackler-to-cto/"
+  },
+  {
+   "id": "S31",
+   "title": "Online Marketplaces, 13 Mar 2026: French portal rivalry intensifies",
+   "url": "https://www.onlinemarketplaces.com/articles/french-portal-rivalry-intensifies-as-bienici-seloger-and-leboncoin-trade-claims/"
+  },
+  {
+   "id": "S32",
+   "title": "En-Contact, 22 Mar 2026: Meilleurs Agents en très mauvaise posture",
+   "url": "https://en-contact.com/meilleurs-agents-en-tres-mauvaise-posture-preparerait-un-plan-social-en-france-apres-la-belgique"
+  },
+  {
+   "id": "S33",
+   "title": "AIM Group, 30 Mar 2026: SeLoger to boost ad spending by 30%",
+   "url": "https://aimgroup.com/2026/03/30/seloger-to-boost-ad-spending-by-30-this-year/"
+  },
+  {
+   "id": "S34",
+   "title": "Online Marketplaces, 17 Dec 2025: SeLoger wins ruling against Jinka over scraping",
+   "url": "https://www.onlinemarketplaces.com/articles/seloger-wins-court-ruling-against-jinka-over-unauthorised-listing-scraping/"
+  },
+  {
+   "id": "S35",
+   "title": "MySweetImmo, 2 Jul 2026: Jinka condamnée pour pratique commerciale trompeuse",
+   "url": "https://www.mysweetimmo.com/2026/07/02/annonces-immobilieres-jinka-condamnee-pour-pratique-commerciale-trompeuse-face-a-seloger/"
+  },
+  {
+   "id": "S36",
+   "title": "MySweetImmo, 15 Nov 2025: SeLoger lance My SeLoger Pro",
+   "url": "https://www.mysweetimmo.com/2025/11/15/agent-immobilier-seloger-lance-my-seloger-pro-une-app-pour-vous-accompagner-sur-le-terrain-partout-tout-le-temps/"
+  },
+  {
+   "id": "S37",
+   "title": "MySweetImmo, 11 Sep 2026: SeLoger permet de chercher un bien en parlant",
+   "url": "https://www.mysweetimmo.com/2026/09/11/immobilier-seloger-permet-de-chercher-un-bien-en-parlant/"
+  },
+  {
+   "id": "S38",
+   "title": "intelligence-artificielle.com, 21 Sep 2026: SeLoger recherche IA (CMO quote)",
+   "url": "https://intelligence-artificielle.com/seloger-recherche-ia/"
+  },
+  {
+   "id": "S39",
+   "title": "MySweetImmo, 10 Sep 2026: le géant Idealista arrive en France",
+   "url": "https://www.mysweetimmo.com/2026/09/10/immobilier-le-geant-idealista-arrive-en-france/"
+  },
+  {
+   "id": "S40",
+   "title": "Pretto, ~Aug 2026: meilleur site immobilier, comparison of portals",
+   "url": "https://www.pretto.fr/recherche-immobiliere/trouver-bien-immobilier/meilleur-site-immobilier/"
+  },
+  {
+   "id": "S41",
+   "title": "Yanport, ~Oct 2026: analyse du marché des annonces immobilières",
+   "url": "https://www.yanport.com/blog/posts/analyse-du-marche-des-annonces-immobilieres-vente"
+  },
+  {
+   "id": "S42",
+   "title": "Immo Matin, 1 Oct 2026: SeLoger met la main sur Ouest-France Immo",
+   "url": "https://www.immomatin.com/portails/sites-professionnels/seloger-met-la-main-sur-ouest-france-immo-et-pousse-ses-pions-a-l-ouest.html"
+  },
+  {
+   "id": "S43",
+   "title": "Online Marketplaces, 2 Oct 2026: M&A roundup (SeLoger)",
+   "url": "https://www.onlinemarketplaces.com/articles/ma-roundup-360latam-seloger/"
+  },
+  {
+   "id": "S44",
+   "title": "Immobilier 2.0, Oct 2026: SeLoger rachète Ouest-France Immo",
+   "url": "https://immo2.pro/actualite-immobilier/seloger-rachete-ouest-france-immo"
+  },
+  {
+   "id": "S45",
+   "title": "Le Monde du Droit, 8 Oct 2026: Bredin Prat advises Groupe SeLoger",
+   "url": "https://www.lemondedudroit.fr/deals/106078"
+  },
+  {
+   "id": "S46",
+   "title": "Glassdoor, accessed 9 Oct 2026: Working at Groupe SeLoger",
+   "url": "https://www.glassdoor.co.uk/Overview/Working-at-Groupe-SeLoger-EI_IE230035.11,25.htm"
+  },
+  {
+   "id": "S47",
+   "title": "Glassdoor, accessed 9 Oct 2026: Working at AVIV Group",
+   "url": "https://www.glassdoor.com/Overview/Working-at-AVIV-Group-EI_IE8110210.11,21.htm"
+  },
+  {
+   "id": "S48",
+   "title": "Glassdoor, date unknown: AVIV Group employee review (Sales Executive)",
+   "url": "https://www.glassdoor.com/Reviews/Employee-Review-AVIV-Group-E8110210-RVW83217937.htm"
+  },
+  {
+   "id": "S49",
+   "title": "Welcome to the Jungle, date unknown: Head of B2B Marketing, Groupe SeLoger",
+   "url": "https://www.welcometothejungle.com/en/companies/groupe-seloger/jobs/head-of-b2b-marketing_paris"
+  },
+  {
+   "id": "S50",
+   "title": "Wikipedia (EN), accessed 2026: HomeToGo (Amivac acquisition)",
+   "url": "https://en.wikipedia.org/wiki/HomeToGo"
+  },
+  {
+   "id": "S51",
+   "title": "Titres Presse, 8 Oct 2026: Baptiste Capron (SeLoger) on BFM TV",
+   "url": "https://www.titrespresse.com/24280202603/baptiste-capron-seloger"
+  },
+  {
+   "id": "S52",
+   "title": "Indeed, accessed 9 Oct 2026: AVIV Group company page",
+   "url": "https://www.indeed.com/cmp/Aviv-Group-1"
+  },
+  {
+   "id": "S53",
+   "title": "Stratégies, 2 Oct 2026: SeLoger rachète Ouest-France Immobilier",
+   "url": "https://www.strategies.fr/actualites/medias/LQ6686670C/le-groupe-d-annonces-immobilieres-seloger-rachete-ouest-france-immobilier.html"
+  },
+  {
+   "id": "S54",
+   "title": "En-Contact, 17 Sep 2026: Bien'ici, SeLoger, Leboncoin and AI in property portals",
+   "url": "https://en-contact.com/bienici-seloger-leboncoin-dockinn-ia-et-portails-immobiliers"
+  }
+ ]
+}

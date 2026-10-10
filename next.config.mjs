@@ -1,11 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // QA builds use their own folder so they never overwrite a running dev server's .next.
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // The runtime reads declarative agent content (products/**, prompts/**) from
   // disk at request time (ADR-001). Vercel's serverless bundler only ships
   // traced files, so these must be included explicitly or every agent route
   // 500s in production with ENOENT.
   outputFileTracingIncludes: {
-    "/api/**": ["./products/**/*.md", "./prompts/**/*.md"],
+    "/api/**": ["./products/**/*.md", "./prompts/**/*.md", "./src/components/company-intel/exec10x/*.html"],
   },
   // pdf-parse v2 wraps pdfjs-dist, which webpack cannot bundle: it mutates
   // globals and loads its worker dynamically, so the bundled copy threw

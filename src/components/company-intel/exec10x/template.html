@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__EXEC10X_TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Exec10X template v1 (Susan) + platform additions (Tab 3, section guards, print) marked PLATFORM. Do not edit per company: all content comes from the data block.
+   Original note:  Layout: sticky masthead with two tabs; dashboard as a 12-column grid of modules; skills as ranked cards. Plan-blue accent; evidence colours carry meaning. Do not edit per company: all content comes from the data block. */
+:root{
+  --paper:#f5f6f8; --surface:#ffffff; --ink:#172033; --muted:#596277; --rule:#dce0e7; --soft:#eef1f6;
+  --accent:#2b4cc2; --accent-soft:#e6ebfb;
+  --v:#2c7a52; --v-soft:#e3f2ea; --i:#2b4cc2; --i-soft:#e6ebfb; --h:#9a6a0c; --h-soft:#f8eed8; --u:#a23b3b; --u-soft:#f8e4e4;
+  --k1:#2b4cc2; --k2:#9a6a0c; --k3:#8a3a8f; --k4:#1d7a72;
+  --display:"Spectral",Georgia,"Times New Roman",serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0f131a; --surface:#161b24; --ink:#e5e8ee; --muted:#9aa3b4; --rule:#2a3140; --soft:#1c2230;
+  --accent:#86a0ff; --accent-soft:#1f2a4d;
+  --v:#6cc597; --v-soft:#173225; --i:#86a0ff; --i-soft:#1f2a4d; --h:#e3b24f; --h-soft:#3a2d12; --u:#ec8a8a; --u-soft:#3d1d1d;
+  --k1:#86a0ff; --k2:#e3b24f; --k3:#d590d8; --k4:#5cc8bd; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f131a; --surface:#161b24; --ink:#e5e8ee; --muted:#9aa3b4; --rule:#2a3140; --soft:#1c2230;
+  --accent:#86a0ff; --accent-soft:#1f2a4d;
+  --v:#6cc597; --v-soft:#173225; --i:#86a0ff; --i-soft:#1f2a4d; --h:#e3b24f; --h-soft:#3a2d12; --u:#ec8a8a; --u-soft:#3d1d1d;
+  --k1:#86a0ff; --k2:#e3b24f; --k3:#d590d8; --k4:#5cc8bd; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+a{color:var(--accent)}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2;font-weight:600}
+p{margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px}
+header.mast{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--paper);border-bottom:1px solid var(--rule)}
+.mast-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px;padding-block:16px 10px}
+.brand{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.mast h1{font-size:clamp(22px,3vw,30px)}
+.asof{font-family:var(--mono);font-size:12px;color:var(--muted)}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{font:600 14px var(--body);color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs button:focus-visible,button:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-block:24px 64px}
+section.panel{display:flex;flex-direction:column;gap:22px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(12,minmax(0,1fr))}
+.mod{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.mod h3{font-size:19px}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c7{grid-column:span 7}.c6{grid-column:span 6}.c5{grid-column:span 5}.c4{grid-column:span 4}
+@media (max-width:900px){.c8,.c7,.c6,.c5,.c4{grid-column:span 12}}
+.thesis{font-family:var(--display);font-size:clamp(19px,2.3vw,24px);line-height:1.4;max-width:62ch;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.stat{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.stat b{font-family:var(--mono);font-weight:500;font-size:22px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted);line-height:1.4}
+.chip{display:inline-flex;align-items:center;gap:5px;font:500 11px var(--mono);letter-spacing:.04em;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.chip.V,.chip.C{color:var(--v);background:var(--v-soft)}.chip.P{color:var(--h);background:var(--h-soft);border:1px dashed var(--h)}.chip.I{color:var(--i);background:var(--i-soft)}.chip.H{color:var(--h);background:var(--h-soft)}.chip.U{color:var(--u);background:var(--u-soft)}
+ul.clean{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+ul.clean li{display:flex;gap:10px;align-items:flex-start}
+ul.clean li .chip{margin-top:2px}
+.kv{display:grid;grid-template-columns:minmax(110px,30%) 1fr;gap:8px 14px;font-size:14px}
+.kv dt{color:var(--muted);font-size:13px}.kv dd{margin:0}
+/* org tree */
+.org{display:flex;flex-direction:column;align-items:center;gap:0;font-size:13px}
+.org .node{border:1px solid var(--rule);background:var(--surface);border-radius:5px;padding:8px 12px;text-align:center;max-width:100%}
+.org .node b{display:block;font-size:13.5px}
+.org .node small{color:var(--muted);font-size:12px}
+.org .node.focus{border:2px solid var(--accent);background:var(--accent-soft)}
+.org .node.dash{border-style:dashed}
+.org .stem{width:1px;height:16px;background:var(--muted)}
+.org .row{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;position:relative}
+.org .brands{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
+.org .brands span{font:500 11.5px var(--mono);border:1px solid var(--rule);border-radius:3px;padding:2px 6px;background:var(--soft)}
+/* decision matrix */
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td.num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+/* culture map */
+.cm{display:flex;flex-direction:column;gap:14px}
+.cm-row{display:grid;grid-template-columns:110px 1fr;gap:6px 14px;align-items:center}
+.cm-label{font-size:13px;font-weight:600}
+.cm-track{position:relative;height:30px}
+.cm-track::before{content:"";position:absolute;left:0;right:0;top:14px;height:2px;background:var(--rule)}
+.cm-ends{grid-column:2;display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:-6px}
+.dot{position:absolute;top:6px;width:18px;height:18px;margin-left:-9px;border-radius:50%;border:2px solid var(--surface);display:grid;place-items:center;font:600 8.5px var(--mono);color:var(--surface)}
+.dot.k1,.legend i.k1{background:var(--k1)}.dot.k2,.legend i.k2{background:var(--k2)}.dot.k3,.legend i.k3{background:var(--k3)}.dot.k4,.legend i.k4{background:var(--k4)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.note{font-size:12.5px;color:var(--muted);line-height:1.5}
+/* timeline */
+.tl{display:flex;flex-direction:column;gap:0;border-left:2px solid var(--rule);margin-left:6px}
+.tl div{position:relative;padding:0 0 12px 16px;font-size:13.5px}
+.tl div::before{content:"";position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.tl time{font:500 12px var(--mono);color:var(--muted);display:block}
+/* bars */
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:86px 1fr 70px;gap:10px;align-items:center;font-size:13px}
+.bar .t{height:14px;background:var(--soft);border-radius:2px;overflow:hidden}
+.bar .t i{display:block;height:100%;background:var(--accent)}
+.bar .t i.m{background:var(--muted)}
+.bar b{font:500 13px var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.ins{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.ins article{border-top:3px solid var(--accent);background:var(--surface);border-radius:0 0 6px 6px;border-left:1px solid var(--rule);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.ins article h4{font-size:16.5px}
+.ins article p{font-size:13.5px;color:var(--ink)}
+.ins .meta{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);margin-top:auto}
+@media (max-width:600px){.cm-row{grid-template-columns:1fr}.cm-ends{grid-column:1}}
+ol.q{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+ol.q li{padding-left:4px}
+ol.q small{display:block;color:var(--muted);font-size:12.5px}
+.src{font-size:13px;display:flex;flex-direction:column;gap:6px;margin:0;padding-left:0;list-style:none}
+.src li{display:grid;grid-template-columns:44px 1fr;gap:8px}
+.src code{font-family:var(--mono);font-size:12px;color:var(--muted)}
+/* context */
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:600 13px var(--body);border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:4px;padding:8px 14px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn:hover{border-color:var(--accent)}
+.toast{font-size:12.5px;color:var(--v);min-height:18px}
+/* skills */
+.skill{background:var(--surface);border:1px solid var(--rule);border-radius:6px;display:grid;grid-template-columns:64px 1fr}
+.skill .rank{font-family:var(--display);font-size:34px;font-weight:600;color:var(--accent);padding:16px 0 0 18px;line-height:1}
+.skill .sb{padding:16px 18px 18px 0;display:flex;flex-direction:column;gap:12px;min-width:0}
+.skill h3{font-size:21px}
+.skill .def{font-size:15px}
+.sg .full{grid-column:1/-1}
+.sg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 22px;font-size:13.5px}
+.sg h5{margin:0 0 3px;font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sg ul{margin:0;padding-left:18px}
+.iq{background:var(--soft);border-radius:4px;padding:10px 12px;font-family:var(--display);font-size:15.5px}
+@media (max-width:640px){.sg{grid-template-columns:1fr}.skill{grid-template-columns:1fr}.skill .rank{padding:16px 18px 0}.skill .sb{padding:8px 18px 18px}}
+.banner{border:1px solid var(--h);background:var(--h-soft);border-radius:6px;padding:12px 14px;font-size:13.5px}
+.refs{font:500 11.5px var(--mono);color:var(--muted)}
+.swot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;font-size:13px}
+.swot h5,.dim h5,.env h5{margin:0 0 3px;font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.swot ul{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px}
+.dims{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
+.dim{border:1px solid var(--rule);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:9px;background:var(--paper);min-width:0}
+.dim .hd{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.dim .hd b{font-family:var(--display);font-size:17px}
+.scene{font-size:13.5px;border-left:2px solid var(--accent);padding-left:10px}
+ul.bul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;font-size:14px}
+.env{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px}
+.env article{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.env article .hd{display:flex;gap:12px;align-items:baseline}
+.env article .n{font-family:var(--display);font-size:26px;color:var(--accent);font-weight:600;line-height:1}
+.env article h4{font-size:17px}
+.env article p{font-size:13.5px}
+.env .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px}
+.env .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--muted);margin-top:auto}
+@media (max-width:520px){.swot,.env .two{grid-template-columns:1fr}}
+.tension{font:500 12px var(--mono);color:var(--muted)}
+.dyn{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px 20px}
+.dyn>div{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.dyn p{font-size:13.5px}
+details.more{border-top:1px solid var(--rule);padding-top:10px}
+details.more summary{cursor:pointer;font-weight:600;font-size:14px}
+details.more[open] summary{margin-bottom:10px}
+.opp{font-family:var(--display);font-size:17px;max-width:72ch;border-left:3px solid var(--accent);padding-left:14px}
+.pstrip{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px;max-width:980px;counter-reset:p}
+.pstrip li{counter-increment:p;font:600 13px var(--body);border:1px solid var(--accent);color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:5px 12px}
+.pstrip li::before{content:counter(p) " · "}
+.mk{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.mk div{border-left:2px solid var(--accent);padding:2px 0 2px 10px;font-size:13px}
+.mk b{display:block;font-size:13.5px;margin-bottom:2px}
+.flags2{display:grid;grid-template-columns:1fr 1fr;gap:12px 22px;font-size:13.5px}
+.flags2 ul{margin:0;padding-left:18px}
+.flags2 .green h5{color:var(--v)}.flags2 .red h5{color:var(--u)}
+.probe2{font-size:13.5px;color:var(--muted);margin-top:6px}
+@media (max-width:640px){.flags2{grid-template-columns:1fr}}
+.views{display:grid;gap:10px;font-size:12.5px}
+.views h5{margin:0 0 3px;font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.views .k1{border-top:2px solid var(--k1);padding-top:5px}.views .k2{border-top:2px solid var(--k2);padding-top:5px}.views .k3{border-top:2px solid var(--k3);padding-top:5px}.views .k4{border-top:2px solid var(--k4);padding-top:5px}
+.dim .do{font-size:13px}
+@media (max-width:640px){.views{grid-template-columns:1fr!important}}
+@media (prefers-reduced-motion:no-preference){section.panel{animation:fade .25s ease}}
+@keyframes fade{from{opacity:.4}to{opacity:1}}
+/* PLATFORM: hidden tabs stay hidden (section.panel sets display:flex; the claude.ai artifact
+   wrapper Susan's page ran in used to reset this) */
+[hidden]{display:none!important}
+/* PLATFORM: Tab 3 and print */
+.qgroup ul.clean li{flex-wrap:wrap}
+.qgroup .qx{flex:1 1 300px;min-width:0}
+.qgroup small{display:block;color:var(--muted);font-size:12.5px}
+.print-title{display:none;font-family:var(--display);font-size:24px;font-weight:600}
+@page{size:A4;margin:14mm 12mm 16mm;
+  @bottom-left{content:"Confidential · Exec10X Company Intelligence";font:9px system-ui,sans-serif;color:#596277}
+  @bottom-right{content:"Page " counter(page) " / " counter(pages);font:9px system-ui,sans-serif;color:#596277}}
+@media print{
+  :root,:root[data-theme="dark"],:root:not([data-theme="light"]){--paper:#fff;--surface:#fff;--ink:#172033;--muted:#596277;--rule:#dce0e7;--soft:#eef1f6;--accent:#2b4cc2;--accent-soft:#e6ebfb;--v:#2c7a52;--v-soft:#e3f2ea;--i:#2b4cc2;--i-soft:#e6ebfb;--h:#9a6a0c;--h-soft:#f8eed8;--u:#a23b3b;--u-soft:#f8e4e4;--k1:#2b4cc2;--k2:#9a6a0c;--k3:#8a3a8f;--k4:#1d7a72;color-scheme:light}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font-size:12.5px}
+  header.mast{position:static}
+  nav.tabs,.btns,.toast{display:none!important}
+  .wrap{max-width:none;padding-inline:0}
+  main{padding-block:10px 0}
+  section.panel{animation:none}
+  section.panel[hidden]{display:flex!important}
+  section.panel+section.panel{break-before:page}
+  .print-title{display:block}
+  .mod,.skill,.dim,.env article,.ins article,.stat,tr,.qgroup li{break-inside:avoid}
+}
+</style>
+</head><body>
+<header class="mast">
+  <div class="wrap">
+    <div class="mast-top">
+      <div>
+        <div class="brand">Exec10X · Company Intelligence Cockpit</div>
+        <h1><span id="hCompany"></span> <span id="hSub" style="color:var(--muted);font-weight:500"></span></h1>
+      </div>
+      <div class="asof" id="hAsof"></div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Cockpit sections">
+      <button role="tab" id="t-dashboard" aria-controls="dashboard" aria-selected="true">Executive Dashboard</button>
+      <button role="tab" id="t-skills" aria-controls="skills" aria-selected="false">Contextual Skills</button>
+      <button role="tab" id="t-questions" aria-controls="questions-tab" aria-selected="false">Questions to ask</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+<div class="banner" id="buildError" hidden></div>
+
+<!-- ============ TAB 1 · EXECUTIVE DASHBOARD ============ -->
+<section class="panel" id="dashboard" role="tabpanel" aria-labelledby="t-dashboard">
+  <h2 class="print-title">1 · Executive Dashboard</h2>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="eyebrow">Company snapshot</div>
+    <p class="thesis" id="thesis"></p>
+  </div>
+  <div class="stats" id="kpis" aria-label="Operating indicators"></div>
+
+  <div class="grid">
+    <div class="mod c7">
+      <div class="eyebrow">Business &amp; strategy</div>
+      <h3 id="bizTitle"></h3>
+      <dl class="kv" id="bizRows"></dl>
+    </div>
+    <div class="mod c5">
+      <div class="eyebrow">Position at a glance</div>
+      <h3 id="posTitle"></h3>
+      <div class="swot" id="swot"></div>
+    </div>
+
+    <div class="mod c7">
+      <div class="eyebrow">Organisation &amp; leadership</div>
+      <h3 id="orgTitle"></h3>
+      <div class="org" id="org" role="img"></div>
+      <p class="note" id="orgNote"></p>
+    </div>
+    <div class="mod c5">
+      <div class="eyebrow">Decision rights</div>
+      <h3>Where decisions sit</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Decision</th><th>Likely locus</th><th>Basis</th></tr></thead>
+        <tbody id="rights"></tbody>
+      </table></div>
+    </div>
+
+    <div class="mod c6">
+      <div class="eyebrow">Culture &amp; geographic complexity</div>
+      <h3 id="mapTitle"></h3>
+      <div class="legend" id="mapLegend"></div>
+      <div class="cm" id="cultureMap"></div>
+      <p class="note" id="mapNote"></p>
+    </div>
+    <div class="mod c6">
+      <div class="eyebrow">Who sets the tone</div>
+      <h3 id="leadersTitle"></h3>
+      <p class="note" id="leadersNote"></p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Role</th><th>Person</th><th>Career built in</th></tr></thead>
+        <tbody id="leaders"></tbody>
+      </table></div>
+    </div>
+
+    <div class="mod c12">
+      <div class="eyebrow" id="dynEyebrow"></div>
+      <h3 id="dynTitle"></h3>
+      <div class="dyn" id="dynamics"></div>
+      <p class="note" id="dynNote"></p>
+    </div>
+
+    <div class="mod c12">
+      <div class="eyebrow">Culture gaps in practice</div>
+      <h3 id="dimsTitle"></h3>
+      <p class="note" style="max-width:80ch">Each card shows the tendency in each business culture, a realistic scene, and what helps. "Main tension" names the relationship where friction is most likely. These are tendencies; individuals will vary.</p>
+      <div class="dims" id="cultureDims"></div>
+    </div>
+
+    <div class="mod c6">
+      <div class="eyebrow" id="joinEyebrow"></div>
+      <h3 id="joinTitle"></h3>
+      <ul class="bul" id="joining"></ul>
+    </div>
+    <div class="mod c6">
+      <div class="eyebrow">What it means for hiring</div>
+      <h3 id="hireTitle"></h3>
+      <ul class="bul" id="hiring"></ul>
+      <p class="note" id="hireNote"></p>
+    </div>
+
+    <div class="mod c7">
+      <div class="eyebrow">Performance &amp; transformation</div>
+      <h3 id="txTitle"></h3>
+      <div class="tl" id="timeline"></div>
+    </div>
+    <div class="mod c5">
+      <div class="eyebrow">Market and headcount</div>
+      <h3 id="metTitle"></h3>
+      <div id="metrics" style="display:flex;flex-direction:column;gap:14px"></div>
+      <p class="note" id="metNote"></p>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="eyebrow">Business &amp; competitive insights</div>
+    <h2 style="font-size:24px" id="biTitle"></h2>
+    <div class="ins" id="bizInsights"></div>
+    <div class="grid">
+      <div class="mod c7">
+        <h3>Competitor map</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Player</th><th>Model</th><th>Edge</th><th>Recent move</th><th>Threat</th></tr></thead>
+          <tbody id="competitors"></tbody>
+        </table></div>
+      </div>
+      <div class="mod c5">
+        <h3 id="vulTitle"></h3>
+        <p style="font-size:14px" id="vulIntro"></p>
+        <div class="tl" id="vulTimeline"></div>
+        <p class="note" id="vulNote"></p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="eyebrow">Executive success environment</div>
+    <h2 style="font-size:24px" id="envTitle"></h2>
+    <p class="note" style="max-width:80ch">These apply to every senior role, whatever the function. Together they are the company context for candidate briefings. Each one shapes the executive's daily modus operandi and maps to one of the Contextual Skills.</p>
+    <p class="opp" id="opportunity"></p>
+    <div class="env" id="envCards"></div>
+  </div>
+
+  <div class="mod">
+    <div class="eyebrow">Intelligence confidence</div>
+    <h3>What we do not know yet</h3>
+    <div class="grid">
+      <div class="c4"><h4 style="font-size:15px;margin-bottom:6px">Critical unknowns</h4><ul class="clean" style="font-size:13.5px" id="unknowns"></ul></div>
+      <div class="c4"><h4 style="font-size:15px;margin-bottom:6px">Unvalidated hypotheses</h4><ul class="clean" style="font-size:13.5px" id="hypotheses"></ul></div>
+      <div class="c4"><h4 style="font-size:15px;margin-bottom:6px">Contradictions</h4><ul class="clean" style="font-size:13.5px" id="contradictions"></ul></div>
+    </div>
+    <details class="more"><summary><span id="qCount"></span> questions to validate with the client</summary><ol class="q" id="questions"></ol></details>
+    <details class="more"><summary>Sources (<span id="srcCount"></span>)</summary><p class="note" style="margin:8px 0" id="srcNote"></p><ul class="src" id="sources"></ul></details>
+  </div>
+</section>
+
+<!-- ============ TAB 2 · CONTEXTUAL SKILLS ============ -->
+<section class="panel" id="skills" role="tabpanel" aria-labelledby="t-skills" hidden>
+  <h2 class="print-title">2 · Contextual Skills</h2>
+  <div style="display:flex;flex-direction:column;gap:10px;max-width:880px">
+    <div class="eyebrow">Contextual Skills · company level</div>
+    <h2 style="font-size:28px" id="skTitle"></h2>
+    <p class="lede" style="max-width:72ch" id="skLede"></p>
+    <div class="banner">Not yet client-validated. Assess every capability through evidence of past behaviour, never through similarity in background, nationality or personality, which introduces affinity bias.</div>
+    <div class="btns"><button class="btn" id="skillsCopy">Copy Contextual Skills as text</button><span class="toast" id="skillsToast" role="status" aria-live="polite"></span></div>
+  </div>
+  <ol class="pstrip" id="profileStrip" aria-label="Capabilities at a glance"></ol>
+  <div id="profileList" style="display:flex;flex-direction:column;gap:14px;max-width:980px"></div>
+</section>
+
+<!-- ============ TAB 3 · QUESTIONS TO ASK (PLATFORM) ============ -->
+<section class="panel" id="questions-tab" role="tabpanel" aria-labelledby="t-questions" hidden>
+  <h2 class="print-title">3 · Questions to ask</h2>
+  <div style="display:flex;flex-direction:column;gap:10px;max-width:880px">
+    <div class="eyebrow">Questions to ask · validate with the client</div>
+    <h2 style="font-size:28px" id="qtTitle"></h2>
+    <p class="lede" style="max-width:72ch">Everything this report could not confirm becomes a question: unknowns, hypotheses, partner input still to validate, and claims whose source could not be traced to the research. Start with the priority questions.</p>
+    <div class="btns"><button class="btn" id="qCopy">Copy all questions as text</button><span class="toast" id="qToast" role="status" aria-live="polite"></span></div>
+  </div>
+  <div class="mod">
+    <div class="eyebrow">Priority</div>
+    <h3>Ask these first</h3>
+    <ol class="q" id="qtPriority"></ol>
+  </div>
+  <div id="qtOpen" style="display:flex;flex-direction:column;gap:14px"></div>
+</section>
+</main>
+
+<script type="application/json" id="exec10x-data">__EXEC10X_DATA__</script>
+<script>
+(function(){
+"use strict";
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const md = s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>");
+const CLS = {V:"Verified",I:"Inference",H:"Hypothesis",U:"Unknown",P:"Partner input · to validate",C:"Client-confirmed"};
+const chip = c=>`<span class="chip ${esc(c)}">${CLS[c]||esc(c)}</span>`;
+const html = (sel,h)=>{const el=$(sel); if(el) el.innerHTML=h;};
+const text = (sel,t)=>{const el=$(sel); if(el) el.textContent=t==null?"":t;};
+
+let D;
+try{ D = JSON.parse(document.getElementById("exec10x-data").textContent); }
+catch(e){ const b=$("#buildError"); b.hidden=false; b.textContent="The company data could not be read: "+e.message; return; }
+if(!D||typeof D!=="object"){ const b=$("#buildError"); b.hidden=false; b.textContent="The company data is empty."; return; }
+/* PLATFORM: each section renders inside its own guard, so one bad section never blanks the page. */
+const ERR=[];
+function guard(label,fn){ try{ fn(); }catch(e){ ERR.push(label); try{ console.error("Exec10X section failed: "+label,e); }catch(_){} } }
+
+const arr = x=>Array.isArray(x)?x:[];
+const SRC = Object.fromEntries(arr(D.sources).filter(s=>s&&s.id).map(s=>[s.id,s]));
+const FIND = Object.fromEntries(arr(D.findings).filter(f=>f&&f.id).map(f=>[f.id,f]));
+function refs(ids){
+  const out=[]; (ids||[]).forEach(fid=>{const f=FIND[fid]; (f?arr(f.sources):[]).forEach(s=>{if(!out.includes(s))out.push(s)})});
+  /* PLATFORM: uploaded documents have no web address, so they show as plain IDs */
+  return out.filter(id=>SRC[id]).map(id=>SRC[id].url?`<a href="${esc(SRC[id].url)}" target="_blank" rel="noopener" title="${esc(SRC[id].title)}">${esc(id)}</a>`:`<span title="${esc(SRC[id].title)} (uploaded document)">${esc(id)}</span>`).join(" ");
+}
+const list = (a,fn)=> arr(a).map(fn).join("");
+const tl = a=>list(a,x=>`<div><time>${esc(x.time)}</time>${md(x.text)}</div>`); /* PLATFORM: shared by two guarded sections */
+
+/* header */
+const M=D.meta||{};
+const S=arr(D.skills);
+const NAME=M.shortName||M.company||"this company";
+guard("Header",()=>{
+text("#hCompany",M.company); text("#hSub",M.subtitle?`(${M.subtitle})`:""); text("#hAsof",[M.status,M.asOf?"as of "+M.asOf:""].filter(Boolean).join(" · "));
+
+});
+/* snapshot */
+guard("Company snapshot",()=>{
+html("#thesis",md(D.snapshot.thesis));
+html("#kpis",list(D.snapshot.kpis,k=>`<div class="stat"><b>${esc(k.value)}</b><span>${md(k.label)}</span></div>`));
+
+});
+/* business */
+guard("Business & strategy",()=>{
+const B=D.business;
+text("#bizTitle",B.title);
+html("#bizRows",list(B.rows,r=>`<dt>${esc(r.label)}</dt><dd>${md(r.text)}</dd>`));
+text("#posTitle",B.positionTitle);
+const SW=[["strengths","Strengths"],["weaknesses","Weaknesses"],["opportunities","Opportunities"],["threats","Threats"]];
+html("#swot",list(SW,([k,l])=>`<div><h5>${l}</h5><ul>${list(B.swot[k],x=>`<li>${md(x)}</li>`)}</ul></div>`));
+
+});
+/* organisation */
+guard("Organisation & decision rights",()=>{
+const O=D.organisation;
+text("#orgTitle",O.title);
+const node=(n,cls)=>`<div class="node ${cls||""}"><b>${esc(n.name)}</b><small>${md(n.detail)}</small>${n.brands?`<div class="brands">${list(n.brands,b=>`<span>${esc(b)}</span>`)}</div>`:""}</div>`;
+html("#org",`<div class="row">${list(O.owners,o=>node(o))}</div><div class="stem"></div>${node(O.group)}<div class="stem"></div><div class="row">${list(O.units,u=>node(u,u.focus?"focus":u.former?"dash":""))}</div>`);
+$("#org").setAttribute("aria-label",`Ownership chart: ${(O.owners||[]).map(o=>o.name).join(", ")} own ${O.group.name}, which holds ${(O.units||[]).map(u=>u.name).join(", ")}.`);
+html("#orgNote",md(O.note));
+html("#rights",list(O.decisionRights,r=>`<tr><td>${esc(r.decision)}</td><td>${md(r.locus)}</td><td>${chip(r.c)}</td></tr>`));
+
+});
+/* culture */
+guard("Culture",()=>{
+const C=D.culture, K=C.cultures||[];
+const kcls=i=>"k"+(i+1);
+text("#mapTitle",C.mapTitle);
+html("#mapLegend",list(K,(k,i)=>`<span><i class="${kcls(i)}"></i>${esc(k.label)}</span>`));
+const pos=(v,l,r)=>v<40?"towards "+l:v>60?"towards "+r:"mid-scale";
+html("#cultureMap",list(C.map,m=>`<div class="cm-row"><div class="cm-label">${esc(m.dimension)}</div>
+  <div class="cm-track" aria-label="${esc(m.dimension)}: ${esc(K.map(k=>k.code+" "+pos(m.positions[k.key],m.left,m.right)).join(", "))}">
+   ${K.map((k,i)=>[k,i]).reverse().map(([k,i])=>m.positions[k.key]==null?"":`<span class="dot ${kcls(i)}" style="left:${Number(m.positions[k.key])}%" title="${esc(k.label)} (approx.)">${esc(k.code)}</span>`).join("")}
+  </div><div class="cm-ends"><span>${esc(m.left)}</span><span>${esc(m.right)}</span></div></div>`));
+html("#mapNote",md(C.mapNote));
+text("#leadersTitle",C.leaders.title); html("#leadersNote",md(C.leaders.note));
+html("#leaders",list(C.leaders.rows,r=>`<tr><td>${esc(r.role)}</td><td>${esc(r.person)}</td><td>${md(r.career)} ${chip(r.c)}</td></tr>`));
+text("#dynEyebrow",C.dynamics.eyebrow); text("#dynTitle",C.dynamics.title);
+html("#dynamics",list(C.dynamics.items,x=>`<div><span class="chip ${esc(x.c)}">${esc(x.tag)}</span><p>${md(x.text)}</p></div>`));
+html("#dynNote",md(C.dynamics.note));
+text("#dimsTitle",C.dimensionsTitle);
+const gapCls={Large:"U",Moderate:"H",Small:"V"};
+html("#cultureDims",list(C.dimensions,x=>`<div class="dim"><div class="hd"><b>${esc(x.dimension)}</b><span class="chip ${gapCls[x.gap]||"H"}">${esc(x.gap)} gap</span></div>
+  <div class="tension">Main tension: ${esc(x.tension)}</div>
+  <div class="views" style="grid-template-columns:repeat(${Math.max(K.length,1)},minmax(0,1fr))">${list(K,(k,i)=>`<div class="${kcls(i)}"><h5>${esc(k.label.split(" (")[0])}</h5>${md(x.views[k.key])}</div>`)}</div>
+  <div class="scene"><h5>How it could show up</h5>${md(x.scene)}</div><div class="do"><h5>What helps</h5>${md(x.helps)}</div></div>`));
+text("#joinEyebrow",C.joining.eyebrow); text("#joinTitle",C.joining.title);
+html("#joining",list(C.joining.items,x=>`<li><b>${esc(x.title)}</b> ${md(x.text)}</li>`));
+text("#hireTitle",C.hiring.title);
+html("#hiring",list(C.hiring.items,x=>`<li><b>${esc(x.title)}</b> ${md(x.text)}</li>`));
+html("#hireNote",md(C.hiring.note));
+
+});
+/* transformation and metrics */
+guard("Performance & transformation",()=>{
+text("#txTitle",D.transformation.title); html("#timeline",tl(D.transformation.timeline));
+text("#metTitle",D.metrics.title);
+html("#metrics",list(D.metrics.groups,g=>{const max=Math.max(...g.bars.map(b=>Number(b.value)||0),1);
+  return `<div class="bars" aria-label="${esc(g.label)}">${list(g.bars,b=>`<div class="bar"><span>${esc(b.label)}</span><span class="t"><i class="${b.muted?"m":""}" style="width:${Math.round((Number(b.value)||0)/max*1000)/10}%"></i></span><b>${esc(b.display)}</b></div>`)}</div>`;}));
+html("#metNote",md(D.metrics.note));
+
+});
+/* business insights */
+guard("Business & competitive insights",()=>{
+const BI=D.businessInsights;
+text("#biTitle",BI.title);
+html("#bizInsights",list(BI.cards,x=>`<article><h4>${esc(x.title)}</h4><p>${md(x.text)}</p><div class="meta">${chip(x.c)}<span>Sources ${refs(x.findings)}</span></div></article>`));
+const thr=t=>/high/i.test(t)?"U":/med/i.test(t)&&!/low/i.test(t)?"H":/low.*med/i.test(t)?"I":"V";
+html("#competitors",list(BI.competitors,r=>`<tr><td><b>${esc(r.player)}</b></td><td>${md(r.model)}</td><td>${md(r.edge)}</td><td>${md(r.move)}</td><td><span class="chip ${thr(r.threat)}">${esc(r.threat)}</span></td></tr>`));
+text("#vulTitle",BI.vulnerability.title); html("#vulIntro",md(BI.vulnerability.intro));
+html("#vulTimeline",tl(BI.vulnerability.timeline)); html("#vulNote",md(BI.vulnerability.note));
+
+});
+/* environment */
+guard("Executive success environment",()=>{
+const E=D.environment;
+text("#envTitle",`The context: ${E.conditions.length} conditions that shape how an executive works here`);
+html("#opportunity",`<b>The opportunity.</b> ${md(E.opportunity)}`);
+html("#envCards",list(E.conditions,(x,i)=>`<article><div class="hd"><span class="n">${i+1}</span><h4>${esc(x.title)}</h4></div>
+  <p><b>What we know.</b> ${md(x.facts)}</p><p><b>What it means day to day.</b> ${md(x.dayToDay)}</p>
+  <div class="two"><div><h5>Helps</h5>${md(x.helps)}</div><div><h5>Derails</h5>${md(x.derails)}</div></div>
+  <div class="meta">${chip(x.c)}<span>→ Capability ${esc(arr(x.skills).join(", "))} · Sources ${refs(x.findings)}</span></div></article>`));
+
+});
+/* confidence */
+guard("Intelligence confidence",()=>{
+const CF=D.confidence;
+html("#unknowns",list(CF.unknowns,x=>`<li><span class="chip U">U</span>${md(x)}</li>`));
+html("#hypotheses",list(CF.hypotheses,x=>`<li><span class="chip H">H</span>${md(x)}</li>`));
+html("#contradictions",list(CF.contradictions,x=>`<li><span class="chip U">C</span>${md(x)}</li>`));
+text("#qCount",(D.questions||[]).length);
+html("#questions",list(D.questions,q=>`<li>${md(q.question)}<small>${md(q.why)}</small></li>`));
+text("#srcCount",(D.sources||[]).length); html("#srcNote",md(CF.sourcesNote));
+html("#sources",list(D.sources,s=>`<li><code>${esc(s.id)}</code><span>${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`:`${esc(s.title)} <i>(uploaded document)</i>`}</span></li>`));
+
+});
+/* contextual skills */
+guard("Contextual Skills",()=>{
+text("#skTitle",`What it takes to lead at ${NAME}`);
+text("#skLede",`${S.length} capabilities, ranked by importance here. Each one is written for the conditions in the dashboard's Executive success environment and combines two things: what the candidate must have done before (track record), and how they need to show up day to day (behavioural markers). The skills are role-agnostic and apply equally to a CFO, CTO, HR director or commercial leader. Function-specific requirements sit in the dashboard's Business & competitive insights.`);
+html("#profileStrip",list(S,p=>`<li>${esc(p.name)}</li>`));
+html("#profileList",list(S,(s,i)=>`<article class="skill"><div class="rank">${i+1}</div><div class="sb">
+  <h3>${esc(s.name)}</h3><p class="def">${md(s.definition)}</p>
+  <div class="sg">
+   <div class="full"><h5>Why it matters at ${esc(NAME)}</h5>${md(s.whyHere)}</div>
+   <div class="full"><h5>Behavioural markers · how it shows up</h5><div class="mk">${list(s.markers,m=>`<div><b>${esc(m.title)}</b>${md(m.text)}</div>`)}</div></div>
+   <div class="full flags2"><div class="green"><h5>Evidence to look for</h5><ul>${list(s.evidence,x=>`<li>${md(x)}</li>`)}</ul></div><div class="red"><h5>Red flags</h5><ul>${list(s.redFlags,x=>`<li>${md(x)}</li>`)}</ul></div></div>
+   <div class="full"><h5>Behavioural interview question</h5><div class="iq">${md(s.question)}</div><div class="probe2">Follow-up probe: ${md(s.probe)}</div></div>
+   <div class="full"><h5>Confidence</h5>${chip(s.c)} ${md(s.confidenceNote)} <span class="refs">Sources ${refs(s.findings)}</span></div>
+  </div></div></article>`));
+
+});
+/* PLATFORM: Tab 3 · questions to ask */
+const plain=s=>String(s==null?"":s).replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1");
+const OQ=arr(D.openQuestions);
+guard("Questions to ask",()=>{
+  const n=arr(D.questions).length+OQ.reduce((a,g)=>a+arr(g.items).length,0);
+  text("#qtTitle",`${n} questions to validate at ${NAME}`);
+  html("#qtPriority",list(D.questions,q=>`<li>${md(q.question)}<small>${md(q.why)}</small></li>`));
+  html("#qtOpen",list(OQ,g=>`<div class="mod qgroup"><div class="eyebrow">Open points</div><h3>${esc(g.section)}</h3><ul class="clean">${list(g.items,x=>`<li>${chip(x.c||"U")}<span class="qx">${md(x.question)}${x.context?`<small>${md(x.context)}</small>`:""}</span></li>`)}</ul></div>`));
+});
+guard("Copy questions",()=>{
+  $("#qCopy").addEventListener("click",()=>{
+    const pr=arr(D.questions).map((q,i)=>`${i+1}. ${plain(q.question)}\n   Why: ${plain(q.why)}`).join("\n");
+    const op=OQ.map(g=>`${g.section}\n${arr(g.items).map(x=>`- ${plain(x.question)}${x.context?` (${plain(x.context)})`:""}`).join("\n")}`).join("\n\n");
+    const all=`${M.company||NAME} — Questions to ask\n\nPRIORITY\n${pr}\n\nOPEN POINTS\n\n${op}`;
+    try{navigator.clipboard.writeText(all).then(()=>toast("#qToast","Copied to clipboard."),()=>toast("#qToast","Copy was blocked here. Select the text and copy it manually."))}
+    catch(e){toast("#qToast","Copy was blocked here. Select the text and copy it manually.")}
+  });
+});
+if(ERR.length){ const b=$("#buildError"); b.hidden=false; b.textContent="Some parts of this report could not be displayed: "+ERR.join(", ")+". The rest is shown below; rebuilding the report usually fixes this."; }
+
+/* tabs */
+const TABS=["dashboard","skills","questions-tab"];
+const tabs=[...document.querySelectorAll('[role="tab"]')];
+function show(id){
+  tabs.forEach(t=>{const on=t.getAttribute("aria-controls")===id;t.setAttribute("aria-selected",on);const p=document.getElementById(t.getAttribute("aria-controls")); if(p) p.hidden=!on});
+  try{localStorage.setItem("x10-tab",id)}catch(e){}
+  try{window.scrollTo({top:0})}catch(e){}
+}
+tabs.forEach(t=>t.addEventListener("click",()=>{show(t.getAttribute("aria-controls"));try{history.replaceState(null,"","#"+t.getAttribute("aria-controls"))}catch(e){}}));
+document.querySelector("nav.tabs").addEventListener("keydown",e=>{
+  const i=tabs.indexOf(document.activeElement); if(i<0)return;
+  if(e.key==="ArrowRight"||e.key==="ArrowLeft"){const n=tabs[(i+(e.key==="ArrowRight"?1:-1)+tabs.length)%tabs.length];n.focus();n.click();}
+});
+let saved=null; try{saved=localStorage.getItem("x10-tab")}catch(e){}
+const h=(location.hash||"").slice(1);
+show(TABS.includes(h)?h:(TABS.includes(saved)?saved:"dashboard"));
+
+/* copy */
+/* PLATFORM: hoisted so Tab 3 can use it */
+function toast(sel,msg){const t=$(sel);t.textContent=msg;clearTimeout(t._h);t._h=setTimeout(()=>t.textContent="",3500)}
+guard("Copy skills",()=>$("#skillsCopy").addEventListener("click",()=>{
+  const txt=S.map((s,i)=>`${i+1}. ${s.name}\nDefinition: ${plain(s.definition)}\nWhy it matters at ${NAME}: ${plain(s.whyHere)}\nBehavioural markers:\n${(s.markers||[]).map(m=>`  - ${m.title}: ${plain(m.text)}`).join("\n")}\nEvidence to look for: ${(s.evidence||[]).map(plain).join("; ")}\nRed flags: ${(s.redFlags||[]).map(plain).join("; ")}\nInterview question: ${plain(s.question)}\nFollow-up probe: ${plain(s.probe)}\nConfidence: ${CLS[s.c]||s.c}. ${plain(s.confidenceNote)}`).join("\n\n");
+  const all=`${M.company} — Contextual Skills (company level, not client-validated)\n\n${txt}`;
+  try{navigator.clipboard.writeText(all).then(()=>toast("#skillsToast","Copied to clipboard."),()=>toast("#skillsToast","Copy was blocked here. Select the text and copy it manually."))}
+  catch(e){toast("#skillsToast","Copy was blocked here. Select the text and copy it manually.")}
+}));
+/* PLATFORM: print opens every disclosure */
+window.addEventListener("beforeprint",()=>document.querySelectorAll("details").forEach(d=>{d.dataset.wasOpen=d.open?"1":"";d.open=true}));
+window.addEventListener("afterprint",()=>document.querySelectorAll("details").forEach(d=>{d.open=d.dataset.wasOpen==="1"}));
+})();
+</script>
+</body></html>

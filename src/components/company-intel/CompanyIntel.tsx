@@ -9,11 +9,24 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/field";
 import { parseJson, readAgentStream } from "@/lib/api";
 import { extractText } from "@/lib/extract-text";
-import { estimateRunCost, formatUsd } from "@/shared/ai-cost";
+import { estimateCockpitCost, estimateRunCost, formatUsd } from "@/shared/ai-cost";
 import { CompanyLogo, ReportView } from "@/components/company-intel/ReportView";
 import { ContextReport } from "@/components/company-intel/ContextReport";
 import type { ReportData } from "@/shared/company-report";
 import { WRITERS, WRITER_IDS, isContextReport, type ContextReportData, type WriterId } from "@/shared/company-context";
+import {
+  EXEC10X_WAVE1,
+  EXEC10X_WAVE2,
+  EXEC10X_WRITERS,
+  EXEC10X_WRITER_IDS,
+  REPORT_GENERATION,
+  cockpitFileTitle,
+  isCockpit,
+  researchPlan,
+  validationSummary,
+  type CockpitData,
+  type Exec10xWriterId,
+} from "@/shared/exec10x";
 import { cn, relativeTime } from "@/lib/utils";
 
 /**
@@ -21,7 +34,8 @@ import { cn, relativeTime } from "@/lib/utils";
  * orchestrator the package's /research-company command used to be:
  *   1. company name   → find-or-create, show what's cached
  *   2. documents      → optional uploads / pastes, highest-trust source
- *   3. run            → stale/missing modules in parallel, then synthesis
+ *   3. run            → missing + user-ticked modules in parallel, then the report
+ *                        (v3: Susan's Exec10X cockpit, ADR-009 §18)
  *   → result: ONE analyzed report (download .md, saved in the DB); the raw
  *     research stays behind a collapsed fact-check panel
  */
@@ -40,7 +54,7 @@ type Output = {
   version: number;
   mode: "full" | "culture-only";
   content: string;
-  data: ReportData | ContextReportData | null;
+  data: ReportData | ContextReportData | CockpitData | null;
   reviewed: boolean;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -53,10 +67,12 @@ type Detail = {
   inputs: { id: string; filename: string; chars: number; createdAt: string }[];
   report: Output;
   cost: { thisReport: number | null; allTime: number };
+  /** v3: an unfinished run on the server whose written parts a retry reuses. */
+  pendingRun: { runId: string; done: Exec10xWriterId[] } | null;
 };
 type Step = "name" | "docs" | "run" | "results";
 type Scope = "culture-only" | "full";
-type RunState = "queued" | "running" | "done" | "failed" | "skipped";
+type RunState = "queued" | "running" | "done" | "failed" | "skipped" | "blocked";
 
 const CULTURE = "05-culture-voice";
 
@@ -66,6 +82,12 @@ export function CompanyIntel() {
   const [existed, setExisted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Which company is on screen: a run that finishes after the user moved on
+  // must not pull them back to it.
+  const onScreen = useRef<string | null>(null);
+  useEffect(() => {
+    onScreen.current = detail?.company.slug ?? null;
+  }, [detail]);
   const load = async (slug: string) => {
     const d = await parseJson<Detail>(await fetch(`/api/company-intel/companies/${slug}`));
     setDetail(d);
@@ -85,6 +107,7 @@ export function CompanyIntel() {
   };
 
   const reset = () => {
+    onScreen.current = null;
     setDetail(null);
     setExisted(false);
     setError(null);
@@ -150,10 +173,16 @@ export function CompanyIntel() {
           {step === "run" && detail && (
             <RunStep
               detail={detail}
-              onBack={() => setStep("docs")}
+              onBack={async () => {
+                // Fresh module states, so coming back doesn't re-research what was just saved.
+                await load(detail.company.slug).catch(() => null);
+                setStep("docs");
+              }}
               onFinished={async () => {
-                await load(detail.company.slug);
-                setStep("results");
+                const slug = detail.company.slug;
+                if (onScreen.current !== slug) return;
+                await load(slug);
+                if (onScreen.current === slug) setStep("results");
               }}
             />
           )}
@@ -393,8 +422,8 @@ function DocsStep({
         <Alert tone="accent">
           <div>
             <strong>{detail.company.name}</strong> has been researched before.{" "}
-            {detail.modules.filter((m) => m.status === "fresh").length} of 5 modules are still fresh
-            and will be reused, not re-run. You can force a full refresh in the next step.
+            {researched.length} of {detail.modules.length} research areas are saved and will be reused,
+            not re-run. In the next step you can tick any area you want refreshed.
           </div>
         </Alert>
       )}
@@ -563,15 +592,20 @@ function RunStep({
   onFinished: () => Promise<void>;
 }) {
   const slug = detail.company.slug;
+  const v3 = REPORT_GENERATION === 3;
   const [scope, setScope] = useState<Scope>(
-    detail.modules.find((m) => m.module === CULTURE)?.status === "fresh" ? "full" : "culture-only"
+    v3 || detail.modules.find((m) => m.module === CULTURE)?.status === "fresh" ? "full" : "culture-only"
   );
-  const [refresh, setRefresh] = useState(false);
+  // Refresh is the user's choice (Dana, 2026-10-09): saved research is reused
+  // whatever its age; only never-researched areas run without being ticked.
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
+  // v3: the server's record of an unfinished run (survives reloads and other tabs).
+  const [pending, setPending] = useState(detail.pendingRun ?? null);
   const [running, setRunning] = useState(false);
   const [states, setStates] = useState<Record<string, { state: RunState; log: string[]; error?: string }>>({});
   const [synth, setSynth] = useState<{ state: RunState; chars: number; error?: string } | null>(null);
   const [photos, setPhotos] = useState<RunState | null>(null);
-  const [writers, setWriters] = useState<Partial<Record<WriterId, { state: RunState; chars: number; error?: string }>>>({});
+  const [writers, setWriters] = useState<Partial<Record<WriterId | Exec10xWriterId, { state: RunState; chars: number; error?: string }>>>({});
   const [site, setSite] = useState<RunState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -583,11 +617,42 @@ function RunStep({
     return () => clearInterval(t);
   }, [running]);
 
-  const inScope = detail.modules.filter((m) => scope === "full" || m.module === CULTURE);
-  const toRun = inScope.filter((m) => refresh || m.status !== "fresh");
+  // The page's own copy of module states: refreshed after research, so "Run
+  // again" after a failed write reuses what was just researched.
+  const [modules, setModules] = useState(detail.modules);
+  const inScope = modules.filter((m) => scope === "full" || m.module === CULTURE);
+  const toRun = researchPlan(inScope, ticked);
+  // An upload may not have been read by any area researched on or before its
+  // upload day (dates are day-precision, so same-day counts) that isn't ticked.
+  const newDocs = detail.inputs
+    .filter((i) => !i.filename.startsWith("company-website-"))
+    .filter((i) => inScope.some((m) => m.researchedOn && !ticked.has(m.module) && i.createdAt.slice(0, 10) >= m.researchedOn))
+    .map((i) => i.filename);
+  const toggle = (module: string) =>
+    setTicked((t) => {
+      const n = new Set(t);
+      if (n.has(module)) n.delete(module);
+      else n.add(module);
+      return n;
+    });
 
   const patch = (module: string, p: Partial<{ state: RunState; log: string[]; error?: string }>) =>
     setStates((s) => ({ ...s, [module]: { ...(s[module] ?? { state: "queued", log: [] }), ...p } }));
+
+  /** Runs one report writer (v2 category or v3 Exec10X), tracking its row; false on failure. */
+  const runWriter = async (id: WriterId | Exec10xWriterId, body: object) => {
+    setWriters((w) => ({ ...w, [id]: { state: "running", chars: 0 } }));
+    try {
+      await stream(`/api/company-intel/companies/${slug}/sections/${id}`, body, (t) =>
+        setWriters((w) => ({ ...w, [id]: { ...(w[id] ?? { state: "running", chars: 0 }), chars: (w[id]?.chars ?? 0) + t.length } }))
+      );
+      setWriters((w) => ({ ...w, [id]: { ...w[id]!, state: "done" } }));
+      return true;
+    } catch (e) {
+      setWriters((w) => ({ ...w, [id]: { state: "failed", chars: 0, error: friendlyError(e) } }));
+      return false;
+    }
+  };
 
   /** Reads one NDJSON stream; resolves on `done`, throws on `error`. */
   const stream = async (url: string, body: unknown, onDelta: (t: string) => void) => {
@@ -670,6 +735,38 @@ function RunStep({
 
     // Synthesize if anything was (re)researched or the wanted output is missing.
     const fresh = await fetch(`/api/company-intel/companies/${slug}`).then((r) => parseJson<Detail>(r));
+    // What was researched is saved; a retry must not pay for it again. A ticked
+    // area whose research failed stays ticked, so "Run again" retries it.
+    setModules(fresh.modules);
+    setPending(fresh.pendingRun ?? null);
+    setTicked(new Set(toRun.filter((m, i) => !results[i] && m.status !== "missing").map((m) => m.module)));
+    const stillMissing = fresh.modules.filter((m) => m.status === "missing");
+    const anyRan = results.some(Boolean);
+
+    if (v3) {
+      // A refresh the user asked for failed: writing now would quietly reuse the old
+      // research and look refreshed. Stop and say so (the tick stays for the retry).
+      const failedRefresh = toRun.filter((m, i) => !results[i] && m.status !== "missing");
+      if (failedRefresh.length) {
+        setNotice(
+          `The refresh of ${failedRefresh.map((m) => m.title).join(", ")} failed, so the report wasn't rewritten and the previous one is kept. Click Run again to retry the refresh (still ticked).`
+        );
+        setRunning(false);
+        return;
+      }
+      // Susan's cockpit needs every area: don't pay for a report with a hole in it.
+      if (stillMissing.length) {
+        setNotice(
+          `${stillMissing.map((m) => m.title).join(", ")} couldn't be researched, so the report wasn't written and the previous one is kept. Click Run again: what was researched is saved and reused.`
+        );
+        setRunning(false);
+        return;
+      }
+      await writeCockpit(anyRan, fresh.pendingRun ?? null);
+      return;
+    }
+
+    // v2 only from here (REPORT_GENERATION = 2).
     const cultureOk = fresh.modules.find((m) => m.module === CULTURE)?.status !== "missing";
     // Anything the current format expects but the saved report lacks is
     // rebuilt from saved research here — no separate "re-analyze" or
@@ -678,10 +775,8 @@ function RunStep({
     // rebuilt as a Company Context report from the saved research.
     const outputMissing =
       !fresh.report || !isContextReport(fresh.report.data) || (scope === "full" && fresh.report.mode !== "full");
-    const photosMissing =
-      scope === "full" && Boolean(fresh.report?.data?.keyPersonas.length) && !fresh.report?.data?.photosCheckedAt;
-    const anyRan = results.some(Boolean);
-
+    const prior = fresh.report?.data && !isCockpit(fresh.report.data) ? fresh.report.data : null;
+    const photosMissing = scope === "full" && Boolean(prior?.keyPersonas?.length) && !prior?.photosCheckedAt;
     if (!cultureOk) {
       setNotice("Module 05 (culture) has no research yet, so there's nothing to synthesize. Check the error above and run again.");
       setRunning(false);
@@ -702,20 +797,7 @@ function RunStep({
         const runId = crypto.randomUUID();
         const ids: WriterId[] = scope === "full" ? WRITER_IDS : ["C"];
         setWriters(Object.fromEntries(ids.map((id) => [id, { state: "running", chars: 0 }])));
-        const ok = await Promise.all(
-          ids.map(async (id) => {
-            try {
-              await stream(`/api/company-intel/companies/${slug}/sections/${id}`, { runId, mode: scope }, (t) =>
-                setWriters((w) => ({ ...w, [id]: { ...(w[id] ?? { state: "running", chars: 0 }), chars: (w[id]?.chars ?? 0) + t.length } }))
-              );
-              setWriters((w) => ({ ...w, [id]: { ...w[id]!, state: "done" } }));
-              return true;
-            } catch (e) {
-              setWriters((w) => ({ ...w, [id]: { state: "failed", chars: 0, error: friendlyError(e) } }));
-              return false;
-            }
-          })
-        );
+        const ok = await Promise.all(ids.map((id) => runWriter(id, { runId, mode: scope })));
         // A report built from some sections only looks complete but isn't (and
         // broke the page for www.mu.se, 2026-10-08) — so all or nothing.
         const failedIds = ids.filter((_, i) => !ok[i]);
@@ -745,6 +827,62 @@ function RunStep({
     }
   };
 
+  /**
+   * v3 (ADR-009 §18): Susan's cockpit from the saved research — wave 1
+   * (company · market · culture) in parallel, then skills, then assembly in
+   * code. All or nothing: a failed writer saves no report and the previous
+   * one stays.
+   */
+  const writeCockpit = async (researchChanged: boolean, resume: Detail["pendingRun"]) => {
+    setSynth({ state: "running", chars: 0 });
+    // A retry continues the server's unfinished run and reuses its written parts;
+    // new research starts a fresh run.
+    const runId = !researchChanged && resume ? resume.runId : crypto.randomUUID();
+    const done = new Set<Exec10xWriterId>(!researchChanged && resume ? resume.done : []);
+    let saved = false;
+    try {
+      setWriters(Object.fromEntries(EXEC10X_WRITER_IDS.map((id) => [id, { state: (done.has(id) ? "skipped" : "queued") as RunState, chars: 0 }])));
+      const write = async (id: Exec10xWriterId) => {
+        if (done.has(id)) return true;
+        const ok = await runWriter(id, { runId });
+        if (ok) {
+          done.add(id);
+          setPending({ runId, done: [...done] });
+        }
+        return ok;
+      };
+      const wave1 = await Promise.all(EXEC10X_WAVE1.map(write));
+      const failed = EXEC10X_WAVE1.filter((_, i) => !wave1[i]);
+      if (!failed.length) {
+        for (const id of EXEC10X_WAVE2) if (!(await write(id))) failed.push(id);
+      } else {
+        setWriters((w) => ({ ...w, ...Object.fromEntries(EXEC10X_WAVE2.map((id) => [id, { state: "blocked" as RunState, chars: 0 }])) }));
+      }
+      if (failed.length)
+        throw new Error(
+          `${failed.map((id) => EXEC10X_WRITERS[id].label).join(", ")} couldn't be written, so no report was saved and the previous one is kept. Click Run again: saved research and the parts already written are reused.`
+        );
+      const res = await fetch(`/api/company-intel/companies/${slug}/cockpit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runId }),
+      });
+      // 422 = the checks rejected these parts: the next run writes them again.
+      // A network or server error keeps the run (assembly is idempotent per run).
+      if (res.status === 422) setPending(null);
+      await parseJson(res);
+      setPending(null);
+      saved = true;
+      setSynth({ state: "done", chars: 0 });
+    } catch (e) {
+      setSynth({ state: "failed", chars: 0, error: friendlyError(e) });
+    } finally {
+      setRunning(false);
+    }
+    // Outside the try: the report is saved; a failed reload must not report the run as failed.
+    if (saved) await onFinished().catch(() => setNotice("The report was saved. Reload the page to see it."));
+  };
+
   const elapsed = startedAt ? Math.round((now - startedAt) / 1000) : 0;
   const started = Object.keys(states).length > 0;
 
@@ -753,6 +891,20 @@ function RunStep({
       <Card>
         <CardBody className="space-y-4">
           <h2 className="font-display text-[16px] font-semibold text-ink">What should we run?</h2>
+          {v3 && newDocs.length > 0 && (
+            <Alert tone="info">
+              {newDocs.length === 1 ? `"${newDocs[0]}" was` : `${newDocs.length} documents were`} added on or after the day some
+              areas were researched, so the report may not use {newDocs.length === 1 ? "it" : "them"} yet. Tick <strong>Refresh</strong> on the areas
+              {newDocs.length === 1 ? " it covers" : " they cover"}: research reads uploaded documents first.
+            </Alert>
+          )}
+          {v3 ? (
+            <p className="text-[13px] text-muted">
+              Saved research is reused. Areas never researched run automatically; tick <strong>Refresh</strong> on any
+              area you know has changed or was missing. Then the Exec10X report is written from the research (no web
+              search).
+            </p>
+          ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <ScopeOption
               active={scope === "culture-only"}
@@ -769,15 +921,7 @@ function RunStep({
               text="All 8 research areas in parallel → the full Company Context report (15 categories)."
             />
           </div>
-          <label className="flex items-center gap-2 text-[13px] text-ink">
-            <input
-              type="checkbox"
-              checked={refresh}
-              disabled={running}
-              onChange={(e) => setRefresh(e.target.checked)}
-            />
-            Refresh everything (ignore cached research)
-          </label>
+          )}
 
           {/* Fixed layout: long progress lines truncate inside the first column
               instead of pushing the status columns out of the card. */}
@@ -831,7 +975,7 @@ function RunStep({
                         {m.status}
                       </Badge>
                       {m.status === "fresh" && m.briefOutdated && (
-                        <span className="mt-0.5 block text-[10.5px] text-muted" title="Researched with an earlier brief: reused for free; its new questions show as Unknown. Tick Refresh everything to re-research it.">
+                        <span className="mt-0.5 block text-[10.5px] text-muted" title="Researched with an earlier brief: reused for free; its new questions show as Unknown. Tick Refresh to re-research it.">
                           earlier brief
                         </span>
                       )}
@@ -841,22 +985,33 @@ function RunStep({
                       {m.coverage ? ` · ${m.coverage}` : ""}
                     </td>
                     <td>
-                      {st ? <RunBadge state={st.state} /> : will ? <Badge tone="active">will run</Badge> : <Badge>reuse</Badge>}
+                      {st && (running || m.status === "missing") ? (
+                        <RunBadge state={st.state} />
+                      ) : m.status === "missing" ? (
+                        <Badge tone="active">will run</Badge>
+                      ) : (
+                        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-ink" title="Re-research this area (about $0.70)">
+                          <input type="checkbox" checked={will} disabled={running} onChange={() => toggle(m.module)} />
+                          Refresh
+                        </label>
+                      )}
                     </td>
                   </tr>
                 );
               })}
               <tr>
                 <td colSpan={4} className="pb-1 pt-3 font-medium text-ink">
-                  3 · Write the report, by category{scope === "full" ? " — 4 writers in parallel" : ""}
+                  {v3
+                    ? "3 · Write the Exec10X report from the research: 3 writers in parallel, then skills"
+                    : `3 · Write the report, by category${scope === "full" ? " — 4 writers in parallel" : ""}`}
                 </td>
               </tr>
-              {(scope === "full" ? WRITER_IDS : (["C"] as WriterId[])).map((id) => {
+              {(v3 ? EXEC10X_WRITER_IDS : scope === "full" ? WRITER_IDS : (["C"] as WriterId[])).map((id) => {
                 const w = writers[id];
                 return (
                   <tr key={id} className="align-top">
                     <td colSpan={3} className="min-w-0 py-2 pl-4 pr-2 text-ink">
-                      {WRITERS[id].label}
+                      {v3 ? EXEC10X_WRITERS[id as Exec10xWriterId].label : WRITERS[id as WriterId].label}
                       {w?.state === "running" && w.chars > 0 && (
                         <span className="block text-[11.5px] text-muted">writing ({Math.round(w.chars / 1000)}k chars)</span>
                       )}
@@ -868,16 +1023,18 @@ function RunStep({
               })}
               <tr>
                 <td colSpan={3} className="py-2 pt-3">
-                  <span className="font-medium text-ink">4 · Overview & interview questions</span>
+                  <span className="font-medium text-ink">{v3 ? "4 · Assemble & check" : "4 · Overview & interview questions"}</span>
                   <span className="block text-[12px] text-muted">
-                    Bottom line, risks and angles from the validated categories
+                    {v3
+                      ? "Sources traced to the research, Susan's checks, Questions to ask"
+                      : "Bottom line, risks and angles from the validated categories"}
                     {synth?.state === "running" && synth.chars > 0 && ` · writing (${Math.round(synth.chars / 1000)}k chars)`}
                   </span>
                   {synth?.error && <span className="block text-[11.5px] text-danger">{synth.error}</span>}
                 </td>
                 <td>{synth ? <RunBadge state={synth.state} /> : <Badge>waiting</Badge>}</td>
               </tr>
-              {scope === "full" && (
+              {!v3 && scope === "full" && (
                 <tr>
                   <td colSpan={3} className="py-2">
                     <span className="font-medium text-ink">5 · Find photos of key people</span>
@@ -892,7 +1049,7 @@ function RunStep({
           {running && (
             <p className="text-[12.5px] text-muted">
               Running · {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}. Research
-              modules usually take 1–4 minutes each. Keep this tab open.
+              areas usually take 1–4 minutes each, writing about 5 minutes. Keep this tab open.
             </p>
           )}
           {notice && <Alert tone="info">{notice}</Alert>}
@@ -906,13 +1063,15 @@ function RunStep({
         <div className="flex items-center gap-3">
           {!running && (
             <span className="text-[12.5px] text-muted" title="Approximate, at Anthropic list prices">
-              {toRun.length === 0
-                ? "Nothing new to research"
-                : `Estimated AI cost ≈ ${formatUsd(estimateRunCost(toRun.length, scope === "full" ? WRITER_IDS.length : 1, scope === "full"))}`}
+              {v3
+                ? `${toRun.length ? `${toRun.length} area${toRun.length > 1 ? "s" : ""} to research · ` : ""}Estimated AI cost ≈ ${formatUsd(estimateCockpitCost(toRun.length, EXEC10X_WRITER_IDS.length - (toRun.length ? 0 : pending?.done.length ?? 0)))}`
+                : toRun.length === 0
+                  ? "Nothing new to research"
+                  : `Estimated AI cost ≈ ${formatUsd(estimateRunCost(toRun.length, scope === "full" ? WRITER_IDS.length : 1, scope === "full"))}`}
             </span>
           )}
           <Button variant="primary" onClick={run} disabled={running}>
-            {running ? "Running…" : started ? "Run again" : "Start research"}
+            {running ? "Running…" : started ? "Run again" : v3 && toRun.length === 0 ? "Rewrite report" : "Start research"}
           </Button>
         </div>
       </div>
@@ -952,8 +1111,8 @@ function ScopeOption(props: {
 }
 
 function RunBadge({ state }: { state: RunState }) {
-  const tone = { queued: "neutral", running: "active", done: "done", failed: "danger", skipped: "neutral" } as const;
-  const label = { queued: "queued", running: "running…", done: "done", failed: "failed", skipped: "reused" };
+  const tone = { queued: "neutral", running: "active", done: "done", failed: "danger", skipped: "neutral", blocked: "neutral" } as const;
+  const label = { queued: "queued", running: "running…", done: "done", failed: "failed", skipped: "reused", blocked: "not run" };
   return <Badge tone={tone[state]}>{label[state]}</Badge>;
 }
 
@@ -972,6 +1131,18 @@ function download(filename: string, content: string) {
 // Persona photos are lazy-loaded; below-the-fold ones would print as blanks,
 // so they are forced to load first (capped at 8s so a dead host can't block it).
 async function printAsPdf(companyName: string) {
+  // v3: the report lives in a same-origin iframe that carries its own print
+  // styles and the <Company>_CompanyIntel title (set by the cockpit route).
+  const frame = document.querySelector<HTMLIFrameElement>("iframe[data-cockpit]");
+  if (frame?.contentWindow) {
+    // Chrome names the PDF after the top-level tab title, not the iframe's.
+    const previous = document.title;
+    document.title = cockpitFileTitle(companyName);
+    frame.contentWindow.addEventListener("afterprint", () => (document.title = previous), { once: true });
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    return;
+  }
   const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("main img"));
   imgs.forEach((img) => (img.loading = "eager"));
   await Promise.race([
@@ -984,7 +1155,7 @@ async function printAsPdf(companyName: string) {
     new Promise((ok) => setTimeout(ok, 8000)),
   ]);
   const previous = document.title;
-  document.title = `${companyName.replace(/[^\p{L}\p{N}]+/gu, "")}_CompanyIntel`;
+  document.title = cockpitFileTitle(companyName);
   window.addEventListener("afterprint", () => (document.title = previous), { once: true });
   window.print();
 }
@@ -1016,6 +1187,41 @@ class ReportBoundary extends Component<{ children: ReactNode; onRebuild: () => v
       </Alert>
     );
   }
+}
+
+/** What the assembly checks removed or downgraded — never silent (ADR-009 §18). */
+function CockpitChecks({ data }: { data: CockpitData }) {
+  const v = data.validation;
+  const line = validationSummary(v);
+  if (!line) return null;
+  return (
+    <details className="no-print rounded-card border border-line bg-card px-4 py-3 text-[12.5px]">
+      <summary className="cursor-pointer text-muted">Checks: {line}</summary>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-ink">
+        {[
+          ...v.droppedSources.map((x) => `Source removed: ${x}`),
+          ...v.downgraded.map((x) => `Downgraded: ${x}`),
+          ...v.warnings.map((x) => `Note: ${x}`),
+        ].map((x, i) => (
+          <li key={i} className="break-words">
+            {x}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/** v3: Susan's template, served same-origin by the cockpit route (ADR-009 §18). */
+function CockpitFrame({ slug, reportId, company }: { slug: string; reportId: string; company: string }) {
+  return (
+    <iframe
+      data-cockpit
+      title={`${company} · Exec10X Company Intelligence`}
+      src={`/api/company-intel/companies/${slug}/cockpit?r=${encodeURIComponent(reportId)}`}
+      className="h-[calc(100vh-150px)] min-h-[640px] w-full rounded-card border border-line bg-card"
+    />
+  );
 }
 
 function ResultsStep({
@@ -1078,8 +1284,24 @@ function ResultsStep({
         </Alert>
       ) : null}
 
+      {REPORT_GENERATION === 3 && report?.data && !isCockpit(report.data) && (
+        <Alert tone="accent">
+          This report uses an earlier format. Click &ldquo;Update research&rdquo; and run it to get
+          the Exec10X cockpit: saved research is reused
+          {detail.modules.some((m) => m.status === "missing")
+            ? `, and the ${detail.modules.filter((m) => m.status === "missing").length} areas never researched are added`
+            : ""}{" "}
+          (about {formatUsd(estimateCockpitCost(detail.modules.filter((m) => m.status === "missing").length))}).
+        </Alert>
+      )}
+
       <ReportBoundary key={report?.id ?? "none"} onRebuild={onUpdate}>
-      {report?.data && isContextReport(report.data) ? (
+      {report?.data && isCockpit(report.data) ? (
+        <>
+          <CockpitChecks data={report.data} />
+          <CockpitFrame slug={slug} reportId={report.id} company={name} />
+        </>
+      ) : report?.data && isContextReport(report.data) ? (
         <ContextReport
           data={report.data}
           meta={{
@@ -1092,7 +1314,7 @@ function ResultsStep({
         />
       ) : report?.data ? (
         <ReportView
-          data={report.data as ReportData}
+          data={report.data as unknown as ReportData}
           meta={{
             company: name,
             mode: report.mode,

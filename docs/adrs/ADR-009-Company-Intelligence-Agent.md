@@ -75,6 +75,24 @@ The runtime is adapted as follows:
     - **Schema shape:** each category is a top-level field of the `save_section` tool. When it was nested, a writer returned the whole object as a JSON-encoded string.
     - **Page:** grouped by category, with a sidebar organised by the framework's layers, a coverage bar per category, deep links via `#hash`, and dedicated visuals: centralisation heatmap, RAPID table, Meyer's 8-scale culture map, stage track, power map and stakeholder grid. It includes an interview-questions page with copy and download, and a Sources & validation page. The PDF prints every view.
     - **v1 reports** still render; the next run rebuilds them as v2.
+18. **v3: Susan's Exec10X cockpit, written from saved research (Dana, 2026-10-09).** The report becomes Susan's Exec10X Company Intelligence Cockpit (`prompts/company-intel/exec10x-master-prompt.md`, her Master Prompt v3). Its question is what it takes for an executive to succeed at this company, under these conditions.
+    - **Why:** v2 cost about $8.50 a company, was too long, and lacked the executive-success view. A test on SeLoger's saved research matched Susan's own cockpit: 0 validator errors, the same competitors and leaders, 52 of 54 sources traceable. Writing it cost $1.33.
+    - **Tabs:** (1) Executive Dashboard and (2) Contextual Skills, as Susan defined them, plus (3) **Questions to ask**, Dana's addition.
+      - Tab 3 lists Susan's 10–12 priority validation questions, then every item coded Unknown, Hypothesis or Partner-input, or failing traceability, grouped by section.
+      - Every such item carries an `ask`. Gaps are never dropped (the v1/v2 rule).
+    - **Writing:** four writers on the saved research. No web access.
+      - Wave 1 runs in parallel: A Company (meta, snapshot, business, organisation), B Market & change (transformation, metrics, businessInsights), C Culture.
+      - Wave 2: D Success & skills (environment, skills, questions, confidence) runs on wave 1's merged findings.
+      - Each writer is its own request under the 300-second limit; one call took 453 seconds.
+      - **Model: Sonnet 5.5 at effort `medium` (Dana, 2026-10-10).** The first live run on Opus 5.5 wrote at about 43 tokens/s, so its writers took 400–840 seconds; Sonnet is faster and half the price.
+    - **Assembly in code:**
+      - Sources are deduped by URL and renumbered S1…, findings F1….
+      - Every source must appear in the research the writers read (`makeEvidenceCheck`). Otherwise it is dropped, and a finding left without sources becomes Unknown, with a question.
+      - Susan's §13.3 validator runs before saving. An error saves nothing, and the previous report stays.
+    - **Page:** Susan's template, vendored at `src/components/company-intel/exec10x/template.html`, is served same-origin in an iframe. Each section renders inside its own guard, so a bad section can't blank the page. The PDF prints all three tabs.
+    - **Dropped:** persona photos and the logo step. Susan's template has neither.
+    - **Refresh is the user's choice.** Saved research is reused whatever its age. Only never-researched areas run automatically. The user ticks individual areas to refresh when they know something changed or was missing. "Rewrite report only" (about $1.20: four Sonnet writers at ≈ $0.30, provisional until measured) upgrades a company without research.
+    - **Going back:** git tag `company-intel-v2`, plus one switch, `REPORT_GENERATION` in `src/shared/exec10x.ts`. The v2 writers, routes and page stay in the code, and v1 and v2 reports keep rendering.
 6. **The cache is read from the database.** A module counts as fresh when `researched_on + shelf_life_days` is later than today. Every run inserts a new row and the latest row wins, so history is kept.
 
 ## Consequences

@@ -1,0 +1,1627 @@
+{
+ "schemaVersion": "1.0",
+ "meta": {
+  "company": "SeLoger Group",
+  "subtitle": "AVIV Group · France",
+  "country": "France",
+  "asOf": "9 Oct 2026",
+  "status": "Public-source research · not client-validated",
+  "shortName": "SeLoger"
+ },
+ "snapshot": {
+  "thesis": "France's leading property-listings marketplace, now a PE-owned unit of AVIV Group, emerging from a 30% headcount reduction and a pivot from a shared European platform back to France-specific product, while monetising an agent base that has openly contested its pricing.",
+  "kpis": [
+   {
+    "value": "~9–10M",
+    "label": "monthly unique visitors / users (company, 2026)"
+   },
+   {
+    "value": "~1M",
+    "label": "active listings (company job ad, Jun 2026)"
+   },
+   {
+    "value": "964 → ~689",
+    "label": "France headcount before / after 2026 job-protection plan"
+   },
+   {
+    "value": "275",
+    "label": "roles cut, ~80% developers and engineers"
+   },
+   {
+    "value": "+~40%",
+    "label": "leads to professionals in 2026 (company claim)"
+   },
+   {
+    "value": "~955k",
+    "label": "French home sales expected 2026, vs 1.2M in 2021"
+   }
+  ]
+ },
+ "business": {
+  "title": "Win the agent's wallet back, region by region",
+  "rows": [
+   {
+    "label": "Model",
+    "text": "B2B subscriptions and listing packages sold to ~30,000 agents, developers and builders; free consumer audience; valuation (Meilleurs Agents) feeds seller leads."
+   },
+   {
+    "label": "Stage",
+    "text": "Mature market leader in transformation: restructured, re-localised, back on the offensive (marketing +30% in 2026, acquisitions)."
+   },
+   {
+    "label": "Priorities",
+    "text": "Lead volume and quality for agents; regional presence outside Paris; pricing and packaging (AVIV \"2030 ambition\"); AI search and owner tools."
+   },
+   {
+    "label": "Pressure",
+    "text": "Leboncoin attacking Île-de-France; agent-owned Bien'ici growing; idealista entering France; slow transaction recovery; agent resentment over pricing and private-seller listings."
+   }
+  ],
+  "positionTitle": "Strong reach, exposed relationships",
+  "swot": {
+   "strengths": [
+    "Largest specialist audience; app users doubled to ~10M",
+    "Meilleurs Agents valuation data and seller leads",
+    "Biggest advertiser in the sector, spend rising"
+   ],
+   "weaknesses": [
+    "Agent trust damaged since 2023",
+    "Product and tech capacity cut by the 2026 plan",
+    "Areas the company itself calls \"structurally weaker\" in monetisation"
+   ],
+   "opportunities": [
+    "Regions and the Grand Ouest",
+    "AI search and owner tools",
+    "Energy-rating reform (Jan 2027) releasing rental stock"
+   ],
+   "threats": [
+    "Leboncoin in Paris, idealista's entry",
+    "Agent-owned Bien'ici",
+    "Regulatory instability delaying transactions"
+   ]
+  }
+ },
+ "organisation": {
+  "title": "Ownership and reporting structure",
+  "owners": [
+   {
+    "name": "KKR + CPP Investments",
+    "detail": "majority owners since Apr 2025"
+   },
+   {
+    "name": "Axel Springer",
+    "detail": "10% minority"
+   }
+  ],
+  "group": {
+   "name": "AVIV Group · Berlin",
+   "detail": "CEO Vladimir Pravdivy (since Mar 2025; formerly CEO of Avito, Russia) · COO Ovidiu Solomonov (ex-Adevinta) · group functions: people, legal, corporate development, IT, product · group pricing councils"
+  },
+  "units": [
+   {
+    "name": "SeLoger Group · Paris",
+    "detail": "legal entity \"Digital Classifieds France\" · CEO Baptiste Capron · CTO Valentin Stackler",
+    "focus": true,
+    "brands": [
+     "SeLoger",
+     "Meilleurs Agents",
+     "Logic-Immo",
+     "Belles Demeures",
+     "Lux Residence",
+     "Ouest-France Immo"
+    ]
+   },
+   {
+    "name": "AVIV Germany",
+    "detail": "immowelt · CEO Theo Mseka"
+   },
+   {
+    "name": "Belgium",
+    "detail": "Immoweb"
+   },
+   {
+    "name": "Yad2 · Israel",
+    "detail": "sold to Apax, Dec 2025",
+    "former": true
+   }
+  ],
+  "note": "Operating model: **federated group with a France country P&L** (supported inference). The shared European platform that drove central control is described by management as complete; France has since re-localised. Who signs off on pricing, budget and senior hires at France level is not public.",
+  "decisionRights": [
+   {
+    "decision": "Pricing architecture",
+    "locus": "Group councils, France advocates",
+    "c": "I"
+   },
+   {
+    "decision": "France product roadmap",
+    "locus": "France (since 2026 re-localisation)",
+    "c": "I"
+   },
+   {
+    "decision": "Restructuring, M&A",
+    "locus": "France leads, Group/owners approve",
+    "c": "H"
+   },
+   {
+    "decision": "Annual budget, EBITDA target",
+    "locus": "Group with PE owners",
+    "c": "H"
+   },
+   {
+    "decision": "Senior hiring",
+    "locus": "Unknown",
+    "c": "U"
+   }
+  ]
+ },
+ "culture": {
+  "cultures": [
+   {
+    "key": "fr",
+    "code": "FR",
+    "label": "France (SeLoger teams, customers, unions)"
+   },
+   {
+    "key": "de",
+    "code": "DE",
+    "label": "Germany (AVIV group functions, Berlin)"
+   },
+   {
+    "key": "ru",
+    "code": "RU",
+    "label": "Russia (business culture where the group CEO built his career)"
+   }
+  ],
+  "mapTitle": "Comparative Culture Map: the three cultures leaders work between",
+  "mapNote": "Approximate positions read from Erin Meyer's published narrative in *The Culture Map* (2014). They are not official Erin Meyer scores. They describe the national business cultures in which these groups work or were trained, not the people in them. The Russia track is included because the group CEO spent about ten years leading Avito in Russia; it says nothing about any individual's nationality or behaviour.",
+  "map": [
+   {
+    "dimension": "Communicating",
+    "left": "Low-context",
+    "right": "High-context",
+    "positions": {
+     "fr": 72,
+     "de": 12,
+     "ru": 76
+    }
+   },
+   {
+    "dimension": "Evaluating",
+    "left": "Direct negative feedback",
+    "right": "Indirect negative feedback",
+    "positions": {
+     "fr": 32,
+     "de": 14,
+     "ru": 8
+    }
+   },
+   {
+    "dimension": "Persuading",
+    "left": "Principles-first",
+    "right": "Applications-first",
+    "positions": {
+     "fr": 10,
+     "de": 28,
+     "ru": 22
+    }
+   },
+   {
+    "dimension": "Leading",
+    "left": "Egalitarian",
+    "right": "Hierarchical",
+    "positions": {
+     "fr": 74,
+     "de": 42,
+     "ru": 90
+    }
+   },
+   {
+    "dimension": "Deciding",
+    "left": "Consensual",
+    "right": "Top-down",
+    "positions": {
+     "fr": 62,
+     "de": 18,
+     "ru": 88
+    }
+   },
+   {
+    "dimension": "Trusting",
+    "left": "Task-based",
+    "right": "Relationship-based",
+    "positions": {
+     "fr": 58,
+     "de": 20,
+     "ru": 82
+    }
+   },
+   {
+    "dimension": "Disagreeing",
+    "left": "Confrontational",
+    "right": "Avoids confrontation",
+    "positions": {
+     "fr": 10,
+     "de": 22,
+     "ru": 30
+    }
+   },
+   {
+    "dimension": "Scheduling",
+    "left": "Linear-time",
+    "right": "Flexible-time",
+    "positions": {
+     "fr": 50,
+     "de": 8,
+     "ru": 78
+    }
+   }
+  ],
+  "leaders": {
+   "title": "Where the leadership's working styles were formed",
+   "note": "Documented career geography only. Nationality is not inferred from names.",
+   "rows": [
+    {
+     "role": "AVIV CEO (since Mar 2025)",
+     "person": "Vladimir Pravdivy",
+     "career": "Avito, Russia: CFO from 2014, CEO 2016–2023, revenue grown 30-fold, shift to a transaction model; Wharton degree",
+     "c": "V"
+    },
+    {
+     "role": "AVIV COO (since Mar 2025)",
+     "person": "Ovidiu Solomonov",
+     "career": "Adevinta and Schibsted (Nordic-rooted classifieds groups), McKinsey, KPMG",
+     "c": "V"
+    },
+    {
+     "role": "Previous AVIV CEO (2021–25)",
+     "person": "Ait Voncke",
+     "career": "Expedia, Groupon (US-headquartered tech)",
+     "c": "V"
+    },
+    {
+     "role": "France CEO (since Oct 2024)",
+     "person": "Baptiste Capron",
+     "career": "Stuart, NUMA (French and European tech scale-ups)",
+     "c": "V"
+    },
+    {
+     "role": "France CTO (since Feb 2026)",
+     "person": "Valentin Stackler",
+     "career": "SeLoger, internal for nine years",
+     "c": "V"
+    },
+    {
+     "role": "Owners",
+     "person": "KKR, CPP Investments",
+     "career": "US private equity, Canadian pension investor",
+     "c": "V"
+    },
+    {
+     "role": "Other senior hires since 2025",
+     "person": "Not public",
+     "career": "Reported: several from Russian business backgrounds",
+     "c": "P"
+    }
+   ]
+  },
+  "dynamics": {
+   "eyebrow": "Paris · Berlin · group leadership",
+   "title": "A French flagship, a German headquarters and a new leadership culture at the top",
+   "items": [
+    {
+     "tag": "History",
+     "c": "V",
+     "text": "SeLoger has had a German parent since 2011 (Axel Springer) and a Berlin-headquartered group, AVIV, since 2021. French staff have long linked German ownership with restructuring: in 2018 Logic-Immo employees petitioned against the SeLoger takeover, citing the social cost they expected from \"the German group's model\"."
+    },
+    {
+     "tag": "New tone at the top",
+     "c": "V",
+     "text": "Since March 2025 AVIV is led by a CEO who spent a decade scaling Avito, Russia's largest classifieds business, and moved it from advertising to transactions. His predecessor came from Expedia. Together with KKR's ownership, this points to a faster, more monetisation-focused and more top-down rhythm from the group. The rhythm is an inference; the careers are documented."
+    },
+    {
+     "tag": "Two cultures, one gap",
+     "c": "I",
+     "text": "On the map, French and Russian business cultures sit close together on hierarchy, top-down decisions, relationship-based trust and high-context communication. Berlin's group functions are the outlier: explicit, consensus-first, schedule-driven. In practice, Paris may adapt to the group's top more easily than to its processes, and Berlin functions may find both Paris and the group leadership hard to plan around."
+    },
+    {
+     "tag": "Pendulum",
+     "c": "I",
+     "text": "2021–25 centralised product on one European platform; 2026 swung back to French autonomy. Both moves cost French jobs, so every shift in the balance between Paris and the group is felt personally."
+    },
+    {
+     "tag": "Weight vs control",
+     "c": "I",
+     "text": "France is AVIV's flagship consumer platform, yet the CEO, the pricing architecture, group functions and owner governance sit outside France. Paris has the scale; the group and the owners hold the frameworks."
+    },
+    {
+     "tag": "Language",
+     "c": "H",
+     "text": "Group roles, including Paris roles, are advertised in English; agents, federations and unions work in French. Expect French as the operating language and English for anything involving the group or investors."
+    }
+   ],
+   "note": "Search-partner input reports that more senior roles have gone to people from Russian business backgrounds. Public sources confirm the CEO's career but name no other such hires, so the scale of this shift needs client validation."
+  },
+  "dimensionsTitle": "What the eight dimensions look like at SeLoger and AVIV",
+  "dimensions": [
+   {
+    "dimension": "Deciding",
+    "gap": "Large",
+    "tension": "Group top and Paris vs Berlin functions",
+    "views": {
+     "fr": "The senior leader decides after open debate; decisions can be reopened with new arguments.",
+     "de": "Agreement is built first, often slowly; once agreed, the decision is fixed.",
+     "ru": "The most senior person decides, quickly; the decision is communicated as final."
+    },
+    "scene": "The group leadership sets France's 2027 pricing direction after a short discussion and treats it as settled. Paris wants to debate the reasoning; the Berlin pricing function had planned a longer alignment process and has not finished its analysis. Each side sees the others as the problem.",
+    "helps": "Clarify which decisions are taken at the top and which are delegated. Explain the why to Paris; give Berlin functions a defined window; once decided, reopen only with new facts."
+   },
+   {
+    "dimension": "Leading",
+    "gap": "Large",
+    "tension": "Group top vs Berlin; Paris in between",
+    "views": {
+     "fr": "Hierarchical: titles and the director's role carry weight.",
+     "de": "Moderate: structure matters, but people engage directly across levels.",
+     "ru": "Strongly hierarchical: authority is concentrated at the top and expected to be visible."
+    },
+    "scene": "A group executive asks a Paris team lead directly for figures, bypassing the French director. Paris reads it as undermining; Berlin colleagues see nothing unusual; the group executive expects the answer the same day.",
+    "helps": "Agree channels between group and France explicitly. As a France leader, protect your managers' authority while answering the group fast."
+   },
+   {
+    "dimension": "Communicating",
+    "gap": "Large",
+    "tension": "Berlin functions vs Paris and group top",
+    "views": {
+     "fr": "Meaning partly carried by context and nuance; actions not always written down.",
+     "de": "Explicit, precise, written; what is said is what is meant.",
+     "ru": "High-context: priorities and displeasure are often signalled rather than spelled out."
+    },
+    "scene": "In a quarterly review the group leadership says « let's see how the regions perform ». Paris reads a warning about the regional budget; Berlin waits for a written instruction that never comes.",
+    "helps": "After every group meeting, write down decisions, owners and dates and confirm them. Ask directly what a signal means for your budget or plan."
+   },
+   {
+    "dimension": "Scheduling",
+    "gap": "Large",
+    "tension": "Berlin functions vs group top and Paris",
+    "views": {
+     "fr": "Plans adapt as priorities change.",
+     "de": "Linear: agendas, sequences and deadlines are firm.",
+     "ru": "Flexible: plans change quickly with circumstances and leadership priorities."
+    },
+    "scene": "The group changes a France priority between two planning cycles. Berlin's planning calendar breaks; Paris adapts but late; the PE reporting date does not move.",
+    "helps": "Separate fixed dates (investor reporting, legal consultation steps) from movable ones, and flag slippage early."
+   },
+   {
+    "dimension": "Trusting",
+    "gap": "Large",
+    "tension": "Berlin functions vs group top and Paris",
+    "views": {
+     "fr": "Trust grows through relationships and time together.",
+     "de": "Trust comes from reliable delivery.",
+     "ru": "Strongly relationship-based: personal trust with senior leaders speeds everything up."
+    },
+    "scene": "Leaders with a direct relationship to the group CEO get faster decisions; others experience slower approvals and see an inner circle. A new hire who only delivers documents on time is respected in Berlin but not yet trusted at the top.",
+    "helps": "Invest early in personal relationships with the group leadership and with Paris teams, and earn Berlin's trust by delivering exactly what was promised."
+   },
+   {
+    "dimension": "Evaluating",
+    "gap": "Moderate",
+    "tension": "Group top vs Paris",
+    "views": {
+     "fr": "Fairly direct criticism, usually framed by reasoned argument.",
+     "de": "Very direct, factual criticism.",
+     "ru": "Very direct negative feedback, often blunt, sometimes in front of others."
+    },
+    "scene": "A group business review criticises France's lead numbers bluntly in front of the French team. Paris accepts directness but feels the missing reasoning and the public setting as a loss of face.",
+    "helps": "Receive blunt feedback without taking it personally; when passing it on to Paris teams, add the reasoning and deliver sensitive points one to one."
+   },
+   {
+    "dimension": "Disagreeing",
+    "gap": "Small",
+    "tension": "Minor across all three",
+    "views": {
+     "fr": "Open debate is expected and not personal.",
+     "de": "Open, factual disagreement is normal.",
+     "ru": "Disagreement is accepted, though openly challenging the most senior person is rarer."
+    },
+    "scene": "Paris debates freely in its own comité de direction but goes quieter in front of the group CEO. Newcomers from more confrontation-avoiding backgrounds may lose influence in Paris debates.",
+    "helps": "Debate openly in Paris; with the group top, challenge with data, in the right setting, before the decision is final."
+   },
+   {
+    "dimension": "Persuading",
+    "gap": "Small",
+    "tension": "Minor across all three",
+    "views": {
+     "fr": "Strongly principles-first: logic before conclusion.",
+     "de": "Principles-first, slightly more practical.",
+     "ru": "Principles-first leaning, but at group level PE pressure favours results-first messages."
+    },
+    "scene": "A France leader presents a full conceptual case to the group and is asked for the number and the decision first; the same deck without the reasoning would fail in Paris.",
+    "helps": "Prepare two versions: results-first for the group and investors, reasoning-first for Paris."
+   }
+  ],
+  "joining": {
+   "eyebrow": "For an executive joining from outside France",
+   "title": "What to expect in the first six months",
+   "items": [
+    {
+     "title": "Decisions may come fast and from the top.",
+     "text": "The group's leadership and owners favour speed. Expect priorities to be set or changed at group level with short notice and to be treated as final; your job is to execute and explain them, then raise concerns with data."
+    },
+    {
+     "title": "Reasoning before conclusions in Paris.",
+     "text": "French teams expect the logic behind a decision and will challenge it in debate. That is engagement, not resistance."
+    },
+    {
+     "title": "Hierarchy and channels matter.",
+     "text": "In Paris and at the group top, titles and reporting lines carry weight. Going around a director, or letting group colleagues do so, undermines them."
+    },
+    {
+     "title": "Relationships unlock delivery.",
+     "text": "Trust is built personally, in Paris and with the group leadership. Skipping that to be efficient reads as distance."
+    },
+    {
+     "title": "Change goes through employee representatives.",
+     "text": "Reorganisations require consultation of the works council (CSE) on legal timelines; the 2026 plan needed union agreement. The group's pace and France's process have to be reconciled by you."
+    },
+    {
+     "title": "You may be seen as \"the group's person\".",
+     "text": "After two restructurings, an outside hire can be read as an extension of Berlin, the group leadership or the funds. Local legitimacy has to be earned."
+    },
+    {
+     "title": "French is the working language with customers and teams.",
+     "text": "Whether professional French is required depends on the role; confirm it with the client."
+    }
+   ]
+  },
+  "hiring": {
+   "title": "Assess adaptability, never nationality",
+   "items": [
+    {
+     "title": "Test for working under a fast, top-down leadership.",
+     "text": "Ask how the candidate executed decisions taken quickly above them, and how they pushed back with evidence without slowing delivery."
+    },
+    {
+     "title": "Test the Berlin gap.",
+     "text": "Deciding, scheduling and communicating create most friction with group functions. Ask how they worked with a slower, more process-driven head office."
+    },
+    {
+     "title": "Look for evidence of bridging.",
+     "text": "Leaders of a country unit inside a foreign-headquartered group, or people who sat between a head office and a local team, and can show how they adapted each way."
+    },
+    {
+     "title": "Value experience with negotiated change.",
+     "text": "Leading through works councils or unions transfers well; pure \"announce and execute\" experience transfers badly in France."
+    },
+    {
+     "title": "Make language explicit.",
+     "text": "State the French and English requirement per role up front."
+    },
+    {
+     "title": "Reference in three directions.",
+     "text": "Ask a former boss, a peer at head office and a member of the local team how the candidate was perceived."
+    }
+   ],
+   "note": "Nationality, origin or cultural similarity, including similarity to the group's leadership, are never selection criteria. The aim is to assess a capability: reading and adapting to these working styles."
+  }
+ },
+ "transformation": {
+  "title": "Two restructurings, then acceleration",
+  "timeline": [
+   {
+    "time": "Mar 2021",
+    "text": "New France leadership under AVIV; \"European platform\" era begins."
+   },
+   {
+    "time": "Jun 2023",
+    "text": "Opens SeLoger to private-seller listings; price rises; open agent backlash."
+   },
+   {
+    "time": "Oct 2024",
+    "text": "Baptiste Capron appointed France MD; first voluntary-departure plan cuts 90 roles."
+   },
+   {
+    "time": "Mar–Apr 2025",
+    "text": "Pravdivy becomes AVIV CEO; KKR and CPP take majority control."
+   },
+   {
+    "time": "Oct 2025 – Jun 2026",
+    "text": "Job-protection plan: 275 roles (~30%), mostly tech; majority union agreement."
+   },
+   {
+    "time": "Feb 2026",
+    "text": "Internal CTO appointment (9-year engineer)."
+   },
+   {
+    "time": "Jul 2026",
+    "text": "Listing quality score: high-quality listings get up to 16x visibility."
+   },
+   {
+    "time": "Oct 2026",
+    "text": "Acquires 100% of Ouest-France Immo; brand and teams kept."
+   }
+  ]
+ },
+ "metrics": {
+  "title": "Recovery is partial",
+  "groups": [
+   {
+    "label": "French home sales",
+    "bars": [
+     {
+      "label": "2021 sales",
+      "value": 1200000,
+      "display": "1.20M",
+      "muted": true
+     },
+     {
+      "label": "2023 sales",
+      "value": 778000,
+      "display": "778k",
+      "muted": true
+     },
+     {
+      "label": "2026 est.",
+      "value": 955000,
+      "display": "~955k",
+      "muted": true
+     }
+    ]
+   },
+   {
+    "label": "SeLoger France headcount",
+    "bars": [
+     {
+      "label": "FR staff pre",
+      "value": 964,
+      "display": "964"
+     },
+     {
+      "label": "FR staff post",
+      "value": 689,
+      "display": "~689"
+     }
+    ]
+   }
+  ],
+  "note": "Bars scaled to the largest value in each group. Market figures from trade press and SeLoger estimates; headcount from Eurofound and AFP."
+ },
+ "businessInsights": {
+  "title": "The market SeLoger is fighting in",
+  "cards": [
+   {
+    "title": "Agent trust is the main commercial vulnerability",
+    "text": "Agents pay the bills, and many still resent the 2023 private-listing opening and price rises. Their federations co-own a rival and are campaigning on pricing again in 2026. Every pricing or product rule is read politically.",
+    "c": "V",
+    "findings": [
+     "F3",
+     "F22",
+     "F26"
+    ]
+   },
+   {
+    "title": "The Paris core is under attack",
+    "text": "Leboncoin, historically strongest in the provinces, is now targeting Île-de-France, the most valuable market and SeLoger's stronghold, with new packages and marketing.",
+    "c": "V",
+    "findings": [
+     "F6"
+    ]
+   },
+   {
+    "title": "An agent-owned challenger with a loyalty edge",
+    "text": "Bien'ici sells itself as professional-only and agent-controlled, grew visits 14% in 2025 and wants first place. It competes on the relationship SeLoger is trying to repair.",
+    "c": "V",
+    "findings": [
+     "F6",
+     "F22"
+    ]
+   },
+   {
+    "title": "A new entrant with a proven playbook",
+    "text": "idealista enters France in 2026 under a former Leboncoin real-estate head. Its impact is unknown, but it adds a fourth front.",
+    "c": "I",
+    "findings": [
+     "F6"
+    ]
+   },
+   {
+    "title": "Growth through regions and acquisitions",
+    "text": "Regional sales teams, a Grand Ouest acquisition giving 8 in 10 listings there, and a stated ambition to cover every corner of France. More deals are not ruled out.",
+    "c": "V",
+    "findings": [
+     "F9",
+     "F15"
+    ]
+   },
+   {
+    "title": "Differentiation through data and AI",
+    "text": "Meilleurs Agents valuations (a single property can be estimated 14–15 times a week), listing quality scores, natural-language search and owner tools aim to make SeLoger the agent's best lead source.",
+    "c": "V",
+    "findings": [
+     "F4",
+     "F16"
+    ]
+   },
+   {
+    "title": "A market that has only half recovered",
+    "text": "About 955k sales expected in 2026 against 1.2M in 2021; listings stay online ~110 days. Energy-rating reform in Jan 2027 and rate moves make buyers and sellers wait.",
+    "c": "V",
+    "findings": [
+     "F2"
+    ]
+   }
+  ],
+  "competitors": [
+   {
+    "player": "Leboncoin",
+    "model": "Horizontal classifieds (Adevinta)",
+    "edge": "Huge consumer reach; strongest in provinces and rural France",
+    "move": "Push into Île-de-France; new packages and marketing aimed at SeLoger's urban core",
+    "threat": "High"
+   },
+   {
+    "player": "Bien'ici",
+    "model": "Portal owned by agent networks and federations; professional listings only",
+    "edge": "Agent loyalty; low entry pricing (e.g. €249/month for 100 listings, 2022); 3D maps",
+    "move": "220M visits in 2025 (+14%); national campaign; aims for the top spot",
+    "threat": "High"
+   },
+   {
+    "player": "idealista",
+    "model": "Specialist property portal entering France",
+    "edge": "Proven portal playbook in southern Europe",
+    "move": "French launch in 2026 led by the former head of Leboncoin's real-estate unit",
+    "threat": "Medium"
+   },
+   {
+    "player": "PAP",
+    "model": "Private-seller portal",
+    "edge": "Owner-to-owner sales brand",
+    "move": "SeLoger has competed for private sellers since 2023",
+    "threat": "Low–med"
+   },
+   {
+    "player": "Jinka",
+    "model": "Listing aggregator",
+    "edge": "Search across portals",
+    "move": "Lost court cases to SeLoger over scraping (Dec 2025, Jul 2026)",
+    "threat": "Low"
+   }
+  ],
+  "vulnerability": {
+   "title": "The agent trust problem",
+   "intro": "SeLoger's paying customers are agents, and their trust is the business's main commercial vulnerability. This matters most for commercial, pricing, product and CEO roles.",
+   "timeline": [
+    {
+     "time": "2015",
+     "text": "Agent networks and federations launch Bien'ici to regain control of their data and listing prices."
+    },
+    {
+     "time": "Jun 2023",
+     "text": "SeLoger opens free private-seller listings and raises professional prices; some agents call for cutting access; the Guy Hoquet network president accuses SeLoger of turning on agents."
+    },
+    {
+     "time": "Jul 2023",
+     "text": "Bien'ici writes an open letter inviting agents to switch."
+    },
+    {
+     "time": "Late 2024–26",
+     "text": "New France CEO reframes strategy around qualified leads and agent ROI; record new agency clients claimed in 2025."
+    },
+    {
+     "time": "Aug 2026",
+     "text": "FNAIM regional leaders publicly urge agents to pay only for listings they actually publish."
+    }
+   ],
+   "note": "Company growth figures are self-reported. Current churn and agent satisfaction are not public."
+  }
+ },
+ "environment": {
+  "conditions": [
+   {
+    "title": "A PE-backed pace",
+    "facts": "KKR and CPP Investments have controlled AVIV since April 2025 (Axel Springer keeps 10%). AVIV is moving from a division of a media group to an independent, performance-driven company; Yad2 was sold in Dec 2025.",
+    "dayToDay": "Expectations centre on growth, efficiency, execution and value creation. Pace often matters more than polish: decisions on good-enough information, short reporting cycles, and initiatives dropped quickly if they do not show measurable value.",
+    "helps": "Bias to action, clear KPIs, visible results within months.",
+    "derails": "Waiting for certainty or perfection; long unquantified programmes.",
+    "c": "V",
+    "findings": [
+     "F10",
+     "F20",
+     "F23"
+    ],
+    "skills": [
+     1
+    ]
+   },
+   {
+    "title": "Local accountability, evolving decision rights",
+    "facts": "France is gaining authority after the end of AVIV's pan-European platform project, but stays tied to the shared platform, Berlin group functions and group pricing councils.",
+    "dayToDay": "Who owns what between Paris and Berlin is still being settled. Leaders often deliver before their mandate is fully defined, and must decide when to act locally and when to take an issue to the group.",
+    "helps": "Creating clarity yourself, influence across the boundary.",
+    "derails": "Acting as a local baron, or waiting for Berlin's permission.",
+    "c": "I",
+    "findings": [
+     "F5",
+     "F7",
+     "F8"
+    ],
+    "skills": [
+     2
+    ]
+   },
+   {
+    "title": "A business in transformation with legacy complexity",
+    "facts": "Nine French brands and verticals built partly through acquisitions (Logic-Immo, Meilleurs Agents, Ouest-France Immo), a shared group technology platform, and processes formed in a larger organisation.",
+    "dayToDay": "Leaders must simplify structures, products, technology and ways of working while the business keeps selling to ~30,000 professional customers and integrating a new acquisition.",
+    "helps": "Deciding what to merge, keep or retire; protecting revenue during change.",
+    "derails": "Adding initiatives on top of complexity; simplifying so fast that customers are lost.",
+    "c": "V",
+    "findings": [
+     "F1",
+     "F8",
+     "F15",
+     "F16"
+    ],
+    "skills": [
+     3
+    ]
+   },
+   {
+    "title": "A lean organisation after the PSE",
+    "facts": "90 roles cut in 2024 and 275 (~30%) in 2026, about 80% of them engineers. Around 689 people remain in France.",
+    "dayToDay": "Little slack anywhere. Every leader must stop work, prioritise hard and keep a smaller, tired team engaged; hiring is rarely the answer.",
+    "helps": "Ruthless prioritisation, hands-on leadership, attention to morale.",
+    "derails": "Same ambition with fewer people and no trade-offs.",
+    "c": "V",
+    "findings": [
+     "F13",
+     "F14",
+     "F18"
+    ],
+    "skills": [
+     4
+    ]
+   },
+   {
+    "title": "A three-way cultural environment",
+    "facts": "Paris teams shaped by French management culture; Berlin group functions; a group CEO who built his career at Avito in Russia, a COO from Adevinta, and North American investors.",
+    "dayToDay": "Leaders translate continuously: fast, top-down signals from the group, explicit and consensus-first processes in Berlin, and a Paris organisation that expects hierarchy, debate and relationships.",
+    "helps": "Reading context, adapting style, earning trust on all three sides.",
+    "derails": "Over-adapting to the top and losing Paris, or resisting the group's pace.",
+    "c": "I",
+    "findings": [
+     "F19",
+     "F24",
+     "F25",
+     "F27",
+     "F28"
+    ],
+    "skills": [
+     6
+    ]
+   },
+   {
+    "title": "The French social and management model",
+    "facts": "The 2026 plan ran through a formal job-protection process with voluntary departures and majority union agreement; stated culture moved from conviviality to results orientation.",
+    "dayToDay": "Change is negotiated with the works council and unions on legal timelines, which leaders must reconcile with the group's pace. Inside, authority is visible and ideas are debated hard.",
+    "helps": "Credibility with employee representatives, well-argued positions.",
+    "derails": "Announce-and-execute; treating consultation as a formality.",
+    "c": "V",
+    "findings": [
+     "F13",
+     "F17"
+    ],
+    "skills": [
+     5,
+     1
+    ]
+   },
+   {
+    "title": "A contested market and repeated resets",
+    "facts": "Three France leaders in five years, a strategy pendulum, a half-recovered market, and Leboncoin, Bien'ici and idealista pressing on SeLoger's core.",
+    "dayToDay": "Teams watch whether a new direction will hold. Leaders must build credibility through consistency while reacting quickly to competitors.",
+    "helps": "Steady direction, keeping promises, explaining the why.",
+    "derails": "Another wholesale reset; overpromising.",
+    "c": "I",
+    "findings": [
+     "F2",
+     "F6",
+     "F12"
+    ],
+    "skills": [
+     4
+    ]
+   }
+  ],
+  "opportunity": "Not simply to manage an established function, but to shape a more agile, effective and accountable organisation, delivering measurable business impact in a PE-backed environment."
+ },
+ "confidence": {
+  "unknowns": [
+   "France P&L, EBITDA and growth targets set by owners",
+   "Current reporting line of the France CEO",
+   "France executive committee composition after the 2026 plan",
+   "Backgrounds of senior hires at AVIV since 2025 (reported shift to Russian business backgrounds not publicly confirmed)"
+  ],
+  "hypotheses": [
+   "France now owns its product roadmap end to end",
+   "Post-plan morale and retention risk in product and tech",
+   "Agent relationship is improving, not just lead volume"
+  ],
+  "contradictions": [
+   "Management says the market crisis was \"not the main factor\" in cuts; the 2025 statement cited competitiveness",
+   "Company growth claims (leads +40%) vs public agent complaints about value for money",
+   "Two public sources name different heads of AVIV Germany since late 2025"
+  ],
+  "sourcesNote": "Accessed 9–10 October 2026. Review sites (S19, S29) are supplementary only; the revenue estimate (S20) is a third-party figure and is not relied on."
+ },
+ "questions": [
+  {
+   "question": "What France-level revenue, EBITDA and growth targets have KKR/CPP and AVIV set for 2027–2028, and which executives own them?",
+   "why": "Sets the weight of Skill 1."
+  },
+  {
+   "question": "How would you describe the pace expected by the owners and group leadership? Where does speed matter more than quality, and where not?",
+   "why": "Validates the PE-pace assumption."
+  },
+  {
+   "question": "Which decisions now sit with France, and which with AVIV (pricing, budget, hiring, platform, M&A)? What is still being decided?",
+   "why": "Confirms decision rights and Skill 2."
+  },
+  {
+   "question": "Since March 2025, which senior roles have changed, and where were the new leaders' careers built?",
+   "why": "Validates the group-leadership culture in the map."
+  },
+  {
+   "question": "How does the group leadership take and communicate decisions, and how do Paris teams and Berlin functions respond?",
+   "why": "Validates the culture scenes and Skill 5."
+  },
+  {
+   "question": "After the 2026 plan, which capabilities are missing, and how are morale and retention, especially in product and tech?",
+   "why": "Shapes Skill 4 and onboarding."
+  },
+  {
+   "question": "What is the working language of the France executive committee and of group forums? Is professional French required for this role?",
+   "why": "Sets the language requirement per role."
+  },
+  {
+   "question": "How are relations with the works council and unions since the job-protection plan?",
+   "why": "Validates Skill 6."
+  },
+  {
+   "question": "Which legacy brands, products, processes or systems does leadership most want simplified in the next 18 months?",
+   "why": "Validates Skill 3."
+  },
+  {
+   "question": "What is the integration plan for Ouest-France Immo, and are further acquisitions planned?",
+   "why": "Sets transformation load."
+  },
+  {
+   "question": "How does management assess the agent relationship today: churn, satisfaction, federation relations?",
+   "why": "Sets the weight of agent trust for commercial roles."
+  },
+  {
+   "question": "What is the expected ownership horizon, and how would an exit scenario affect the mandate?",
+   "why": "Clarifies time horizon and incentives."
+  }
+ ],
+ "skills": [
+  {
+   "name": "Delivering at PE pace while the organisation is still being redrawn",
+   "definition": "Gets measurable results within months even though AVIV's governance, France's decision rights, team structures and processes are still changing, and even though change in France runs through legal consultation with the works council.",
+   "whyHere": "KKR and CPP have owned AVIV since April 2025 with value-creation expectations; the group CEO is credited with growing Avito's revenue 30-fold; the 2026 PSE cut ~30% of France; France is re-localising after the European platform while integrating Ouest-France Immo; Paris–Berlin decision rights are not settled; group timelines are shorter than French consultation timelines.",
+   "markers": [
+    {
+     "title": "Pace over polish",
+     "text": "Decides with 70–80% of the information, ships, measures and adjusts. Knows the few things that must be perfect (legal steps, customer billing) and lets the rest be good enough."
+    },
+    {
+     "title": "Creates their own map",
+     "text": "When reporting lines and ownership are unclear, writes down who decides what and by when, gets it agreed, and escalates only what truly needs the group."
+    },
+    {
+     "title": "Numbers first",
+     "text": "Tracks a handful of metrics, reports in numbers on a monthly or quarterly rhythm, and says early when a number goes the wrong way."
+    }
+   ],
+   "evidence": [
+    "Delivered a measurable result within 6–9 months of joining a business in restructuring or post-merger flux",
+    "Planned a transformation around consultation or other fixed constraints and still hit business milestones",
+    "Reported to a board or investors against value-creation targets"
+   ],
+   "redFlags": [
+    "Waits for a clean mandate, a full team or stable processes",
+    "Polishes past the point of value; long preparation, little delivery",
+    "Uses unclear governance or French process to explain missed results"
+   ],
+   "question": "Tell me about a time you had to deliver a significant result while the organisation around you was being restructured and it was unclear who owned key decisions. What did you do in the first 30 days to create clarity, what did you deliver and by when, and what did you consciously leave imperfect?",
+   "probe": "What was the one thing you refused to compromise on, and why?",
+   "c": "V",
+   "confidenceNote": "Highest-weighted capability for every senior role. The speed-over-polish expectation is search-partner input to confirm with the client.",
+   "findings": [
+    "F8",
+    "F10",
+    "F13",
+    "F14",
+    "F15",
+    "F27"
+   ]
+  },
+  {
+   "name": "Using France's new autonomy without breaking the AVIV link",
+   "definition": "Takes the authority France is gaining on product, regional strategy and local services and uses it fully, while working through AVIV's shared platform, Berlin group functions and group pricing councils where France still depends on the group.",
+   "whyHere": "The 2026 re-localisation gave France its own CTO and product agenda, but pricing must align with the 'Group pricing architecture' in group councils, the listing platform is shared, owners set targets, and responsibilities between Paris and Berlin are still evolving.",
+   "markers": [
+    {
+     "title": "Argues hard, then commits",
+     "text": "Makes France's case to the group with data and pre-alignment; once the group decides, delivers it and keeps the team behind it."
+    },
+    {
+     "title": "Owner, not messenger",
+     "text": "Presents group decisions to Paris as their own and takes local decisions without waiting for Berlin's permission."
+    },
+    {
+     "title": "Does what they said",
+     "text": "Makes few promises to the group and keeps them; flags slippage before the deadline. This is how trust is earned with Berlin functions."
+    }
+   ],
+   "evidence": [
+    "Led a unit or function while its decision rights with a parent were being renegotiated",
+    "Won a group decision for local needs",
+    "Delivered a local outcome on a shared group platform or service",
+    "Kept a team behind a group decision they had argued against"
+   ],
+   "redFlags": [
+    "Acts as an independent local baron and ignores group frameworks",
+    "Waits for headquarters' approval and relays its messages",
+    "Reopens decisions after they are made"
+   ],
+   "question": "Tell me about a time your unit gained autonomy from a parent while still depending on its shared platforms or functions. Which decisions did you take locally, which did you take to the group, how did you decide, and what was the result?",
+   "probe": "Tell me about a group decision you argued against and then had to deliver. How did your team experience it?",
+   "c": "I",
+   "confidenceNote": "All senior roles with group interfaces. Decision rights are inferred and need client validation.",
+   "findings": [
+    "F5",
+    "F7",
+    "F8",
+    "F19"
+   ]
+  },
+  {
+   "name": "Simplifying a multi-brand legacy estate while it keeps selling",
+   "definition": "Reduces complexity across SeLoger's nine French brands and verticals, overlapping offers, processes and the shared AVIV technology, without disrupting revenue from ~30,000 professional customers or the spring selling season.",
+   "whyHere": "Brands accumulated through acquisitions (Logic-Immo 2018, Meilleurs Agents, Ouest-France Immo 2026); a European platform built and then de-prioritised; product capacity cut by ~30%; combined Ouest-France Immo offers planned within a year. Every function carries part of the legacy: finance systems, HR processes, tech stack, price plans.",
+   "markers": [
+    {
+     "title": "Stops before starting",
+     "text": "Retires or merges something before adding something new, and can say what they stopped."
+    },
+    {
+     "title": "Respect for the customer's business",
+     "text": "Judges each simplification by its effect on agents, who are small businesses under pressure; protects customer-facing performance during migrations."
+    },
+    {
+     "title": "Keeps what is worth keeping",
+     "text": "Decides explicitly what to merge, keep separate or leave alone, as with Ouest-France Immo's brand and local teams."
+    }
+   ],
+   "evidence": [
+    "Rationalised products, brands, price plans or systems and showed the revenue effect",
+    "Simplified processes in their own function after a merger or restructuring",
+    "Integrated an acquisition while retaining its key customers and people"
+   ],
+   "redFlags": [
+    "Adds initiatives on top of old complexity",
+    "Simplifies so fast that customers or revenue are lost",
+    "Treats simplification as only an IT project"
+   ],
+   "question": "Tell me about a time you simplified a portfolio of products, brands, systems or processes that had built up over years. How did you decide what to cut or merge, how did you protect revenue while doing it, and what was the measurable result?",
+   "probe": "What did you decide not to change, and why?",
+   "c": "V",
+   "confidenceNote": "All senior roles.",
+   "findings": [
+    "F1",
+    "F8",
+    "F15",
+    "F16",
+    "F22"
+   ]
+  },
+  {
+   "name": "Getting more from a post-PSE organisation that has seen three leaders and two strategies",
+   "definition": "Raises output and quality in a French organisation that cut 90 roles in 2024 and 275 in 2026, mostly engineers, and has had three France leaders and a strategy swing since 2021, by stopping low-value work, setting a steady direction and re-engaging people who watched colleagues leave.",
+   "whyHere": "Around 689 people in France are asked for more local features, more leads, more regions and an acquisition integration; career-opportunity ratings are weak; teams watch whether each new direction will hold.",
+   "markers": [
+    {
+     "title": "Sleeves rolled up",
+     "text": "Does whatever the work needs in a smaller team: writes the first draft, joins the customer call, looks at the data themselves."
+    },
+    {
+     "title": "Steady in the churn",
+     "text": "Stays calm and consistent through change they do not control, absorbs uncertainty for the team, and explains what stays constant as well as what changes."
+    },
+    {
+     "title": "Kind and candid",
+     "text": "Combines care for people who lived through cuts (SeLoger's stated value of bienveillance) with direct, honest messages about performance."
+    }
+   ],
+   "evidence": [
+    "Led a team after major cuts and improved results within 12 months",
+    "Joined after several leadership changes and built credibility, starting with a listening phase",
+    "Kept key people through uncertainty, and can name how"
+   ],
+   "redFlags": [
+    "Same ambition with fewer people and no trade-offs",
+    "Arrives with a full new strategy and triggers another reset",
+    "Avoids hard people messages, or delivers them harshly"
+   ],
+   "question": "Describe a time you led an organisation that had recently lost a significant share of its people and had seen several changes of direction. What did you change in the first 90 days, what did you deliberately leave alone, and how did you know people had re-engaged?",
+   "probe": "What did your team see from you in the week after the hardest announcement?",
+   "c": "V",
+   "confidenceNote": "All senior roles; most acute in product, technology and operations, and for external hires.",
+   "findings": [
+    "F2",
+    "F6",
+    "F12",
+    "F13",
+    "F14",
+    "F18"
+   ]
+  },
+  {
+   "name": "Leading French teams effectively",
+   "definition": "Leads, persuades and builds trust in the way French teams expect, using the working norms Erin Meyer's Culture Map describes for French business culture. This is a capability to assess in every candidate, French or not, never a question of nationality.",
+   "whyHere": "SeLoger's ~689 people, its customers, federations and unions work in French business culture. On Meyer's map France is principles-first, comfortable with open confrontation, hierarchical yet debate-driven in decisions, relationship-based in trust and high-context in communication.",
+   "markers": [
+    {
+     "title": "Reasoning before conclusions (Persuading)",
+     "text": "Builds the framework and the why before the recommendation; expects the logic to be tested."
+    },
+    {
+     "title": "Debate as engagement (Disagreeing)",
+     "text": "Takes part in vigorous debate in the comité de direction, separates the idea from the person, and does not read challenge as resistance."
+    },
+    {
+     "title": "Visible authority that can be challenged (Leading, Deciding)",
+     "text": "Holds the decision clearly as the leader, invites argument before deciding, and respects titles and channels."
+    },
+    {
+     "title": "Relationships and reading between the lines (Trusting, Communicating)",
+     "text": "Invests time in people beyond tasks, and listens for what is implied rather than said."
+    }
+   ],
+   "evidence": [
+    "Led teams in France or in a comparable principles-first, debate-driven culture and can describe how they adapted",
+    "Won support for a contested decision through argument rather than authority alone",
+    "Built working trust with employee representatives over time"
+   ],
+   "redFlags": [
+    "Opens with the conclusion and bullet points, and is judged superficial",
+    "Goes quiet or takes offence in open debate",
+    "Bypasses directors or ignores informal relationships"
+   ],
+   "question": "Tell me about a time you had to win over a team that challenged your reasoning hard. How did you build your case, what happened in the debate, and what did you change in how you led them afterwards?",
+   "probe": "What did you learn about how that team built trust with a new leader?",
+   "c": "I",
+   "confidenceNote": "All senior roles leading people in France. Culture-map positions are approximate readings of Meyer's published work, not official scores.",
+   "findings": [
+    "F13",
+    "F17",
+    "F24",
+    "F25"
+   ]
+  },
+  {
+   "name": "Bridging Paris, Berlin and a fast-moving group leadership",
+   "definition": "Translates between Paris teams, Berlin group functions that are explicit, consensus-first and schedule-driven, and a group leadership and investors who favour speed, directness and decisions from the top.",
+   "whyHere": "A group CEO with a decade at Avito in Russia and a COO from Adevinta, KKR and CPP as owners, German ownership since 2011 and a Berlin HQ. Reported further senior hires come from Russian business backgrounds (to validate).",
+   "markers": [
+    {
+     "title": "Two versions of every message",
+     "text": "Results-first for the group and investors, reasoning-first for Paris."
+    },
+    {
+     "title": "Writes it down",
+     "text": "After every cross-border meeting, confirms decisions, owners and dates in writing, which Berlin needs and the group's high-context signals require."
+    },
+    {
+     "title": "Takes blunt feedback well",
+     "text": "Receives direct criticism from the group without taking it personally, and passes it on to Paris with the reasoning, one to one where it is sensitive."
+    }
+   ],
+   "evidence": [
+    "Worked between a head office and a local unit in different countries",
+    "Worked under a fast, top-down leadership and kept their own team engaged",
+    "Is described as credible by both a former boss and a former local team"
+   ],
+   "redFlags": [
+    "Over-adapts to the group top and loses Paris",
+    "Reads the group's directness as disrespect",
+    "Assumes one working style is right"
+   ],
+   "question": "Tell me about a time you worked for a senior leader whose style was much faster and more top-down than your team was used to, while you also depended on a slower, process-driven function elsewhere. How did you adapt, what friction arose, and how did you resolve it?",
+   "probe": "How would the people on each side describe you?",
+   "c": "I",
+   "confidenceNote": "All senior roles, most of all those with frequent group contact. Never a proxy for nationality, including similarity to the group leadership.",
+   "findings": [
+    "F19",
+    "F24",
+    "F25",
+    "F27",
+    "F28"
+   ]
+  }
+ ],
+ "findings": [
+  {
+   "id": "F1",
+   "title": "SeLoger is France's leading property portal, monetised through professional subscriptions",
+   "c": "V",
+   "sources": [
+    "S11",
+    "S14",
+    "S9"
+   ]
+  },
+  {
+   "id": "F2",
+   "title": "The market has only partly recovered from the 2022–24 downturn",
+   "c": "V",
+   "sources": [
+    "S3",
+    "S10"
+   ]
+  },
+  {
+   "id": "F3",
+   "title": "Agent relations were damaged by private-seller listings and price rises in 2023",
+   "c": "V",
+   "sources": [
+    "S15",
+    "S16",
+    "S17"
+   ]
+  },
+  {
+   "id": "F4",
+   "title": "Strategy since late 2024 centres on qualified leads and agent ROI",
+   "c": "V",
+   "sources": [
+    "S24",
+    "S6",
+    "S9",
+    "S10"
+   ]
+  },
+  {
+   "id": "F5",
+   "title": "Pricing is a group-level strategic lever in AVIV's 2030 plan",
+   "c": "V",
+   "sources": [
+    "S11"
+   ]
+  },
+  {
+   "id": "F6",
+   "title": "Competition is intensifying on several fronts at once",
+   "c": "V",
+   "sources": [
+    "S3",
+    "S6",
+    "S27",
+    "S28"
+   ]
+  },
+  {
+   "id": "F7",
+   "title": "France runs as a country unit inside AVIV, through the entity Digital Classifieds France",
+   "c": "V",
+   "sources": [
+    "S3",
+    "S4",
+    "S5",
+    "S14"
+   ]
+  },
+  {
+   "id": "F8",
+   "title": "The shared European platform is finished; France has re-localised",
+   "c": "V",
+   "sources": [
+    "S1",
+    "S4"
+   ]
+  },
+  {
+   "id": "F9",
+   "title": "Sales and product are being pushed closer to regional markets",
+   "c": "V",
+   "sources": [
+    "S6",
+    "S9"
+   ]
+  },
+  {
+   "id": "F10",
+   "title": "KKR and CPP Investments control AVIV; Axel Springer keeps 10%",
+   "c": "V",
+   "sources": [
+    "S12",
+    "S21",
+    "S26"
+   ]
+  },
+  {
+   "id": "F11",
+   "title": "Group leadership changed in 2025; the group CEO came from a horizontal marketplace",
+   "c": "V",
+   "sources": [
+    "S13",
+    "S35",
+    "S3"
+   ]
+  },
+  {
+   "id": "F12",
+   "title": "France leadership has turned over three times in five years",
+   "c": "I",
+   "sources": [
+    "S22",
+    "S14"
+   ]
+  },
+  {
+   "id": "F13",
+   "title": "Restructuring went through formal French social dialogue",
+   "c": "V",
+   "sources": [
+    "S1"
+   ]
+  },
+  {
+   "id": "F14",
+   "title": "Two consecutive workforce reductions in 18 months",
+   "c": "V",
+   "sources": [
+    "S1",
+    "S2",
+    "S3"
+   ]
+  },
+  {
+   "id": "F15",
+   "title": "Growth now includes regional acquisitions that keep their own brands",
+   "c": "V",
+   "sources": [
+    "S8",
+    "S9"
+   ]
+  },
+  {
+   "id": "F16",
+   "title": "Product bets: listing quality, AI search and owner tools",
+   "c": "V",
+   "sources": [
+    "S7",
+    "S10"
+   ]
+  },
+  {
+   "id": "F17",
+   "title": "Stated values moved from conviviality to results orientation",
+   "c": "I",
+   "sources": [
+    "S22",
+    "S21"
+   ]
+  },
+  {
+   "id": "F18",
+   "title": "Employee sentiment on career prospects appears weak",
+   "c": "H",
+   "sources": [
+    "S19"
+   ]
+  },
+  {
+   "id": "F19",
+   "title": "Cross-border collaboration is mainly France ↔ Berlin group functions",
+   "c": "I",
+   "sources": [
+    "S11",
+    "S26",
+    "S8"
+   ]
+  },
+  {
+   "id": "F20",
+   "title": "Accountability centres on leads, client acquisition, listing share and monetisation",
+   "c": "I",
+   "sources": [
+    "S6",
+    "S9",
+    "S11"
+   ]
+  },
+  {
+   "id": "F21",
+   "title": "Mix of external general managers and internal technical promotion",
+   "c": "V",
+   "sources": [
+    "S14",
+    "S5"
+   ]
+  },
+  {
+   "id": "F22",
+   "title": "Agent networks and federations are both customers and competitors",
+   "c": "V",
+   "sources": [
+    "S15",
+    "S6"
+   ]
+  },
+  {
+   "id": "F24",
+   "title": "German ownership has framed the French organisation for 15 years",
+   "c": "I",
+   "sources": [
+    "S31",
+    "S32",
+    "S1"
+   ]
+  },
+  {
+   "id": "F25",
+   "title": "English is the group language; French is the operating language in France",
+   "c": "H",
+   "sources": [
+    "S11",
+    "S1",
+    "S33"
+   ]
+  },
+  {
+   "id": "F26",
+   "title": "Agent federations are still campaigning on portal pricing in 2026",
+   "c": "V",
+   "sources": [
+    "S33",
+    "S34"
+   ]
+  },
+  {
+   "id": "F23",
+   "title": "Financial headroom for the turnaround is unclear",
+   "c": "U",
+   "sources": [
+    "S20",
+    "S1",
+    "S10"
+   ]
+  },
+  {
+   "id": "F27",
+   "title": "The AVIV CEO built his career at Avito in Russia",
+   "c": "V",
+   "sources": [
+    "S13",
+    "S35",
+    "S38",
+    "S39"
+   ]
+  },
+  {
+   "id": "F28",
+   "title": "Group operating leadership from large classifieds groups",
+   "c": "V",
+   "sources": [
+    "S36",
+    "S37",
+    "S40"
+   ]
+  }
+ ],
+ "sources": [
+  {
+   "id": "S1",
+   "title": "MySweetImmo / AFP, 3 Feb 2026: SeLoger–Meilleurs Agents to cut 275 roles",
+   "url": "https://www.mysweetimmo.com/2026/02/03/portail-immobilier-le-groupe-seloger-meilleurs-agents-engage-un-plan-de-suppression-de-275-postes/"
+  },
+  {
+   "id": "S2",
+   "title": "Eurofound European Restructuring Monitor, factsheet 204187 (SeLoger, 2026)",
+   "url": "https://apps.eurofound.europa.eu/restructuring-events/detail/204187"
+  },
+  {
+   "id": "S3",
+   "title": "Online Marketplaces, 4 Nov 2025: Big job losses confirmed at SeLoger",
+   "url": "https://www.onlinemarketplaces.com/articles/big-job-losses-confirmed-at-seloger-amid-continued-market-downturn-and-increased-competition/"
+  },
+  {
+   "id": "S4",
+   "title": "Online Marketplaces, 20 Feb 2026: People Roundup (SeLoger layoff details)",
+   "url": "https://www.onlinemarketplaces.com/articles/people-roundup-costar-group-seloger-immobiliare-propertyguru-group/"
+  },
+  {
+   "id": "S5",
+   "title": "Online Marketplaces, 27 Feb 2026: SeLoger promotes CTO; AVIV interim CPO leaves for SMG",
+   "url": "https://www.onlinemarketplaces.com/articles/people-roundup-boneo-seloger-smg-rea-india/"
+  },
+  {
+   "id": "S6",
+   "title": "Online Marketplaces, 13 Mar 2026: French portal rivalry intensifies",
+   "url": "https://www.onlinemarketplaces.com/articles/french-portal-rivalry-intensifies-as-bienici-seloger-and-leboncoin-trade-claims/"
+  },
+  {
+   "id": "S7",
+   "title": "Online Marketplaces, 16 Jul 2026: SeLoger introduces listing scores",
+   "url": "https://www.onlinemarketplaces.com/articles/seloger-introduces-listings-scores-for-visibility-weighting/"
+  },
+  {
+   "id": "S8",
+   "title": "Online Marketplaces, 2 Oct 2026: M&A Roundup, SeLoger acquires Ouest-France Immo",
+   "url": "https://www.onlinemarketplaces.com/articles/ma-roundup-360latam-seloger/"
+  },
+  {
+   "id": "S9",
+   "title": "MySweetImmo, 2 Oct 2026: Capron on the Ouest-France Immo acquisition",
+   "url": "https://www.mysweetimmo.com/2026/10/02/rachat-de-ouest-france-immo-nos-deux-groupes-nen-font-quun-baptiste-capron-seloger/"
+  },
+  {
+   "id": "S10",
+   "title": "MySweetImmo, 9 Sep 2026: Capron interview, market and product priorities",
+   "url": "https://www.mysweetimmo.com/2026/09/09/immobilier-les-francais-nont-jamais-autant-cherche-sur-seloger-baptiste-capron/"
+  },
+  {
+   "id": "S11",
+   "title": "AVIV job ad, Jun 2026: Head of Pricing & Monetization France",
+   "url": "https://fr.engineering.jobs/fr/emploi/head-pricing-monetization-france-f-m-d-7940281"
+  },
+  {
+   "id": "S12",
+   "title": "Business Wire, 29 Apr 2025: Axel Springer implements new corporate structure",
+   "url": "https://www.businesswire.com/news/home/20250429202732/en/Axel-Springer-Implements-New-Corporate-Structure"
+  },
+  {
+   "id": "S13",
+   "title": "Online Marketplaces, 27 Feb 2025: Ex-Avito CEO to lead AVIV Group",
+   "url": "https://www.onlinemarketplaces.com/articles/axel-springer-appoints-ex-avito-ceo-to-lead-aviv-group-as-ait-voncke-departs/"
+  },
+  {
+   "id": "S14",
+   "title": "MySweetImmo, 22 Oct 2024: Baptiste Capron named head of SeLoger and Meilleurs Agents",
+   "url": "https://www.mysweetimmo.com/2024/10/22/immobilier-baptiste-capron-nomme-a-la-tete-de-seloger-et-de-meilleurs-agents"
+  },
+  {
+   "id": "S15",
+   "title": "Online Marketplaces, 19 Jul 2023: Bien'ici open letter to agents; SeLoger FSBO",
+   "url": "https://onlinemarketplaces.com/articles/bien-ici-ceo-cyril-janin-pens-open-letter-to-french-agents-urging-them-to-take-back-control"
+  },
+  {
+   "id": "S16",
+   "title": "MySweetImmo, 11 Jul 2023: Guy Hoquet president on SeLoger private listings",
+   "url": "https://www.mysweetimmo.com/2023/07/11/les-agents-immobiliers-poignardes-en-plein-coeur-stephane-fritz-guy-hoquet"
+  },
+  {
+   "id": "S17",
+   "title": "FranceTransactions: SeLoger opens to private sellers; price rises for professionals",
+   "url": "https://www.francetransactions.com/actus/immobilier/marche-immo/annonces-gratuites-de-vente-immobiliere-le-portail-seloger-desormais-accessible.html"
+  },
+  {
+   "id": "S18",
+   "title": "LinkedIn (Ryan Hill): CEO AVIV Germany GmbH from Nov 2025",
+   "url": "https://za.linkedin.com/in/ryandwhill"
+  },
+  {
+   "id": "S19",
+   "title": "Glassdoor: Groupe SeLoger, career-opportunity rating (Jun 2026)",
+   "url": "https://www.glassdoor.com.au/Jobs/Groupe-SeLoger-Jobs-E230035.htm"
+  },
+  {
+   "id": "S20",
+   "title": "Bitscale company profile: AVIV revenue estimate (third-party, unverified)",
+   "url": "https://ghost.bitscale.ai/aviv-group/"
+  },
+  {
+   "id": "S21",
+   "title": "AVIV job ad, Jun 2026: Corporate Development (KKR, CPP; stated behaviours)",
+   "url": "https://www.ziprecruiter.de/jobs/553217514-associate-corporate-development-m-a-bei-aviv-group"
+  },
+  {
+   "id": "S22",
+   "title": "MySweetImmo, 17 Mar 2021: Caroline de Gantès heads Groupe SeLoger; stated values",
+   "url": "https://www.mysweetimmo.com/2021/03/17/la-franco-americaine-caroline-de-gantes-nommee-a-la-tete-du-groupe-seloger-aviv/"
+  },
+  {
+   "id": "S23",
+   "title": "Revelio Labs: AVIV Group headcount estimate (Sep 2025)",
+   "url": "https://www.reveliolabs.com/companies/aviv-group/employees"
+  },
+  {
+   "id": "S24",
+   "title": "MySweetImmo, 18 Nov 2024: Capron on qualified leads and agent ROI",
+   "url": "https://www.mysweetimmo.com/2024/11/18/baptiste-capron-seloger-garantir-aux-agents-immobiliers-des-contacts-qualifies-et-un-vrai-retour-sur-investissement/"
+  },
+  {
+   "id": "S25",
+   "title": "Erin Meyer, The Culture Map (PublicAffairs, 2014)",
+   "url": "https://erinmeyer.com/books/the-culture-map/"
+  },
+  {
+   "id": "S26",
+   "title": "Online Marketplaces, 2 Dec 2025: AVIV sells Yad2 to Apax (headline)",
+   "url": "https://www.onlinemarketplaces.com/articles/aviv-group-sells-israeli-classifieds-brand-yad2-to-apax-partners-for-950m/"
+  },
+  {
+   "id": "S27",
+   "title": "MySweetImmo, 4 Aug 2026: Aurélien Flament to lead idealista France (headline)",
+   "url": "https://www.mysweetimmo.com/2026/08/04/apres-leboncoin-aurelien-flament-prend-la-tete-didealista-france/"
+  },
+  {
+   "id": "S28",
+   "title": "Online Marketplaces, 17 Dec 2025: SeLoger wins ruling against Jinka",
+   "url": "https://www.onlinemarketplaces.com/articles/seloger-wins-court-ruling-against-jinka-over-unauthorised-listing-scraping/"
+  },
+  {
+   "id": "S29",
+   "title": "Custplace: agent customer review of SeLoger (Aug 2025)",
+   "url": "https://fr.custplace.com/seloger-com/seloger-fossoyeur-des-agences-3552242"
+  },
+  {
+   "id": "S30",
+   "title": "MySweetImmo, 15 Mar 2022: Evans de Gantès heads AVIV France (~800 staff)",
+   "url": "https://www.mysweetimmo.com/2022/03/15/nomination-caroline-evans-de-gantes-nommee-directrice-generale-du-groupe-aviv-france/"
+  },
+  {
+   "id": "S31",
+   "title": "Consultor: SeLoger names new France MD; Axel Springer owner of SeLoger since 2011",
+   "url": "https://www.consultor.fr/articles/seloger-caroline-evans-de-gantes-nommee-dg-france"
+  },
+  {
+   "id": "S32",
+   "title": "Change.org (2018): Logic-Immo employees' petition against the SeLoger takeover",
+   "url": "https://www.change.org/p/le-collectif-des-salariés-non-au-rachat-de-logic-immo-par-seloger"
+  },
+  {
+   "id": "S33",
+   "title": "MySweetImmo, 25 Aug 2026: FNAIM Région Sud, 'pay only for the listings you publish' (headline)",
+   "url": "https://www.mysweetimmo.com/2026/08/25/agents-immobiliers-ne-payez-que-les-annonces-que-vous-diffusez-jonathan-le-corronc-clady-et-didier-bertrand-fnaim-region-sud/"
+  },
+  {
+   "id": "S34",
+   "title": "FranceTransactions (2015): agent networks launch Bien'ici to control data and listing prices",
+   "url": "https://www.francetransactions.com/actus/immobilier/taux-immo/Bien-ici-un-site-de-petites-annonces-immobilieres-fait-par-les-professionnels.html"
+  },
+  {
+   "id": "S35",
+   "title": "Immoweb (AVIV), 25 Feb 2025: AVIV Group announces CEO transition",
+   "url": "https://www.immoweb.be/en/page/aviv-group-annonce-un-changement-de-pdg"
+  },
+  {
+   "id": "S36",
+   "title": "Online Marketplaces, 28 Mar 2025: Ovidiu Solomonov joins AVIV as COO",
+   "url": "https://www.onlinemarketplaces.com/articles/people-roundup-aviv-group-pisos-com-kleinanzeigen-rea-india-anjuke/"
+  },
+  {
+   "id": "S37",
+   "title": "The Org: AVIV Group organisation chart (snapshot, Oct 2026)",
+   "url": "https://theorg.com/org/aviv-group-1"
+  },
+  {
+   "id": "S38",
+   "title": "vc.ru, 2023: Vladimir Pravdivy leaves Avito (in Russian)",
+   "url": "https://vc.ru/665730-vladimir-pravdivyi-zavershaet-rabotu-v-avito"
+  },
+  {
+   "id": "S39",
+   "title": "North Data: AVIV Group GmbH commercial register (Berlin)",
+   "url": "https://www.northdata.com/AVIV+Group+GmbH,+Berlin/Amtsgericht+Charlottenburg+(Berlin)+HRB+172136+B"
+  },
+  {
+   "id": "S40",
+   "title": "Online Marketplaces, 1 Dec 2020: Ait Voncke named AVIV CEO",
+   "url": "https://www.onlinemarketplaces.com/articles/aviv-group-announces-new-ceo-for-the-new-year/"
+  }
+ ]
+}

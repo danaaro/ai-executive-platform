@@ -17,6 +17,7 @@ __pycache__/
 *.pyc
 .venv/
 .next/
+.next-qa/
 next-env.d.ts
 *.tsbuildinfo
 

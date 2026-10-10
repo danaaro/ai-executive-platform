@@ -3,6 +3,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { getUserNames } from "@/shared/current-user";
 import { latestOutputs, latestResearch, moduleStates } from "@/orchestrator/company-intel";
+import { pendingCockpitRun } from "@/orchestrator/exec10x-writers";
 import { adminOr404, companyBySlug } from "../../guard";
 import { usageCost, type RunUsage } from "@/shared/ai-cost";
 
@@ -58,7 +59,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
   const company = await companyBySlug((await params).slug);
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [modules, research, outputs, inputs] = await Promise.all([
+  const [modules, research, outputs, inputs, pendingRun] = await Promise.all([
     moduleStates(company.id),
     latestResearch(company.id),
     latestOutputs(company.id),
@@ -72,6 +73,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
       .from(tables.companyInputs)
       .where(eq(tables.companyInputs.companyId, company.id))
       .orderBy(asc(tables.companyInputs.createdAt)),
+    pendingCockpitRun(company.id),
   ]);
 
   const names = await getUserNames(outputs.report?.reviewedBy ? [outputs.report.reviewedBy] : []);
@@ -95,6 +97,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     inputs: inputs.map((i) => ({ id: i.id, filename: i.filename, chars: i.chars, createdAt: i.createdAt })),
     report: shape(outputs.report),
     cost: await companyCosts(company.id, research, outputs.report),
+    // v3: an unfinished run whose written parts a retry reuses (ADR-009 §18).
+    pendingRun,
   });
 }
 

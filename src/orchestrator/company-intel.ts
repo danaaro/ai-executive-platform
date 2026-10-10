@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, asc, desc, eq, max } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, max } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { findPersonaPhotos, photoUsage } from "@/orchestrator/persona-photos";
@@ -138,15 +138,15 @@ export async function moduleStates(companyId: string): Promise<ModuleState[]> {
 }
 
 export async function latestResearch(companyId: string) {
-  const rows = await db()
-    .select()
-    .from(tables.companyResearch)
-    .where(eq(tables.companyResearch.companyId, companyId))
-    .orderBy(desc(tables.companyResearch.createdAt));
-  const seen = new Set<string>();
-  return rows
-    .filter((r) => (seen.has(r.module) ? false : (seen.add(r.module), true)))
-    .sort((a, b) => a.module.localeCompare(b.module));
+  // Newest row per module, picked in SQL: the full history (every refresh) is
+  // never downloaded just to throw most of it away.
+  const r = tables.companyResearch;
+  const newest = db()
+    .selectDistinctOn([r.module], { id: r.id })
+    .from(r)
+    .where(eq(r.companyId, companyId))
+    .orderBy(r.module, desc(r.createdAt));
+  return db().select().from(r).where(inArray(r.id, newest)).orderBy(asc(r.module));
 }
 
 export async function latestOutputs(companyId: string) {
@@ -192,9 +192,13 @@ type Progress = (line: string) => void;
 export async function runToCompletion(opts: {
   model: string;
   system: string;
+  /** Prompt-cache the system block (default true). */
+  cache?: boolean;
   user: string;
   maxTokens: number;
   tools?: Anthropic.Messages.ToolUnion[];
+  /** Opus 5.5 always thinks, and thinking counts against maxTokens; effort is the only lever. */
+  effort?: "low" | "medium" | "high";
   onProgress?: Progress;
   onText?: (text: string) => void;
 }): Promise<{ content: Anthropic.Messages.ContentBlock[]; usage: Usage; stopReason: string | null }> {
@@ -215,9 +219,10 @@ export async function runToCompletion(opts: {
     const stream = getAnthropicClient().messages.stream({
       model: opts.model,
       max_tokens: opts.maxTokens,
-      system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: opts.system, ...(opts.cache === false ? {} : { cache_control: { type: "ephemeral" } }) }],
       messages,
       ...(opts.tools ? { tools: opts.tools } : {}),
+      ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
     });
 
     stream.on("contentBlock", (block) => {
@@ -235,7 +240,7 @@ export async function runToCompletion(opts: {
 
     const msg = await stream.finalMessage();
     content.push(...msg.content);
-    usage.inputTokens += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0);
+    usage.inputTokens += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0);
     usage.outputTokens += msg.usage.output_tokens;
     usage.webSearches += msg.usage.server_tool_use?.web_search_requests ?? 0;
     usage.webFetches += msg.usage.server_tool_use?.web_fetch_requests ?? 0;

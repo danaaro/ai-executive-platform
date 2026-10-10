@@ -8,6 +8,7 @@
  */
 const PRICES: Record<string, { input: number; output: number }> = {
   "claude-sonnet-5": { input: 2, output: 10 },
+  "claude-sonnet-5-5": { input: 2, output: 10 },
   "claude-opus-5-5": { input: 4, output: 20 },
 };
 const WEB_SEARCH_USD = 0.01; // $10 per 1,000 searches; web fetch is not metered
@@ -41,4 +42,15 @@ export function formatUsd(n: number): string {
 export function estimateRunCost(modulesToRun: number, writers: number, findPhotos: boolean): number {
   // v2 (ADR-009 §17): each category writer ≈ $0.40, the overview ≈ $0.15.
   return modulesToRun * 0.7 + (writers > 0 ? writers * 0.4 + 0.15 : 0) + (findPhotos ? 0.25 : 0);
+}
+
+/**
+ * v3 (ADR-009 §18): research areas the user ticked (or never researched) at
+ * ≈ $0.70 each, plus the writers still to run. Writers are Sonnet 5.5 (Dana,
+ * 2026-10-10: Opus was too slow for the 300s limit). Provisional per-writer
+ * figure: ~70k tokens in ($0.14) + ~15k out ($0.15). Re-measure after live runs.
+ */
+export const COCKPIT_WRITER_USD = 0.3;
+export function estimateCockpitCost(modulesToRun: number, writersToRun = 4): number {
+  return modulesToRun * 0.7 + writersToRun * COCKPIT_WRITER_USD;
 }

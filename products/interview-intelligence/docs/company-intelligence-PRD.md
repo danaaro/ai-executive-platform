@@ -1,18 +1,25 @@
 # PRD — Company Intelligence Agent (internal)
 
-> STATUS: 🟡 draft — built 2026-09-26; Gate 1 (culture-profile quality review) pending.
+> STATUS: 🟡 draft — v3 (Exec10X cockpit) 2026-10-09; v1 built 2026-09-26.
 
 **Audience:** Dana and Susan only (Clerk admins). It is never customer-facing.
 **Decision record:** `../../../docs/adrs/ADR-009-Company-Intelligence-Agent.md`
 **Seed:** `../../../../Company Intelligent Agent/` (BUILD-PLAN.md + company-intel-package)
 
 ## Purpose
+**v3 (2026-10-09) — current.** The report is Susan's **Exec10X Company Intelligence Cockpit** (`../prompts/company-intel/exec10x-master-prompt.md`). It answers one question: what does it take for an executive to succeed at this company, under these conditions? It has three tabs:
+1. **Executive Dashboard:** snapshot, business & strategy, organisation & decision rights, a culture map across the relevant national cultures, transformation, competitors, the Executive Success Environment, and intelligence confidence.
+2. **Contextual Skills:** 5–6 ranked capabilities. Each has behavioural markers, evidence to look for, red flags and an interview question.
+3. **Questions to ask:** the 10–12 priority validation questions, then every open point (Unknown, Hypothesis, Partner input, or a claim whose source couldn't be traced), grouped by section.
+
+It is written from the **saved research**; the writing step does no web search. Persona photos are not part of v3. See ADR-009 §18. The v1/v2 description below is kept for history.
+
 This is independent research ahead of client work. Given a company, it delivers **one** analyzed document (changed 2026-09-26 from a separate brief and culture profile): a single analyzed **Company Intelligence Report** covering the bottom line, the company at a glance, where it stands now, the last 12 months, culture, gaps between what the company says and what it does, risks, conversation angles, and questions for the client. It includes **key personas** (the 4–6 decision-makers who matter, with background, public focus, why they matter and how to approach them, plus an official photo when one can be matched to their name; otherwise initials are shown), and it is shown as a **visual executive page** with charts, a timeline and persona cards. The company's logo appears next to its name in the report header and in the past-research list. It can be saved as a PDF or downloaded as one `.md`. The raw research stays behind a collapsed fact-check panel. Its template is `../schemas/company-intel/company-report.md`.
 
 It is not connected to any other agent. Pasting a report into a JD session, or anywhere else, is a manual choice.
 
 ## User flow (`/internal/company-intel`)
-1. **Company name.** If the company has been researched before, the page shows each module's freshness. Fresh modules are reused. A "refresh everything" option forces a full re-run.
+1. **Company name.** If the company has been researched before, the page shows each research area's date and freshness. **Saved research is always reused.** Only areas never researched run automatically. Tick **Refresh** on any area you know has changed or was missing. With nothing ticked, **Rewrite report only** rebuilds the report from saved research (about $1.20).
 2. **Existing documents.** Upload (PDF, DOCX, MD, TXT) or paste anything the company has already shared: decks, handbooks, Glassdoor exports, meeting notes. You can also skip this step. Documents rank above web sources in trust (see `company-intel-inputs-guide.md`).
 3. **Run.** Choose the scope:
    - **Culture only** runs module 05, then writes a culture-focused report.
