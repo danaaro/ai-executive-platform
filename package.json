@@ -24,7 +24,9 @@
     "migrate:company-intel": "tsx scripts/migrate-company-intel.ts",
     "test:exec10x": "tsx scripts/test-exec10x.ts",
     "migrate:intel-rename": "tsx scripts/migrate-intel-rename.ts",
-    "migrate:customer-accounts": "tsx scripts/migrate-customer-accounts.ts"
+    "migrate:customer-accounts": "tsx scripts/migrate-customer-accounts.ts",
+    "test:tenancy": "tsx scripts/test-tenant-isolation.ts",
+    "rehearse:tenancy": "tsx scripts/rehearse-tenancy.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
@@ -46,6 +48,8 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-socket": "0.2.11",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",

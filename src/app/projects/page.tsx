@@ -37,12 +37,15 @@ export default function ProjectsPage() {
   const [owned, setOwned] = useState<Project[] | null>(null);
   const [shared, setShared] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // ADR-010: signed in, but not (yet) part of a customer company.
+  const [noCompany, setNoCompany] = useState(false);
 
   useEffect(() => {
     fetch("/api/projects")
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? "Could not load your positions");
+        setNoCompany(Boolean(d.noCompany));
         setOwned(d.owned ?? []);
         setShared(d.shared ?? []);
       })
@@ -66,6 +69,13 @@ export default function ProjectsPage() {
         {error && (
           <Alert tone="danger" className="mt-5">
             {error}
+          </Alert>
+        )}
+
+        {noCompany && (
+          <Alert className="mt-5">
+            Your account is not linked to a company yet. If you were invited, open the invitation
+            email and accept it, then sign in again. Otherwise, contact the person who invited you.
           </Alert>
         )}
 
