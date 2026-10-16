@@ -1,3 +1,4 @@
+import { errorSummary } from "@/shared/safe-log";
 import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, desc } from "drizzle-orm";
@@ -124,7 +125,7 @@ export const POST = tenantRoute(async function POST(
       path: `artifacts/${slug} · v${row.version}`,
     });
   } catch (err) {
-    console.error(`[agents/${slug}/save]`, err);
+    console.error(`[agents/${slug}/save]`, errorSummary(err));
     return NextResponse.json({ error: "Save failed" }, { status: 500 });
   }
 });

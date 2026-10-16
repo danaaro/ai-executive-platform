@@ -1,3 +1,5 @@
+import { validateChatMessages } from "@/shared/chat-limits";
+import { errorSummary } from "@/shared/safe-log";
 import { withTenant } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -44,11 +46,10 @@ export async function POST(
     return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
   }
 
-  const body = await req.json();
-  const messages: ChatMessage[] = body.messages;
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return NextResponse.json({ error: "messages[] is required" }, { status: 400 });
-  }
+  const body = await req.json().catch(() => ({}));
+  const checked = validateChatMessages(body.messages);
+  if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
+  const messages: ChatMessage[] = checked.messages;
 
   // Project-scoped agents require a project (ADR-007) and WRITE access to it
   // (ADR-008) — both checked before the costly model call.
@@ -139,7 +140,7 @@ export async function POST(
             }
           }
         } catch (err) {
-          console.error(`[agents/${slug}] user-turn persistence failed (turn served):`, err);
+          console.error(`[agents/${slug}] user-turn persistence failed (turn served):`, errorSummary(err));
         }
       }
 
@@ -176,7 +177,7 @@ export async function POST(
           });
           await recordIntakeAnswers(savedConversationId, answers, "text", scopeCompanyId);
         } catch (err) {
-          console.error(`[agents/${slug}] reply persistence failed (turn served):`, err);
+          console.error(`[agents/${slug}] reply persistence failed (turn served):`, errorSummary(err));
         }
       }
 
@@ -184,7 +185,7 @@ export async function POST(
     });
   } catch (err) {
     // Only reachable for failures BEFORE the stream opens (inheritance lookup).
-    console.error(`[agents/${slug}]`, err);
+    console.error(`[agents/${slug}]`, errorSummary(err));
     return NextResponse.json({ error: "Agent request failed" }, { status: 500 });
   }
 }

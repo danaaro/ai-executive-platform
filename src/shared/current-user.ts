@@ -1,3 +1,4 @@
+import { errorSummary } from "@/shared/safe-log";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { and, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
 import { db, adminDb, withTenant, tables } from "@/db";
@@ -89,7 +90,7 @@ async function resolveCompanyId(userId: string, orgId: string | null): Promise<s
       const list = await clerk.users.getOrganizationMembershipList({ userId, limit: 2 });
       if (list.data.length === 1) clerkOrgId = list.data[0].organization.id;
     } catch (err) {
-      console.warn("[tenancy] membership lookup failed — no company for this request:", err);
+      console.warn("[tenancy] membership lookup failed — no company for this request:", errorSummary(err));
     }
   }
   if (!clerkOrgId) return null;
@@ -202,7 +203,7 @@ async function claimPendingInvites(userId: string, email: string, companyId: str
   } catch (err) {
     // A unique collision here means they are already a member of that
     // project via another row — never a reason to fail the request.
-    console.warn("[invites] claim failed (non-fatal):", err);
+    console.warn("[invites] claim failed (non-fatal):", errorSummary(err));
   }
 }
 

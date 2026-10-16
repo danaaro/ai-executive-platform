@@ -1,3 +1,5 @@
+import { validateChatMessages } from "@/shared/chat-limits";
+import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
@@ -55,7 +57,11 @@ export async function POST(req: NextRequest) {
   let projectId: string | null = null;
   try {
     const body = await req.json();
-    if (Array.isArray(body?.messages)) messages = body.messages;
+    if (body?.messages !== undefined) {
+      const checked = validateChatMessages(body.messages, { allowEmpty: true });
+      if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
+      messages = checked.messages;
+    }
     if (typeof body?.conversationId === "string") requestedConversationId = body.conversationId;
     if (typeof body?.projectId === "string") projectId = body.projectId;
   } catch {
@@ -155,7 +161,7 @@ export async function POST(req: NextRequest) {
         }
       });
     } catch (err) {
-      console.error("[voice-token] conversation anchoring failed (voice continues):", err);
+      console.error("[voice-token] conversation anchoring failed (voice continues):", errorSummary(err));
     }
   }
 

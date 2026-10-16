@@ -1,3 +1,4 @@
+import { errorSummary } from "@/shared/safe-log";
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { asc, and, eq, lt, max } from "drizzle-orm";
@@ -175,7 +176,7 @@ export async function loadVoicePrefix(
     }
     return rows;
   } catch (err) {
-    console.error("[voice-llm] prefix hydration failed (turn continues):", err);
+    console.error("[voice-llm] prefix hydration failed (turn continues):", errorSummary(err));
     return [];
   }
 }
@@ -237,7 +238,7 @@ export async function persistVoiceTurns(
     if (!companyId) return null;
     return await withTenant(companyId, () => persistVoiceTurnsInScope(grant, turns, companyId));
   } catch (err) {
-    console.error("[voice-llm] turn persistence failed (turn continues):", err);
+    console.error("[voice-llm] turn persistence failed (turn continues):", errorSummary(err));
     return null;
   }
 }
@@ -303,7 +304,7 @@ export async function persistAssistantTurn(
         .where(eq(tables.conversations.id, conversationId));
     });
   } catch (err) {
-    console.error("[voice-llm] assistant persistence failed (turn continues):", err);
+    console.error("[voice-llm] assistant persistence failed (turn continues):", errorSummary(err));
   }
 }
 
@@ -447,7 +448,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
           // Headers are already sent — fail the TURN gracefully, not the
           // session: speak a short recovery line instead of surfacing an
           // "LLM Cascade Error" that kills the whole conversation.
-          console.error("voice-llm upstream error:", err);
+          console.error("voice-llm upstream error:", errorSummary(err));
           const recovery = "Sorry, I hit a brief hiccup on my side — could you say that again?";
           spoken += recovery;
           emit(chunk(id, created, requestedModel, { content: recovery }, null));
@@ -502,7 +503,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error(errorSummary(err));
     return NextResponse.json({ error: "Voice LLM turn failed" }, { status: 500 });
   }
 }

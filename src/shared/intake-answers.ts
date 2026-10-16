@@ -1,3 +1,4 @@
+import { errorSummary } from "@/shared/safe-log";
 import { and, eq, inArray, sql as raw } from "drizzle-orm";
 import { db, withTenant, tables } from "@/db";
 import { dbEnabled, conversationCompanyId } from "@/shared/current-user";
@@ -228,7 +229,7 @@ async function recordInScope(
     return rows.length;
   } catch (err) {
     // Bookkeeping must never cost a turn that already generated successfully.
-    console.error("[intake-answers] write failed:", err);
+    console.error("[intake-answers] write failed:", errorSummary(err));
     return 0;
   }
 }

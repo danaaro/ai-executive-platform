@@ -1,3 +1,5 @@
+import { validateChatMessages } from "@/shared/chat-limits";
+import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
 import {
   streamJobDescriptionTurn,
@@ -26,12 +28,10 @@ import {
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const messages: ChatMessage[] = body.messages;
-
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return NextResponse.json({ error: "messages[] is required" }, { status: 400 });
-  }
+  const body = await req.json().catch(() => ({}));
+  const checked = validateChatMessages(body.messages);
+  if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
+  const messages: ChatMessage[] = checked.messages;
 
   const projectId: string | null = body.projectId ?? null;
   if (dbEnabled()) {
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (err) {
-        console.error("[job-description] user-turn persistence failed (turn served):", err);
+        console.error("[job-description] user-turn persistence failed (turn served):", errorSummary(err));
       }
     }
 
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
         });
         await recordIntakeAnswers(conversationId, answers, "text", scopeCompanyId);
       } catch (err) {
-        console.error("[job-description] reply persistence failed (turn served):", err);
+        console.error("[job-description] reply persistence failed (turn served):", errorSummary(err));
       }
     }
 

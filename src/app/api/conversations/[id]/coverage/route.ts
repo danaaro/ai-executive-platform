@@ -1,3 +1,4 @@
+import { errorSummary } from "@/shared/safe-log";
 import { tenantRoute } from "@/shared/tenant-route";
 import fs from "node:fs";
 import path from "node:path";
@@ -210,7 +211,7 @@ export const GET = tenantRoute(async function GET(
       .where(eq(tables.conversations.id, id));
     return NextResponse.json({ sections, cached: false, source: "scorer" });
   } catch (err) {
-    console.error("[coverage]", err);
+    console.error("[coverage]", errorSummary(err));
     return NextResponse.json({ error: "Coverage scoring failed" }, { status: 500 });
   }
 });

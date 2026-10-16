@@ -1,3 +1,4 @@
+import { errorSummary } from "@/shared/safe-log";
 /**
  * The wire protocol for a streamed agent turn (2026-08-13).
  *
@@ -100,7 +101,7 @@ export function agentStreamResponse(
       try {
         await run(emit);
       } catch (err) {
-        console.error("[agent-stream] turn failed:", err);
+        console.error("[agent-stream] turn failed:", errorSummary(err));
         emit({
           type: "error",
           error: err instanceof Error ? err.message : "The agent request failed",

@@ -1,3 +1,4 @@
+import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
         const result = await mammoth.extractRawText({ buffer });
         text = result.value;
       } catch (err) {
-        console.error("[upload-parse] docx extraction failed:", err);
+        console.error("[upload-parse] docx extraction failed:", errorSummary(err));
         return NextResponse.json(
           { error: "That Word file couldn't be read. If it's an older .doc, re-save it as .docx." },
           { status: 422 }
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
           await parser.destroy();
         }
       } catch (err) {
-        console.error("[upload-parse] pdf extraction failed:", err);
+        console.error("[upload-parse] pdf extraction failed:", errorSummary(err));
         const message = err instanceof Error ? err.message : "";
         return NextResponse.json(
           {
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ name, text, truncated });
   } catch (err) {
-    console.error("[upload-parse]", err);
+    console.error("[upload-parse]", errorSummary(err));
     return NextResponse.json({ error: "Could not parse the file" }, { status: 500 });
   }
 }
