@@ -90,9 +90,10 @@ function isAuthorized(req: NextRequest): boolean {
   const b = Buffer.from(secret);
   const ok = a.length === b.length && timingSafeEqual(a, b);
   if (!ok) {
-    // Masked diagnostic: enough to see WHICH secret the caller sent, never the whole value.
+    // Says why the call was refused without logging any part of either secret
+    // (CLAUDE.md security rules: never log API keys).
     console.warn(
-      `voice-llm 401: received ${token ? `token ${token.slice(0, 6)}…(len ${token.length})` : "no bearer token"}, expected …(len ${secret.length}) starting ${secret.slice(0, 6)}`
+      `voice-llm 401: ${!token ? "no bearer token" : a.length !== b.length ? "bearer token has the wrong length" : "bearer token does not match"}`
     );
   }
   return ok;

@@ -23,8 +23,10 @@ Every agent here is **industry- and company-agnostic**. The same prompt serves a
 | Agent (slug) | Status |
 |---|---|
 | Strategy Advisor (`agents/strategy-advisor/`) | 🟡 v0.1 draft — ready for first manual installs |
-| Chief of Staff (`chief-of-staff`) | planned |
-| Stakeholder & Listening-Tour (`listening-tour`) | planned — reuses the JD interview pattern |
+| Stakeholder Navigator (`agents/stakeholder-navigator/`) | next — reuses the JD interview pattern |
+| Company Decoder (`agents/company-decoder/`) | planned (core) |
+| Communications Partner (`agents/communications-partner/`) | planned (core) |
+| Extended: Chief of Staff · Team Assessor · Board & Boss Alignment · Transition Coach · Sponsor Update · Agent Builder coach | added when a client needs them — the list is open-ended |
 
 ## Layout
 

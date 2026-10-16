@@ -14,3 +14,4 @@ Format: Title · Status · Context · Decision · Consequences.
 - ADR-007 Project as Primary Entity
 - ADR-008 Project Sharing and Approval
 - ADR-009 Company Intelligence Agent (internal, admin-only research tool)
+- ADR-010 Customer Accounts and Multi-Tenant Isolation (accepted, not yet built)

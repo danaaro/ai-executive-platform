@@ -15,5 +15,9 @@ Every agent folder has the same shape:
 | Agent | Folder | Status |
 |---|---|---|
 | Strategy Advisor | `strategy-advisor/` | 🟡 v0.1 draft |
-| Chief of Staff | `chief-of-staff/` | planned |
-| Stakeholder & Listening-Tour | `listening-tour/` | planned |
+| Stakeholder Navigator | `stakeholder-navigator/` | next |
+| Company Decoder | `company-decoder/` | planned (core) |
+| Communications Partner | `communications-partner/` | planned (core) |
+| Extended (Chief of Staff, Team Assessor, Board & Boss Alignment, …) | one folder each | when a client needs them |
+
+Full descriptions: `SusanDana Co/outputs/offerings/Exec10X-Launch-Solution-Architecture-2026-10-10.md` §3.

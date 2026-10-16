@@ -1,39 +1,53 @@
-# CLAUDE.md — AI Executive Platform
+# exec10x.ai Platform — Core Rules
 
-Build rules for working in this repository. These override defaults.
+## Context
+- B2B multi-tenant platform. Customers are companies hiring senior roles in Europe and Asia.
+- Step 1: JD agent interviews the hiring manager using our proprietary method and produces an approved job description.
+- Step 2 (next): interview kit generated from the approved job description.
+- Dana is not an engineer. Explain every significant step in plain English before building. Ask before adding any new service or package.
 
-## What this repo is
-The multi-product SaaS platform SusanDana Co sells to customers. NOT the internal company-OS agents — those live in the parent workspace and are a separate, parked track. Never mix the two.
+## Architecture
+- exec10x.ai = public marketing site (no admin links).
+- app.exec10x.ai = customer app.
+- admin.exec10x.ai = back office for admins only.
+- Stack: Vercel (hosting), Supabase (database), Clerk (auth with Organizations), Stripe (payments), Anthropic API (agents), GitHub private repo (source of truth).
+- Frontend may be built in Lovable via GitHub sync. Never edit the same files in both at once.
+- Agents only for tasks needing judgment (interviews, drafting). Fixed processes (onboarding, payments, credits) are plain code.
 
-## Structure rules (ADR-001 — read it before changing structure)
-- **Do not create new top-level folders.** The tree is fixed; if something has no home, that's an ADR discussion, not an ad-hoc folder.
-- **Products are declarative.** All code goes in `src/` (one shared runtime). `products/<product>/` holds only agents, prompts, schemas, docs, examples, evals.
-- **Product docs (incl. PRDs) live in `products/<product>/docs/`** — never in `docs/implementation/`.
-- **`tests/` = code tests. `products/*/evals/` = agent output quality.** Don't conflate them.
-- **Canonical agent spec = `docs/agent-specifications/`.** `agents/templates/` are skeletons derived from it; when they disagree, fix the spec first, regenerate the skeleton.
-- **`generated/` is machine-written only.** Never hand-edit anything in it.
+## Data model
+- Company: one account per customer. Holds company context, users, role-credit balance, payment history.
+- Role (workspace): belongs to one company. Has locked title, salary range, status, versions.
+- Every table has company_id. Row-level security enabled on every table.
 
-## Working rules
-- **Docs lead code.** Before building anything in `src/` or `products/`, its doc/PRD must exist. If asked to build without one, write the doc first.
-- **ADR discipline.** Hard-to-reverse decisions get `docs/adrs/ADR-NNN-<slug>.md` (Title/Status/Context/Decision/Consequences) before implementation.
-- **Placeholder status headers.** Docs carry `> STATUS:` lines (🔴 placeholder / 🟡 draft / 🟢 ready). Update the status when you touch the file; remove the placeholder line only when content is real.
-- **Seed sources.** Blueprint files name their seed in the parent workspace (`../foundation/`, `../context/`). Migrating content = de-brand + adapt to platform scope, never blind-copy.
-- **Naming:** "interview-intelligence" is an internal product/domain name only. The public brand is undecided (ADR-002) — do not use "INT²" or "Interview Intelligence" as a customer-facing brand in any artifact.
+## Security (non-negotiable)
+- No hardcoded secrets. Use environment variables; .env in .gitignore; provide .env.example.
+- Server keys never in frontend code.
+- All prompts and agent logic stay on the server. Never send them to the browser.
+- Every API route checks authentication. company_id always comes from the session, never from the browser.
+- Admin pages and API routes require the admin role in Clerk, checked on the server. Admins use two-factor authentication.
+- Validate and sanitize all user input.
+- Never write prompts, API keys or personal data to application logs.
+- All usage limits enforced on the server.
 
-## Current focus
-First vertical slice: the **Job Description agent** in `products/interview-intelligence/` — PRD → schemas → prompt → agent definition → thin `src/` slice → examples → evals. See `docs/builders-handbook/00-Roadmap.md`.
+## Read before working on specific areas
+- Before working on onboarding, payments, credits, roles or the job description flow → read docs/customer-journey.md
+- Before working on agent prompts, usage limits, IP protection or monitoring → read docs/guardrails.md
+- Before changing any prompt, or when asked to test quality → read docs/evals.md
+- Before creating folders or files, or moving code → read docs/repo-structure.md
+- Before working on the Company Intelligence tool → read docs/company-intel.md
+- If a task touches more than one area, read all relevant files first.
 
-## Company Intelligence Agent (internal — ADR-009)
-**Internal tool for Dana + Susan (Clerk admins) only — never customer-facing, no link to the JD agent or the board.**
+## Before finishing any task
+- State whether the change touches security, auth, payments or data access.
+- After major features, run the security review below.
 
-Researches a company and produces a company brief + culture profile.
-- UI: `/internal/company-intel` (name → optional documents → run). API: `/api/company-intel/*`. Every route/page checks `requireAdmin()`; the header link renders only for admins.
-- Structure: page orchestrates → step 0 reads the company's own site into a dated `company-website-*.md` input → up to 6 parallel `company-researcher` runs (one per brief in `products/interview-intelligence/prompts/company-intel/briefs/`, Sonnet + web_search/web_fetch) → `company-synthesizer` (Opus). Runtime: `src/orchestrator/company-intel.ts`.
-- Facts live in `company_research` (sourced, dated). Interpretation lives in `company_outputs` as ONE final report (`kind = report`, template `schemas/company-intel/company-report.md`) — the only thing shown/downloaded; brief/culture rows are pre-report history. The report is structured data (`company_outputs.data`, schema `src/shared/company-report.ts`, delivered via a `save_report` tool call) rendered by `src/components/company-intel/ReportView.tsx`; chart marks use the validated `--chart-mark` token. Uploaded docs in `company_inputs`. These tables are the interim seed of the future CRM company record.
-- No review/approval state in the UI (ADR-009 §11). `products/interview-intelligence/evals/company-intel/review-checklist.md` remains the manual quality checklist for tuning prompts.
-- Slugs: lowercase, hyphenated, no legal suffix ("Acme Corp Ltd." → `acme`).
-- AI cost: `src/shared/ai-cost.ts` (list-price table + pre-run estimate) feeds the results-page cost line; every step stores its usage. Update the price table when Anthropic pricing changes.
-- v2 (ADR-009 §17): the report answers the Company Context framework (`products/interview-intelligence/docs/company-context-framework.md`). Registry, writer schemas and `validateSection()` (never-made-up enforcement) live in `src/shared/company-context.ts`; writers + overview in `src/orchestrator/company-context-writers.ts`; page in `src/components/company-intel/ContextReport.tsx`. Never add a default score or unsourced value — unknown stays null and becomes an interview question.
-- **v3 — current (ADR-009 §18):** the report is Susan's Exec10X cockpit (`prompts/company-intel/exec10x-master-prompt.md`, kept verbatim) with 3 tabs: Executive Dashboard · Contextual Skills · Questions to ask. Written from SAVED research only, by 4 writers (`src/orchestrator/exec10x-writers.ts`: company · market · culture in parallel, then skills), merged and checked in code (`src/shared/exec10x.ts`: sources must be the exact pages in the research, Susan's §13.3 validator, every U/H/P item gets an `ask` → Tab 3). Rendered by her template (`src/components/company-intel/exec10x/template.html`, per-section guards) in a same-origin iframe from `/api/company-intel/companies/[slug]/cockpit`. Refresh is the user's choice (tick areas; only never-researched areas run automatically). Switch back to v2: `REPORT_GENERATION` in `src/shared/exec10x.ts` (git tag `company-intel-v2`). Code QA: `npm run test:exec10x` (offline, free; headless Chrome render + print checks).
-- Source order (Dana): official website → uploaded documents → web search; employee voice stays separate evidence for lived culture.
-- Non-negotiables (don't edit the prompts' core rules without Dana's approval): no scraping behind logins; no demographic data about employees; stakeholders limited to public professional info; every fact carries source + date; facts vs interpretation stay separate.
+## Security review checklist
+Review as a security auditor and report issues ranked by severity, with plain-English explanations and fixes:
+1. Hardcoded secrets anywhere, including git history?
+2. Any prompts or agent logic reaching the browser?
+3. RLS enabled with company_id policies on every table?
+4. Every API route checks authentication?
+5. Could company A reach company B's data by changing an ID?
+6. Is user input validated before reaching the database or the AI?
+7. Outdated packages with known vulnerabilities? (npm audit)
+8. Anything sensitive written to logs?
