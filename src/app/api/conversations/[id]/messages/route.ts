@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, max } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -14,7 +15,7 @@ import {
  * (voice-continuity fix, 2026-07-19) — the transcript lives in Postgres
  * before the audio finishes playing, so a dropped call loses nothing.
  */
-export async function POST(
+export const POST = tenantRoute(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -56,4 +57,4 @@ export async function POST(
     .where(eq(tables.conversations.id, id));
 
   return NextResponse.json({ saved: true, seq });
-}
+});

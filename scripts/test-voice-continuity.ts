@@ -20,7 +20,7 @@ for (const line of fs.readFileSync(path.join(process.cwd(), ".env.local"), "utf-
 import { eq } from "drizzle-orm";
 import { signVoiceGrant, verifyVoiceGrant, extractVoiceGrant } from "../src/shared/voice-grant";
 import { toAnthropicMessages, loadVoicePrefix } from "../src/app/api/job-description/voice-llm/handler";
-import { db, tables } from "../src/db";
+import { adminDb, tables } from "../src/db";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = "") {
@@ -54,7 +54,7 @@ async function main() {
   check("extract: absent grant → null", extractVoiceGrant({ messages: [] }) === null);
 
   // --- 2. DB hydration through the real handler path ---
-  const d = db();
+  const d = adminDb(); // test setup and inspection: outside any tenant scope
   const testUserId = "test-voice-continuity-user";
   // Throwaway company (ADR-010): every customer row needs one.
   const [testCompany] = await d

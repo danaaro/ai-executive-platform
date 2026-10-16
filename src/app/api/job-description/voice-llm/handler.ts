@@ -10,8 +10,8 @@ import {
   recordIntakeAnswers,
   splitIntakeBlock,
 } from "@/shared/intake-answers";
-import { dbEnabled, conversationCompanyId } from "@/shared/current-user";
-import { db, tables } from "@/db";
+import { dbEnabled, trustedConversationCompanyId } from "@/shared/current-user";
+import { db, withTenant, tables } from "@/db";
 
 /**
  * Appended only on the voice channel: the same agent brain, but replies are
@@ -156,7 +156,9 @@ export async function loadVoicePrefix(
   const grant = extractVoiceGrant(body);
   if (!grant) return [];
   try {
-    const rows = await db()
+    // The grant is signed by our server; its conversation names the company.
+    const companyId = await trustedConversationCompanyId(grant.conversationId);
+    const rows = await withTenant(companyId, () => db()
       .select({ role: tables.messages.role, content: tables.messages.content })
       .from(tables.messages)
       .where(
@@ -165,7 +167,7 @@ export async function loadVoicePrefix(
           lt(tables.messages.seq, grant.baseSeq)
         )
       )
-      .orderBy(asc(tables.messages.seq));
+      .orderBy(asc(tables.messages.seq)));
     if (rows.length > 0) {
       console.log(
         `[voice-llm] hydrated ${rows.length} pre-session turns for conversation ${grant.conversationId}`
@@ -230,45 +232,53 @@ export async function persistVoiceTurns(
 ): Promise<number | null> {
   if (!dbEnabled()) return null;
   try {
-    const d = db();
-    const [agg] = await d
-      .select({ maxSeq: max(tables.messages.seq) })
-      .from(tables.messages)
-      .where(eq(tables.messages.conversationId, grant.conversationId));
-    const nextSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
-    const persistedInSession = Math.max(0, nextSeq - grant.baseSeq);
-
-    const pending = turns.slice(persistedInSession);
-    if (pending.length === 0) return nextSeq;
     // ADR-010: the company comes from the conversation the signed grant names.
-    const companyId = await conversationCompanyId(grant.conversationId);
+    const companyId = await trustedConversationCompanyId(grant.conversationId);
     if (!companyId) return null;
-
-    await d
-      .insert(tables.messages)
-      .values(
-        pending.map((t, j) => ({
-          companyId,
-          conversationId: grant.conversationId,
-          seq: grant.baseSeq + persistedInSession + j,
-          role: t.role,
-          content: t.content.slice(0, 20_000),
-        }))
-      )
-      .onConflictDoNothing();
-    await d
-      .update(tables.conversations)
-      .set({ updatedAt: new Date() })
-      .where(eq(tables.conversations.id, grant.conversationId));
-
-    console.log(
-      `[voice-llm] persisted ${pending.length} turn(s) for conversation ${grant.conversationId} from seq ${grant.baseSeq + persistedInSession}`
-    );
-    return grant.baseSeq + persistedInSession + pending.length;
+    return await withTenant(companyId, () => persistVoiceTurnsInScope(grant, turns, companyId));
   } catch (err) {
     console.error("[voice-llm] turn persistence failed (turn continues):", err);
     return null;
   }
+}
+
+async function persistVoiceTurnsInScope(
+  grant: { conversationId: string; baseSeq: number },
+  turns: Turn[],
+  companyId: string
+): Promise<number | null> {
+  const d = db();
+  const [agg] = await d
+    .select({ maxSeq: max(tables.messages.seq) })
+    .from(tables.messages)
+    .where(eq(tables.messages.conversationId, grant.conversationId));
+  const nextSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
+  const persistedInSession = Math.max(0, nextSeq - grant.baseSeq);
+
+  const pending = turns.slice(persistedInSession);
+  if (pending.length === 0) return nextSeq;
+
+  await d
+    .insert(tables.messages)
+    .values(
+      pending.map((t, j) => ({
+        companyId,
+        conversationId: grant.conversationId,
+        seq: grant.baseSeq + persistedInSession + j,
+        role: t.role,
+        content: t.content.slice(0, 20_000),
+      }))
+    )
+    .onConflictDoNothing();
+  await d
+    .update(tables.conversations)
+    .set({ updatedAt: new Date() })
+    .where(eq(tables.conversations.id, grant.conversationId));
+
+  console.log(
+    `[voice-llm] persisted ${pending.length} turn(s) for conversation ${grant.conversationId} from seq ${grant.baseSeq + persistedInSession}`
+  );
+  return grant.baseSeq + persistedInSession + pending.length;
 }
 
 /** Appends one spoken assistant reply at a known seq. Never throws. */
@@ -279,17 +289,19 @@ export async function persistAssistantTurn(
 ): Promise<void> {
   if (!dbEnabled() || !content.trim()) return;
   try {
-    const d = db();
-    const companyId = await conversationCompanyId(conversationId);
+    const companyId = await trustedConversationCompanyId(conversationId);
     if (!companyId) return;
-    await d
-      .insert(tables.messages)
-      .values({ companyId, conversationId, seq, role: "assistant", content: content.slice(0, 20_000) })
-      .onConflictDoNothing();
-    await d
-      .update(tables.conversations)
-      .set({ updatedAt: new Date() })
-      .where(eq(tables.conversations.id, conversationId));
+    await withTenant(companyId, async () => {
+      const d = db();
+      await d
+        .insert(tables.messages)
+        .values({ companyId, conversationId, seq, role: "assistant", content: content.slice(0, 20_000) })
+        .onConflictDoNothing();
+      await d
+        .update(tables.conversations)
+        .set({ updatedAt: new Date() })
+        .where(eq(tables.conversations.id, conversationId));
+    });
   } catch (err) {
     console.error("[voice-llm] assistant persistence failed (turn continues):", err);
   }
@@ -357,7 +369,12 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
       const { visibleText: reply, answers } = splitIntakeBlock(raw);
       if (grant && assistantSeq !== null) {
         await persistAssistantTurn(grant.conversationId, assistantSeq, reply);
-        await recordIntakeAnswers(grant.conversationId, answers, "voice");
+        await recordIntakeAnswers(
+          grant.conversationId,
+          answers,
+          "voice",
+          await trustedConversationCompanyId(grant.conversationId)
+        );
       }
       return NextResponse.json({
         id,
@@ -448,7 +465,12 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         if (grant && assistantSeq !== null) {
           const { visibleText, answers } = splitIntakeBlock(spoken);
           await persistAssistantTurn(grant.conversationId, assistantSeq, visibleText);
-          await recordIntakeAnswers(grant.conversationId, answers, "voice");
+          await recordIntakeAnswers(
+          grant.conversationId,
+          answers,
+          "voice",
+          await trustedConversationCompanyId(grant.conversationId)
+        );
         }
 
         emit(chunk(id, created, requestedModel, {}, "stop"));

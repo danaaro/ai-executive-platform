@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -18,7 +19,7 @@ import {
  *
  * `?id=<uuid>` returns one artifact with its content and approval trail.
  */
-export async function GET(req: NextRequest) {
+export const GET = tenantRoute(async function GET(req: NextRequest) {
   if (!dbEnabled()) return NextResponse.json({ artifacts: [] });
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -103,4 +104,4 @@ export async function GET(req: NextRequest) {
       createdBy: names[r.createdBy] ?? r.createdBy,
     })),
   });
-}
+});

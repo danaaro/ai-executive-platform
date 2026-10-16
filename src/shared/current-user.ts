@@ -1,6 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { and, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { db, adminDb, withTenant, tables } from "@/db";
 
 /**
  * Identity and authorization.
@@ -51,7 +51,8 @@ export async function requireUser(): Promise<CurrentUser | null> {
   const name = [cu.firstName, cu.lastName].filter(Boolean).join(" ") || null;
   const companyId = await resolveCompanyId(userId, orgId ?? null);
 
-  await db()
+  // System mirror of the Clerk identity, before any tenant scope exists.
+  await adminDb()
     .insert(tables.users)
     .values({ id: userId, email, name, role, companyId })
     .onConflictDoUpdate({
@@ -64,7 +65,7 @@ export async function requireUser(): Promise<CurrentUser | null> {
   // (ADR-008 §2). There is no sign-in webhook, so binding happens here — on
   // the first authenticated request after the invite, at most once per
   // cache miss.
-  if (email) await claimPendingInvites(userId, email);
+  if (email && companyId) await claimPendingInvites(userId, email, companyId);
 
   const user: CurrentUser = { id: userId, role, email, companyId };
   cache.set(key, { user, at: Date.now() });
@@ -92,7 +93,7 @@ async function resolveCompanyId(userId: string, orgId: string | null): Promise<s
     }
   }
   if (!clerkOrgId) return null;
-  const [row] = await db()
+  const [row] = await adminDb()
     .select({ id: tables.companies.id })
     .from(tables.companies)
     .where(eq(tables.companies.clerkOrgId, clerkOrgId))
@@ -102,7 +103,7 @@ async function resolveCompanyId(userId: string, orgId: string | null): Promise<s
 
 /** The Clerk organization behind a company — for organization invitations. */
 export async function companyClerkOrgId(companyId: string): Promise<string | null> {
-  const [row] = await db()
+  const [row] = await adminDb()
     .select({ clerkOrgId: tables.companies.clerkOrgId })
     .from(tables.companies)
     .where(eq(tables.companies.id, companyId))
@@ -150,6 +151,20 @@ export async function projectCompanyId(projectId: string): Promise<string | null
   return row?.companyId ?? null;
 }
 
+/**
+ * Owning company of a conversation, read WITHOUT a tenant scope. Only for the
+ * voice callback, whose conversation id comes from a grant our server signed
+ * (voice-grant.ts) — there is no user session to take the company from.
+ */
+export async function trustedConversationCompanyId(conversationId: string): Promise<string | null> {
+  const [row] = await adminDb()
+    .select({ companyId: tables.conversations.companyId })
+    .from(tables.conversations)
+    .where(eq(tables.conversations.id, conversationId))
+    .limit(1);
+  return row?.companyId ?? null;
+}
+
 /** Owning company of a conversation — messages and answers copy it from here. */
 export async function conversationCompanyId(conversationId: string): Promise<string | null> {
   const [row] = await db()
@@ -170,9 +185,10 @@ export async function requireAdmin(): Promise<CurrentUser | null> {
   return user?.role === "admin" ? user : null;
 }
 
-async function claimPendingInvites(userId: string, email: string): Promise<void> {
+async function claimPendingInvites(userId: string, email: string, companyId: string): Promise<void> {
   try {
-    await db()
+    // Only invitations of the company this session belongs to (ADR-010).
+    await withTenant(companyId, () => db()
       .update(tables.projectMembers)
       .set({ userId, acceptedAt: new Date() })
       .where(
@@ -182,7 +198,7 @@ async function claimPendingInvites(userId: string, email: string): Promise<void>
           // stores what the identity provider returned.
           sql`lower(${tables.projectMembers.invitedEmail}) = ${email.toLowerCase()}`
         )
-      );
+      ));
   } catch (err) {
     // A unique collision here means they are already a member of that
     // project via another row — never a reason to fail the request.
@@ -193,7 +209,8 @@ async function claimPendingInvites(userId: string, email: string): Promise<void>
 export async function getUserNames(ids: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return {};
-  const rows = await db()
+  // Display names only, for ids the caller already holds legitimately.
+  const rows = await adminDb()
     .select({ id: tables.users.id, name: tables.users.name, email: tables.users.email })
     .from(tables.users)
     .where(inArray(tables.users.id, unique));
@@ -235,6 +252,10 @@ export async function getProjectAccess(
   projectId: string,
   user: CurrentUser
 ): Promise<ProjectRole | null> {
+  return withTenant(user.companyId, () => projectAccessInScope(projectId, user));
+}
+
+async function projectAccessInScope(projectId: string, user: CurrentUser): Promise<ProjectRole | null> {
   const d = db();
   const [project] = await d
     .select({ createdBy: tables.projects.createdBy, companyId: tables.projects.companyId })
@@ -280,7 +301,11 @@ export function canAdminister(role: ProjectRole | null): boolean {
  */
 export async function accessibleProjectIds(user: CurrentUser): Promise<string[]> {
   if (!user.companyId) return [];
-  const inCompany = eq(tables.projects.companyId, user.companyId);
+  return withTenant(user.companyId, () => accessibleInScope(user, user.companyId!));
+}
+
+async function accessibleInScope(user: CurrentUser, companyId: string): Promise<string[]> {
+  const inCompany = eq(tables.projects.companyId, companyId);
   if (user.role === "admin") {
     const rows = await db().select({ id: tables.projects.id }).from(tables.projects).where(inCompany);
     return rows.map((r) => r.id);
@@ -321,6 +346,8 @@ export async function accessibleProjectIds(user: CurrentUser): Promise<string[]>
  * Returns the conversation id and the seq the assistant reply should take.
  */
 export async function appendUserTurn(opts: {
+  /** The session's company (user.companyId) — the tenant scope of the write. */
+  companyId: string | null;
   conversationId: string | null;
   projectId: string;
   agentSlug: string;
@@ -328,8 +355,19 @@ export async function appendUserTurn(opts: {
   userText: string;
 }): Promise<{ conversationId: string; assistantSeq: number } | null> {
   if (!dbEnabled() || !isPersistableAgent(opts.agentSlug)) return null;
+  return withTenant(opts.companyId, () => appendUserTurnInScope(opts));
+}
+
+async function appendUserTurnInScope(opts: {
+  conversationId: string | null;
+  projectId: string;
+  agentSlug: string;
+  userId: string;
+  userText: string;
+}): Promise<{ conversationId: string; assistantSeq: number } | null> {
   const d = db();
   let convId = opts.conversationId;
+  // Visible only if the project is in the scope's company (row-level security).
   const companyId = await projectCompanyId(opts.projectId);
   if (!companyId) return null;
 
@@ -383,11 +421,21 @@ export async function appendUserTurn(opts: {
 
 /** Appends the assistant reply once generation succeeds. */
 export async function appendAssistantTurn(opts: {
+  /** The session's company — the tenant scope of the write. */
+  companyId: string | null;
   conversationId: string;
   seq: number;
   assistantText: string;
 }): Promise<void> {
   if (!dbEnabled() || !opts.assistantText.trim()) return;
+  return withTenant(opts.companyId, () => appendAssistantTurnInScope(opts));
+}
+
+async function appendAssistantTurnInScope(opts: {
+  conversationId: string;
+  seq: number;
+  assistantText: string;
+}): Promise<void> {
   const d = db();
   const companyId = await conversationCompanyId(opts.conversationId);
   if (!companyId) return;
@@ -413,6 +461,7 @@ export async function appendAssistantTurn(opts: {
  * above so the input survives a failed generation.
  */
 export async function appendTurns(opts: {
+  companyId: string | null;
   conversationId: string | null;
   projectId: string;
   agentSlug: string;
@@ -423,6 +472,7 @@ export async function appendTurns(opts: {
   const started = await appendUserTurn(opts);
   if (!started) return null;
   await appendAssistantTurn({
+    companyId: opts.companyId,
     conversationId: started.conversationId,
     seq: started.assistantSeq,
     assistantText: opts.assistantText,
@@ -435,6 +485,13 @@ export async function appendTurns(opts: {
  * equivalent of getProjectAccess().
  */
 export async function getConversationAccess(
+  conversationId: string,
+  user: CurrentUser
+): Promise<{ projectId: string; agentSlug: string; companyId: string; role: ProjectRole } | null> {
+  return withTenant(user.companyId, () => conversationAccessInScope(conversationId, user));
+}
+
+async function conversationAccessInScope(
   conversationId: string,
   user: CurrentUser
 ): Promise<{ projectId: string; agentSlug: string; companyId: string; role: ProjectRole } | null> {

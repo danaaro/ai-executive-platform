@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import fs from "node:fs";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
@@ -142,7 +143,7 @@ async function scoreCoverage(
   });
 }
 
-export async function GET(
+export const GET = tenantRoute(async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -212,4 +213,4 @@ export async function GET(
     console.error("[coverage]", err);
     return NextResponse.json({ error: "Coverage scoring failed" }, { status: 500 });
   }
-}
+});

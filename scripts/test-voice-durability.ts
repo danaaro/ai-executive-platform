@@ -32,7 +32,7 @@ import {
   persistAssistantTurn,
 } from "../src/app/api/job-description/voice-llm/handler";
 import { appendUserTurn, appendAssistantTurn } from "../src/shared/current-user";
-import { db, tables } from "../src/db";
+import { adminDb, tables } from "../src/db";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = "") {
@@ -43,7 +43,7 @@ function check(name: string, ok: boolean, detail = "") {
 type Row = { seq: number; role: string; content: string };
 
 async function main() {
-  const d = db();
+  const d = adminDb(); // test setup and inspection: outside any tenant scope
   const testUserId = "test-voice-durability-user";
   // Throwaway company (ADR-010): every customer row needs one.
   const [testCompany] = await d
@@ -187,6 +187,7 @@ async function main() {
       .returning({ id: tables.conversations.id });
     try {
       const started = await appendUserTurn({
+        companyId,
         conversationId: conv2.id,
         projectId: project.id,
         agentSlug: "job-description",
@@ -205,6 +206,7 @@ async function main() {
 
       // Generation succeeds on the retry: the reply lands at the reserved seq.
       await appendAssistantTurn({
+        companyId,
         conversationId: conv2.id,
         seq: started!.assistantSeq,
         assistantText: "Thanks — that covers scope and stakeholders.",

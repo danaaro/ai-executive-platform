@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import { requireAdmin, dbEnabled } from "@/shared/current-user";
 
 /**
@@ -15,7 +15,7 @@ export async function adminOr404() {
 }
 
 export async function companyBySlug(slug: string) {
-  const [company] = await db()
+  const [company] = await adminDb()
     .select()
     .from(tables.intelCompanies)
     .where(eq(tables.intelCompanies.slug, slug))

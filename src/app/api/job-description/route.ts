@@ -62,6 +62,8 @@ export async function POST(req: NextRequest) {
   // JSON + a real status code. Only the model call streams.
   return agentStreamResponse(async (emit) => {
     let conversationId: string | null = body.conversationId ?? null;
+    // The session's company — every write below is scoped to it (ADR-010).
+    let scopeCompanyId: string | null = null;
     let assistantSeq: number | null = null;
 
     // The user's input is stored BEFORE the model runs. A JD generation takes
@@ -71,7 +73,9 @@ export async function POST(req: NextRequest) {
       try {
         const user = await requireUser();
         if (user) {
+          scopeCompanyId = user.companyId;
           const started = await appendUserTurn({
+            companyId: user.companyId,
             conversationId,
             projectId,
             agentSlug: "job-description",
@@ -113,11 +117,12 @@ export async function POST(req: NextRequest) {
         // The transcript stores what the user saw; the block lives in
         // intake_answers, not twice.
         await appendAssistantTurn({
+          companyId: scopeCompanyId,
           conversationId,
           seq: assistantSeq,
           assistantText: visibleText,
         });
-        await recordIntakeAnswers(conversationId, answers, "text");
+        await recordIntakeAnswers(conversationId, answers, "text", scopeCompanyId);
       } catch (err) {
         console.error("[job-description] reply persistence failed (turn served):", err);
       }

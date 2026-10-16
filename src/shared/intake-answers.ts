@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql as raw } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { db, withTenant, tables } from "@/db";
 import { dbEnabled, conversationCompanyId } from "@/shared/current-user";
 
 /**
@@ -181,9 +181,19 @@ export function createIntakeBlockFilter(): {
 export async function recordIntakeAnswers(
   conversationId: string,
   answers: IntakeAnswer[],
-  channel: "text" | "voice"
+  channel: "text" | "voice",
+  /** The session's company — the tenant scope of the write (ADR-010). */
+  scopeCompanyId: string | null
 ): Promise<number> {
   if (!dbEnabled() || answers.length === 0) return 0;
+  return withTenant(scopeCompanyId, () => recordInScope(conversationId, answers, channel));
+}
+
+async function recordInScope(
+  conversationId: string,
+  answers: IntakeAnswer[],
+  channel: "text" | "voice"
+): Promise<number> {
   // ADR-010: answers belong to the conversation's company.
   const companyId = await conversationCompanyId(conversationId);
   if (!companyId) return 0;
@@ -227,12 +237,14 @@ export async function recordIntakeAnswers(
 export async function recordDocumentAnswers(
   conversationId: string,
   answers: IntakeAnswer[],
-  fileName: string
+  fileName: string,
+  scopeCompanyId: string | null
 ): Promise<number> {
   const n = await recordIntakeAnswers(
     conversationId,
     answers.map((a) => ({ ...a, source: "document" as const })),
-    "text"
+    "text",
+    scopeCompanyId
   );
   if (n > 0) {
     await db()

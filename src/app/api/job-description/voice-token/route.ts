@@ -10,7 +10,7 @@ import {
   projectCompanyId,
 } from "@/shared/current-user";
 import { signVoiceGrant, type VoiceGrant } from "@/shared/voice-grant";
-import { db, tables } from "@/db";
+import { db, withTenant, tables } from "@/db";
 
 /**
  * Fire-and-forget cache pre-warm (see shared prompt-caching guidance):
@@ -101,7 +101,8 @@ export async function POST(req: NextRequest) {
   if (dbEnabled()) {
     try {
       const user = await requireUser();
-      if (user) {
+      // Scoped to the user's company; closed before the ElevenLabs call below.
+      if (user) await withTenant(user.companyId, async () => {
         const d = db();
 
         if (requestedConversationId && projectId) {
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
           const baseSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
           extraBody = signVoiceGrant(conversationId, baseSeq);
         }
-      }
+      });
     } catch (err) {
       console.error("[voice-token] conversation anchoring failed (voice continues):", err);
     }

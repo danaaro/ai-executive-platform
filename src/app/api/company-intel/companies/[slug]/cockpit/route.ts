@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import { latestOutputs } from "@/orchestrator/company-intel";
 import { renderCockpitHtml } from "@/orchestrator/exec10x-render";
 import { CockpitRejected, runCockpit } from "@/orchestrator/exec10x-writers";
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const report =
     id && /^[0-9a-f-]{36}$/i.test(id)
       ? (
-          await db()
+          await adminDb()
             .select()
             .from(tables.intelCompanyOutputs)
             .where(and(eq(tables.intelCompanyOutputs.id, id), eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.kind, "report")))

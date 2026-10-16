@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -9,7 +10,7 @@ import {
 } from "@/shared/current-user";
 
 /** Returns one conversation's messages — anyone with access to its project. */
-export async function GET(
+export const GET = tenantRoute(async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -43,4 +44,4 @@ export async function GET(
     canWrite: canWrite(access.role),
     messages: msgs.map((m) => ({ role: m.role, content: m.content })),
   });
-}
+});

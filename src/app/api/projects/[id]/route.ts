@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -21,7 +22,7 @@ import { deriveStages } from "@/orchestrator/stages";
  * Stage state is derived by `src/orchestrator/stages.ts`, the same function
  * the Home list uses, so the mini indicator and the board can never disagree.
  */
-export async function GET(
+export const GET = tenantRoute(async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -100,14 +101,14 @@ export async function GET(
       pending: !m.userId,
     })),
   });
-}
+});
 
 /**
  * Status changes (`open / draft / filled / archived` chips on #4b) and
  * retitling. Owner or admin only — an editor may work inside a position but
  * not redefine or close it.
  */
-export async function PATCH(
+export const PATCH = tenantRoute(async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -152,10 +153,10 @@ export async function PATCH(
     });
 
   return NextResponse.json({ project: row });
-}
+});
 
 /** Invite a collaborator to an existing position. Owner or admin only. */
-export async function POST(
+export const POST = tenantRoute(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -206,10 +207,10 @@ export async function POST(
   const orgInvite = await inviteToCompany(companyId, email, user.id);
 
   return NextResponse.json({ invited: email, role: memberRole, pending: !existing, orgInvite });
-}
+});
 
 /** Remove a collaborator. Owner or admin only; the owner cannot be removed. */
-export async function DELETE(
+export const DELETE = tenantRoute(async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -239,4 +240,4 @@ export async function DELETE(
     );
 
   return NextResponse.json({ removed: true });
-}
+});

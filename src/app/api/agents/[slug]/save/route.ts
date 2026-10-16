@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, desc } from "drizzle-orm";
 import { getAgent } from "@/orchestrator/agent-orchestrator";
@@ -17,7 +18,7 @@ import { db, tables } from "@/db";
  * action (ADR-008) — see ./[id]/approve.
  */
 
-export async function POST(
+export const POST = tenantRoute(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -126,4 +127,4 @@ export async function POST(
     console.error(`[agents/${slug}/save]`, err);
     return NextResponse.json({ error: "Save failed" }, { status: 500 });
   }
-}
+});

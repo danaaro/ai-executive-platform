@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { db, adminDb, withTenant, tables } from "@/db";
 import {
   type CurrentUser,
   getProjectAccess,
@@ -39,8 +39,43 @@ function check(name: string, ok: boolean, detail = "") {
   if (!ok) failed++;
 }
 
+/**
+ * The throwaway PGlite socket occasionally drops a connection after a refused
+ * query (real Postgres does not). Retry that transport hiccup — never a
+ * database answer.
+ */
+function isDropped(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } };
+  return /ECONNRESET|CONNECTION_CLOSED|CONNECTION_ENDED|EPIPE/.test(String(e?.code ?? e?.cause?.code ?? err));
+}
+
+async function retry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isDropped(err) || i >= tries) throw err;
+    }
+  }
+}
+
+/** True only when Postgres itself refuses with "insufficient privilege" (42501). */
+async function deniedByDatabase(fn: () => Promise<unknown>): Promise<boolean> {
+  for (let i = 1; i <= 4; i++) {
+    try {
+      await fn();
+      return false;
+    } catch (err) {
+      if (isDropped(err)) continue;
+      const e = err as { code?: string; cause?: { code?: string } };
+      return (e?.code ?? e?.cause?.code) === "42501";
+    }
+  }
+  return false;
+}
+
 async function seedCompany(tag: string) {
-  const d = db();
+  const d = adminDb(); // setup only — the code under test runs in tenant scopes
   const [company] = await d
     .insert(tables.companies)
     .values({ clerkOrgId: `org_test_${tag}`, name: `Company ${tag}` })
@@ -62,6 +97,7 @@ async function seedCompany(tag: string) {
     acceptedAt: new Date(),
   });
   const started = await appendUserTurn({
+    companyId: company.id,
     conversationId: null,
     projectId: project.id,
     agentSlug: "job-description",
@@ -69,11 +105,17 @@ async function seedCompany(tag: string) {
     userText: `Brief for role ${tag}`,
   });
   if (!started) throw new Error(`appendUserTurn returned null for ${tag}`);
-  await appendAssistantTurn({ conversationId: started.conversationId, seq: started.assistantSeq, assistantText: "Next question?" });
+  await appendAssistantTurn({
+    companyId: company.id,
+    conversationId: started.conversationId,
+    seq: started.assistantSeq,
+    assistantText: "Next question?",
+  });
   await recordIntakeAnswers(
     started.conversationId,
     [{ questionId: "1.1", sectionId: 1, status: "answered", source: "typed", answer: `answer ${tag}` }],
-    "text"
+    "text",
+    company.id
   );
   const [artifact] = await d
     .insert(tables.artifacts)
@@ -91,7 +133,7 @@ async function seedCompany(tag: string) {
 }
 
 async function main() {
-  const d = db();
+  const d = adminDb(); // inspection only
   console.log("Seeding two companies…");
   const A = await seedCompany("a");
   const B = await seedCompany("b");
@@ -126,6 +168,7 @@ async function main() {
   // fork into a new A conversation, never land in B's.
   const before = await d.select().from(tables.messages).where(eq(tables.messages.conversationId, B.conversationId));
   const forked = await appendUserTurn({
+    companyId: A.companyId,
     conversationId: B.conversationId,
     projectId: A.projectId,
     agentSlug: "job-description",
@@ -156,7 +199,45 @@ async function main() {
   const [msgB] = await d.select({ companyId: tables.messages.companyId }).from(tables.messages).where(eq(tables.messages.conversationId, B.conversationId)).limit(1);
   check("B's messages carry B's company", msgB?.companyId === B.companyId);
 
-  console.log("\n6 · Every customer API route goes through the access layer");
+  console.log("\n6 · The database's own wall (row-level security as app_user)");
+  const seen = await retry(() => withTenant(A.companyId, () => db().select({ id: tables.projects.id }).from(tables.projects)));
+  check("scope A sees only A's roles, even selecting ALL rows", seen.length > 0 && seen.every((r) => r.id !== B.projectId));
+  const direct = await retry(() =>
+    withTenant(A.companyId, () => db().select().from(tables.messages).where(eq(tables.messages.conversationId, B.conversationId)))
+  );
+  check("scope A asking for B's messages BY ID gets nothing", direct.length === 0);
+  const none = await retry(() => withTenant(null, () => db().select({ id: tables.projects.id }).from(tables.projects)));
+  check("an empty scope sees no rows at all", none.length === 0);
+  const updated = await retry(() =>
+    withTenant(A.companyId, () =>
+      db().update(tables.projects).set({ title: "hijacked" }).where(eq(tables.projects.id, B.projectId)).returning({ id: tables.projects.id })
+    )
+  );
+  check("scope A cannot UPDATE B's role", updated.length === 0);
+  const companiesSeen = await retry(() => withTenant(A.companyId, () => db().select({ id: tables.companies.id }).from(tables.companies)));
+  check("scope A sees only its own company record", companiesSeen.length === 1 && companiesSeen[0].id === A.companyId);
+  // Refusals must come from the database's security rules (42501), not any error.
+  check(
+    "scope A cannot WRITE a row into company B (refused by the database)",
+    await deniedByDatabase(() =>
+      withTenant(A.companyId, () =>
+        db().insert(tables.projects).values({ companyId: B.companyId, title: "planted in B", createdBy: A.member.id })
+      )
+    )
+  );
+  check(
+    "customer scope cannot read Company Intel at all (refused by the database)",
+    await deniedByDatabase(() => withTenant(A.companyId, () => db().select().from(tables.intelCompanies).limit(1)))
+  );
+  let unscopedBlocked = false;
+  try {
+    await db().select().from(tables.projects).limit(1);
+  } catch (err) {
+    unscopedBlocked = /outside withTenant/.test(String(err));
+  }
+  check("customer query outside any scope is refused by the code (fail closed)", unscopedBlocked);
+
+  console.log("\n7 · Every customer API route goes through the access layer");
   const apiRoot = path.join(process.cwd(), "src/app/api");
   const exempt: Record<string, string> = {
     "company-intel": "admin-only research tool — requireAdmin (ADR-009)",
@@ -179,7 +260,15 @@ async function main() {
     const src = fs.readFileSync(f, "utf-8");
     const authed = /requireUser\(/.test(src);
     const scoped = /getProjectAccess|getConversationAccess|accessibleProjectIds|user\.companyId/.test(src);
-    check(`${rel}`, authed && scoped, `${authed ? "" : "no requireUser "}${scoped ? "" : "no company/project check"}`);
+    // Database calls must run in a tenant scope: the whole route (tenantRoute),
+    // or — for streaming routes — every persistence step (withTenant / helpers
+    // that take the company explicitly).
+    const tenantScoped = /tenantRoute\(|withTenant\(|companyId: user\.companyId|scopeCompanyId/.test(src);
+    check(
+      `${rel}`,
+      authed && scoped && tenantScoped,
+      `${authed ? "" : "no requireUser "}${scoped ? "" : "no company/project check "}${tenantScoped ? "" : "no tenant scope"}`
+    );
   }
   for (const [k, why] of Object.entries(exempt)) console.log(`  · ${k} — exempt: ${why}`);
 

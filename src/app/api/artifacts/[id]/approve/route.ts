@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -18,7 +19,7 @@ import {
  *  - every approval writes an append-only `artifact_approvals` row. That log
  *    is the EU AI Act human-oversight record, not a UI convenience.
  */
-export async function POST(
+export const POST = tenantRoute(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -104,4 +105,4 @@ export async function POST(
     agentSlug: artifact.agentSlug,
     version: artifact.version,
   });
-}
+});

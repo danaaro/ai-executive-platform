@@ -13,7 +13,7 @@ import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
  *  1. Recreates TODAY's live structure from `main`'s schema.ts.
  *  2. Loads the backup taken before the switch (default:
  *     ../_archive/db-backup-2026-10-17) — real research, real test roles.
- *  3. Runs the two switch scripts with --apply, timed, exactly as in production.
+ *  3. Runs the three switch scripts with --apply, timed, exactly as in production.
  *  4. Checks the result: research intact, JD test data gone, SusanDana in place,
  *     and a re-run can never delete customer data.
  *  5. Runs the isolation test (scripts/test-tenant-isolation.ts) on top.
@@ -112,7 +112,8 @@ async function main() {
     console.log("\n3 · The switch, exactly as in production");
     const t1 = await run("migrate:intel-rename --apply", ["tsx", "scripts/migrate-intel-rename.ts", "--apply"]);
     const t2 = await run("migrate:customer-accounts --apply", ["tsx", "scripts/migrate-customer-accounts.ts", "--apply", `--home-org=${HOME_ORG}`]);
-    console.log(`  · database work takes ${(t1 + t2).toFixed(1)}s in total`);
+    const t3 = await run("secure:tenancy --apply", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
+    console.log(`  · database work takes ${(t1 + t2 + t3).toFixed(1)}s in total`);
 
     console.log("\n4 · Result");
     const count = async (t: string) => (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM "${t}"`)).rows[0].n;
@@ -142,8 +143,14 @@ async function main() {
     check("a re-run deleted nothing", (await count("projects")) === 1);
     await pg.query(`DELETE FROM projects`);
 
-    console.log("\n5 · Isolation test");
+    await run("re-run of secure:tenancy (idempotent)", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
+
+    console.log("\n5 · Isolation test (as app_user, row-level security on)");
     await run("test:tenancy", ["tsx", "scripts/test-tenant-isolation.ts"]);
+
+    console.log("\n6 · Voice durability and continuity on the new structure");
+    await run("test:voice-durability", ["tsx", "scripts/test-voice-durability.ts"]);
+    await run("test:voice", ["tsx", "scripts/test-voice-continuity.ts"]);
   } finally {
     await server.stop();
     await pg.close();

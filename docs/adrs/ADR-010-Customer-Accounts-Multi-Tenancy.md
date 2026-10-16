@@ -1,6 +1,6 @@
 # ADR-010 — Customer accounts and multi-tenant isolation
 
-Date: 2026-10-17 | Status: **accepted** (Dana, 2026-10-17) — not yet built
+Date: 2026-10-17 | Status: **accepted** (Dana, 2026-10-17) — built on branch `feat/customer-accounts`, rehearsed, not yet switched live
 Merges the earlier draft "ADR-010 Multi-Tenant Isolation" (proposed 2026-10-16, never reviewed) into this record.
 
 ## Title
@@ -28,18 +28,18 @@ Today the platform does not meet these rules:
 ### Isolation
 5. **`company_id` NOT NULL on every customer table**: projects (to be renamed roles), project members, conversations, messages, intake answers, artifacts, artifact approvals. Child rows copy it from their parent so RLS can check each row without joins. `users` carries the user's home company; membership itself lives in Clerk (ADR-004).
 6. **One choke point.** A server-only helper, `tenantDb()`, takes the company from the verified session (`auth()` → Clerk org id → our company row), never from the request body, query string or headers. Every customer read and write in `src/` goes through it. `getProjectAccess()` (ADR-008) first checks the project's `company_id` against the session; membership roles apply only after that. Any company id the browser sends is ignored.
-7. **RLS becomes a real second wall.**
-   - A new database login, `app_user`, owns no tables and cannot bypass RLS. The app connects as `app_user`; `postgres` is reserved for migrations and scripts.
-   - Each request runs in a transaction that sets `app.company_id` from the session (`set_config(…, true)`, so it cannot leak into another request).
-   - Every customer table gets `company_id = current_setting('app.company_id')` policies for select, insert, update and delete.
-   - Research tables: no `app_user` access except through the admin path.
-   - The existing default-deny for `anon` / `authenticated` stays.
+7. **RLS becomes a real second wall** (as built, 2026-10-17 — simpler than a second login).
+   - A restricted role `app_user` (NOLOGIN, cannot bypass RLS). The app does not log in as it: every customer request runs inside `withTenant(companyId, …)` (src/db/index.ts), a short transaction that does `SET LOCAL ROLE app_user` and sets `app.company_id` from the session (`set_config(…, true)`, so it cannot leak into another request). No new connection string or secret.
+   - `db()` outside `withTenant` **throws** (fail closed). `adminDb()` is the explicit, greppable exception: the admin-only Company Intel tool and pre-tenant system lookups (session → company, signed voice grant → company, display names).
+   - Every customer table: `company_id = app_company()` policy for select, insert, update, delete. `companies` and `users`: read-only, own company. No `app_user` grants on `intel_*` tables at all.
+   - Short routes run whole inside `tenantRoute()`; streaming routes scope each persistence step and never hold a transaction across a model call.
+   - Script: `scripts/secure-tenancy.ts` (dry run default). The existing default-deny for `anon` / `authenticated` stays.
 
 ### Data and rollout
 8. **Existing projects, conversations, messages, intake answers and artifacts are deleted** (test data only; Dana, 2026-10-17), after a backup export kept outside git. **Company Intel research is kept** and only renamed.
 - Clerk (Development, 2026-10-17): Organizations enabled; home org **SusanDana** = `org_3GigNkgZzCCszpTi1TrgFVdKa7T` (Susan + both Dana accounts, admins). No Production instance exists yet; it is created with the app.exec10x.ai move (repo-structure.md → Deployment) and must exist before the first real customer.
-9. **Order, so nothing goes dark:** (1) backup; (2) enable Organizations in Clerk, create the SusanDana organization; (3) rename research tables; (4) create `companies`, delete old customer data, add `company_id` NOT NULL + indexes; (5) ship `tenantDb()` and the `getProjectAccess` company check; (6) RLS policies + switch the connection to `app_user` last. Each step is an idempotent script in `scripts/`, like `secure-rls.ts`.
-10. **Verification is a test, not a promise.** `scripts/test-tenant-isolation.ts` creates two companies with a role each and asserts: user A cannot read, list, update or approve anything of B's through any API route; changing a company id in a request does nothing; a raw query as `app_user` with A's setting returns zero rows of B's; admin cross-company reads only go through the audited path.
+9. **Order** — see the switch runbook below. Each database step is an idempotent script in `scripts/`, dry run unless `--apply`.
+10. **Verification is a test, not a promise.** `npm run rehearse:tenancy` rebuilds today's live structure on a throwaway in-memory Postgres (PGlite, dev-only), loads the backup, runs the three switch scripts, checks the result, then runs `scripts/test-tenant-isolation.ts` (two companies: A — admins included — cannot open, list, update or write anything of B's, via the access layer or raw SQL as `app_user`; refusals must be Postgres 42501; every customer route is tenant-scoped) and the voice durability/continuity tests. 2026-10-17: 80/80 checks, 5 consecutive runs. Cross-company admin views (back office) get their own audited path when the admin panel is built.
 
 ## Consequences
 - Customer A cannot see customer B's data even if a route forgets a filter, because the database refuses the row.
@@ -48,3 +48,14 @@ Today the platform does not meet these rules:
 - Clerk Organizations is part of the existing Clerk plan (no new service). Organization invites replace part of ADR-008's email invites. The hiring manager named on a role is invited into the customer's organization. Sharing across organizations is out of scope for the MVP.
 - Unblocks credits and payments, locked role title and salary, the admin back office, and scoped deletion of a company's or a closed role's data.
 - Supersedes per-user project ownership (ADR-007) at the top level; "the project is the primary entity under the account" still holds.
+
+## Switch runbook (one window, ~5 minutes; only Dana and Susan use the app)
+The database work takes under a second (rehearsal); the window is the deploy. Between steps 2 and 5 the live app is down — the old code cannot read the renamed tables.
+1. Fresh backup of every table to `_archive/db-backup-<date>/`.
+2. `npm run migrate:intel-rename -- --apply`
+3. `npm run migrate:customer-accounts -- --apply --home-org=org_3GigNkgZzCCszpTi1TrgFVdKa7T` (SusanDana; the app's only Clerk instance is Development, so this id is also the live one)
+4. `npm run secure:tenancy -- --apply` and `npm run secure:rls`
+5. Merge `feat/customer-accounts` → `main`, then `vercel deploy --prod` (a GitHub push alone does not deploy this project).
+6. Smoke test as Dana: sign in → empty roles list (no error) → open a role → one JD chat turn → Company Intel page shows all 13 companies.
+
+**If something fails:** before step 5, nothing customer-facing has changed beyond the outage — fix and continue. The deletes in step 3 are covered by the backup; research is never deleted, only renamed.

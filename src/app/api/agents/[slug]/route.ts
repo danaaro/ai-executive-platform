@@ -1,3 +1,4 @@
+import { withTenant } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAgent,
@@ -54,6 +55,8 @@ export async function POST(
   const projectId: string | null = body.projectId ?? null;
   const conversationId: string | null = body.conversationId ?? null;
   const scoped = isPersistableAgent(slug) && dbEnabled();
+  // The session's company, for the inheritance lookup below (ADR-010).
+  let preflightCompanyId: string | null = null;
 
   if (scoped) {
     if (!projectId) {
@@ -64,6 +67,7 @@ export async function POST(
     }
     const user = await requireUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    preflightCompanyId = user.companyId;
     const role = await getProjectAccess(projectId, user);
     if (!role) {
       return NextResponse.json(
@@ -87,8 +91,10 @@ export async function POST(
     let outbound = messages;
     let inheritedNote: { agentSlug: string; name: string; version: number }[] = [];
 
-    if (scoped && body.inherit === true && projectId && (await isEmptyThread(conversationId))) {
-      const inherited = await loadInheritedArtifacts(projectId, slug);
+    if (scoped && body.inherit === true && projectId) {
+      const inherited = await withTenant(preflightCompanyId, async () =>
+        (await isEmptyThread(conversationId)) ? loadInheritedArtifacts(projectId, slug) : []
+      );
       if (inherited.length > 0) {
         const first = messages[0];
         outbound = [
@@ -110,11 +116,15 @@ export async function POST(
       // conversation itself.
       let savedConversationId = conversationId;
       let assistantSeq: number | null = null;
+      // The session's company — every write below is scoped to it (ADR-010).
+      let scopeCompanyId: string | null = null;
       if (dbEnabled() && projectId) {
         try {
           const user = await requireUser();
           if (user) {
+            scopeCompanyId = user.companyId;
             const started = await appendUserTurn({
+              companyId: user.companyId,
               conversationId,
               projectId,
               agentSlug: slug,
@@ -159,11 +169,12 @@ export async function POST(
       if (savedConversationId && assistantSeq !== null) {
         try {
           await appendAssistantTurn({
+            companyId: scopeCompanyId,
             conversationId: savedConversationId,
             seq: assistantSeq,
             assistantText: reply,
           });
-          await recordIntakeAnswers(savedConversationId, answers, "text");
+          await recordIntakeAnswers(savedConversationId, answers, "text", scopeCompanyId);
         } catch (err) {
           console.error(`[agents/${slug}] reply persistence failed (turn served):`, err);
         }

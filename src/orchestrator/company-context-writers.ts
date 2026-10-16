@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, desc, eq, max } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import {
   SYNTHESIS_MODEL,
   latestResearch,
@@ -119,7 +119,7 @@ export async function runSectionWriter(opts: {
   /** Test hook: receives the writer's raw tool input before validation. */
   onRaw?: (raw: unknown) => void;
 }) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
   const { research, text } = await writerCorpus(company.id, opts.writer);
@@ -270,7 +270,7 @@ export async function runOverview(opts: {
   userId: string;
   onText?: (t: string) => void;
 }) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
 

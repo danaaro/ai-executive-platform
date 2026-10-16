@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { asc, eq, sql } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import { getUserNames } from "@/shared/current-user";
 import { latestOutputs, latestResearch, moduleStates } from "@/orchestrator/company-intel";
 import { pendingCockpitRun } from "@/orchestrator/exec10x-writers";
@@ -20,7 +20,7 @@ async function companyCosts(
   latest: { usage: unknown }[],
   report: { usage: unknown; data: unknown; runId?: string | null } | null
 ) {
-  const d = db();
+  const d = adminDb();
   const [research, outputs] = await Promise.all([
     d.select({ usage: tables.intelCompanyResearch.usage }).from(tables.intelCompanyResearch).where(eq(tables.intelCompanyResearch.intelCompanyId, companyId)),
     d
@@ -63,7 +63,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     moduleStates(company.id),
     latestResearch(company.id),
     latestOutputs(company.id),
-    db()
+    adminDb()
       .select({
         id: tables.intelCompanyInputs.id,
         filename: tables.intelCompanyInputs.filename,
@@ -124,7 +124,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
       return NextResponse.json({ error: "That doesn't look like a website address" }, { status: 400 });
     }
   }
-  await db()
+  await adminDb()
     .update(tables.intelCompanies)
     .set({ website, logoUrl: website === company.website ? company.logoUrl : null, updatedAt: new Date() })
     .where(eq(tables.intelCompanies.id, company.id));

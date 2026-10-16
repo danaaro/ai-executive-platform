@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import { adminOr404, companyBySlug } from "../../../guard";
 
 const MAX_CHARS = 60_000; // matches /api/upload-parse
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: "filename and content are required" }, { status: 400 });
   }
 
-  const [row] = await db()
+  const [row] = await adminDb()
     .insert(tables.intelCompanyInputs)
     .values({ intelCompanyId: company.id, filename, content, createdBy: user.id })
     .returning({ id: tables.intelCompanyInputs.id });
@@ -37,7 +37,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   const id = req.nextUrl.searchParams.get("id");
   if (!company || !id) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db()
+  await adminDb()
     .delete(tables.intelCompanyInputs)
     .where(and(eq(tables.intelCompanyInputs.id, id), eq(tables.intelCompanyInputs.intelCompanyId, company.id)));
   return NextResponse.json({ ok: true });

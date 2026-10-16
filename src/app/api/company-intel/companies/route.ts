@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import { slugify } from "@/orchestrator/company-intel";
 import { adminOr404, companyBySlug } from "../guard";
 
@@ -9,7 +9,7 @@ export async function GET() {
   const { error } = await adminOr404();
   if (error) return error;
 
-  const rows = await db()
+  const rows = await adminDb()
     .select({
       slug: tables.intelCompanies.slug,
       name: tables.intelCompanies.name,
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ slug, existed: true });
   }
 
-  await db()
+  await adminDb()
     .insert(tables.intelCompanies)
     .values({ slug, name, website, createdBy: user.id })
     .onConflictDoNothing();

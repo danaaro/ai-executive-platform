@@ -11,7 +11,7 @@
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, desc, eq, gt, max, sql } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import {
   EXEC10X_WAVE1,
   EXEC10X_WRITERS,
@@ -85,7 +85,7 @@ export async function loadRunParts(companyId: string, runId: string): Promise<Pa
 }
 
 async function loadRun(companyId: string, runId: string) {
-  const rows = await db()
+  const rows = await adminDb()
     .select()
     .from(tables.intelCompanyOutputs)
     .where(and(eq(tables.intelCompanyOutputs.intelCompanyId, companyId), eq(tables.intelCompanyOutputs.runId, runId), eq(tables.intelCompanyOutputs.kind, "section")))
@@ -108,7 +108,7 @@ export async function runExec10xWriter(opts: {
   userId: string;
   onText?: (t: string) => void;
 }) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
   const { research, text, inputs, check } = await evidence(company.id, opts.writer);
@@ -212,7 +212,7 @@ export async function runExec10xWriter(opts: {
  * report yet. Lives on the server so a reload or another tab can resume it.
  */
 export async function pendingCockpitRun(companyId: string): Promise<{ runId: string; done: Exec10xWriterId[] } | null> {
-  const d = db();
+  const d = adminDb();
   const since = new Date(Date.now() - 2 * 24 * 3600 * 1000);
   const o = tables.intelCompanyOutputs;
   const [[latest], reports, sections] = await Promise.all([
@@ -247,7 +247,7 @@ export async function pendingCockpitRun(companyId: string): Promise<{ runId: str
 
 /** Merges this run's four parts, validates, and saves the report. All or nothing. */
 export async function runCockpit(opts: { companyId: string; runId: string; userId: string }) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
   // Idempotent: if this run's report was already saved (the response was lost), return it.

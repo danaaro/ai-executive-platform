@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -20,7 +21,7 @@ import {
  * This never mutates the artifact: the agent's revision is saved as a NEW
  * version, which is what makes the version chips on the board meaningful.
  */
-export async function POST(
+export const POST = tenantRoute(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -76,4 +77,4 @@ export async function POST(
     // The exact turn the drawer sends to the agent next.
     prompt: `Please revise the ${artifact.agentSlug === "job-description" ? "job description" : "artifact"} (v${artifact.version}). Requested changes:\n\n${note}`,
   });
-}
+});

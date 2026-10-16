@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, desc, eq, inArray, max } from "drizzle-orm";
-import { db, tables } from "@/db";
+import { adminDb, tables } from "@/db";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { findPersonaPhotos, photoUsage } from "@/orchestrator/persona-photos";
 import { findCompanyLogo, guessWebsite } from "@/orchestrator/company-logo";
@@ -112,7 +112,7 @@ function addDays(isoDate: string, days: number): string {
 
 /** Latest research row per module, classified fresh / stale / missing. */
 export async function moduleStates(companyId: string): Promise<ModuleState[]> {
-  const rows = await db()
+  const rows = await adminDb()
     .select()
     .from(tables.intelCompanyResearch)
     .where(eq(tables.intelCompanyResearch.intelCompanyId, companyId))
@@ -141,16 +141,16 @@ export async function latestResearch(companyId: string) {
   // Newest row per module, picked in SQL: the full history (every refresh) is
   // never downloaded just to throw most of it away.
   const r = tables.intelCompanyResearch;
-  const newest = db()
+  const newest = adminDb()
     .selectDistinctOn([r.module], { id: r.id })
     .from(r)
     .where(eq(r.intelCompanyId, companyId))
     .orderBy(r.module, desc(r.createdAt));
-  return db().select().from(r).where(inArray(r.id, newest)).orderBy(asc(r.module));
+  return adminDb().select().from(r).where(inArray(r.id, newest)).orderBy(asc(r.module));
 }
 
 export async function latestOutputs(companyId: string) {
-  const rows = await db()
+  const rows = await adminDb()
     .select()
     .from(tables.intelCompanyOutputs)
     .where(eq(tables.intelCompanyOutputs.intelCompanyId, companyId))
@@ -161,7 +161,7 @@ export async function latestOutputs(companyId: string) {
 }
 
 export async function loadInputs(companyId: string) {
-  return db()
+  return adminDb()
     .select({ filename: tables.intelCompanyInputs.filename, content: tables.intelCompanyInputs.content })
     .from(tables.intelCompanyInputs)
     .where(eq(tables.intelCompanyInputs.intelCompanyId, companyId))
@@ -314,7 +314,7 @@ export async function runResearchModule(opts: {
   userId: string;
   onProgress?: Progress;
 }) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d
     .select()
     .from(tables.intelCompanies)
@@ -492,7 +492,7 @@ export async function runSynthesis(opts: {
   userId: string;
   onText?: (text: string) => void;
 }) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d
     .select()
     .from(tables.intelCompanies)
@@ -591,7 +591,7 @@ export async function runSynthesis(opts: {
  * page search never eats into the synthesis time budget.
  */
 export async function addPersonaPhotos(companyId: string, userId?: string) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, companyId)).limit(1);
   const { report } = await latestOutputs(companyId);
   if (!company || !report?.data) throw new Error("No visual report to add photos to");
@@ -642,7 +642,7 @@ export async function addPersonaPhotos(companyId: string, userId?: string) {
  * — callers catch.
  */
 export async function ensureCompanyLogo(companyId: string, force = false) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, companyId)).limit(1);
   if (!company || (company.logoUrl && !force)) return company?.logoUrl ?? null;
 
@@ -669,7 +669,7 @@ export async function ensureCompanyLogo(companyId: string, force = false) {
  * highest trust level — even when Anthropic's web_fetch can't open the site.
  */
 export async function refreshCompanySite(companyId: string, userId: string) {
-  const d = db();
+  const d = adminDb();
   const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, companyId)).limit(1);
   if (!company) throw new Error("Company not found");
 

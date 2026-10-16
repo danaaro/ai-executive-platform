@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -13,7 +14,7 @@ import {
  * (ADR-008), not by `createdBy` — a shared position's threads belong to
  * everyone working it.
  */
-export async function GET(req: NextRequest) {
+export const GET = tenantRoute(async function GET(req: NextRequest) {
   if (!dbEnabled()) return NextResponse.json({ conversations: [] });
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,4 +58,4 @@ export async function GET(req: NextRequest) {
       own: r.createdBy === user.id,
     })),
   });
-}
+});

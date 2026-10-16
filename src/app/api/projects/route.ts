@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -9,7 +10,7 @@ import { deriveStages, PHASE_1_STAGES } from "@/orchestrator/stages";
  * shared with you (ADR-008). Each card carries a compact stage rollup so the
  * 4-node mini progress indicator renders without an N+1 fetch per card.
  */
-export async function GET(_req: NextRequest) {
+export const GET = tenantRoute(async function GET(_req: NextRequest) {
   if (!dbEnabled()) return NextResponse.json({ owned: [], shared: [] });
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -130,9 +131,9 @@ export async function GET(_req: NextRequest) {
     owned: projects.filter((p) => p.isOwner),
     shared: projects.filter((p) => !p.isOwner),
   });
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = tenantRoute(async function POST(req: NextRequest) {
   if (!dbEnabled()) {
     return NextResponse.json(
       { error: "Persistence is not configured (DATABASE_URL missing)." },
@@ -205,4 +206,4 @@ export async function POST(req: NextRequest) {
   );
 
   return NextResponse.json({ project: row, invited: invites.length });
-}
+});
