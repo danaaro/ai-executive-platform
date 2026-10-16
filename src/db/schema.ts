@@ -37,6 +37,32 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * The paying customer (ADR-010). One row per Clerk Organization; everything a
+ * customer owns carries this row's id as `company_id`, taken from the signed-in
+ * session, never from the browser.
+ *
+ * Not the same thing as `intel_companies` (admin-only research, ADR-009): a
+ * customer may have no research, or research on a parent or other entity. An
+ * admin may attach ONE report as hidden company context for every job
+ * description run; renewing = detach, then attach the new one.
+ */
+export const companies = pgTable("companies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clerkOrgId: text("clerk_org_id").notNull().unique(),
+  name: text("name").notNull(),
+  // Hidden from the customer; set and cleared by admins only.
+  intelCompanyId: uuid("intel_company_id").references(() => intelCompanies.id, {
+    onDelete: "set null",
+  }),
+  // The customer's own profile, reused on every role (docs/customer-journey.md).
+  about: text("about"),
+  values: text("values"),
+  cultureNotes: text("culture_notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(), // the role being hired for, e.g. "Head of DevOps"

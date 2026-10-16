@@ -33,6 +33,7 @@ import path from "node:path";
  */
 
 const TABLES = [
+  "companies", // paying customers (ADR-010)
   "users",
   "projects",
   "project_members",

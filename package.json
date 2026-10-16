@@ -23,7 +23,8 @@
     "test:document": "bash scripts/run-document-test.sh",
     "migrate:company-intel": "tsx scripts/migrate-company-intel.ts",
     "test:exec10x": "tsx scripts/test-exec10x.ts",
-    "migrate:intel-rename": "tsx scripts/migrate-intel-rename.ts"
+    "migrate:intel-rename": "tsx scripts/migrate-intel-rename.ts",
+    "migrate:customer-accounts": "tsx scripts/migrate-customer-accounts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
