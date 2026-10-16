@@ -11,13 +11,13 @@ export async function GET() {
 
   const rows = await db()
     .select({
-      slug: tables.companies.slug,
-      name: tables.companies.name,
-      logoUrl: tables.companies.logoUrl,
-      updatedAt: tables.companies.updatedAt,
+      slug: tables.intelCompanies.slug,
+      name: tables.intelCompanies.name,
+      logoUrl: tables.intelCompanies.logoUrl,
+      updatedAt: tables.intelCompanies.updatedAt,
     })
-    .from(tables.companies)
-    .orderBy(desc(tables.companies.updatedAt))
+    .from(tables.intelCompanies)
+    .orderBy(desc(tables.intelCompanies.updatedAt))
     .limit(200);
   return NextResponse.json({ companies: rows });
 }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   await db()
-    .insert(tables.companies)
+    .insert(tables.intelCompanies)
     .values({ slug, name, website, createdBy: user.id })
     .onConflictDoNothing();
   return NextResponse.json({ slug, existed: false });

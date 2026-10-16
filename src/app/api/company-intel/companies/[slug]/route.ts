@@ -22,11 +22,11 @@ async function companyCosts(
 ) {
   const d = db();
   const [research, outputs] = await Promise.all([
-    d.select({ usage: tables.companyResearch.usage }).from(tables.companyResearch).where(eq(tables.companyResearch.companyId, companyId)),
+    d.select({ usage: tables.intelCompanyResearch.usage }).from(tables.intelCompanyResearch).where(eq(tables.intelCompanyResearch.intelCompanyId, companyId)),
     d
-      .select({ usage: tables.companyOutputs.usage, data: tables.companyOutputs.data, runId: tables.companyOutputs.runId, kind: tables.companyOutputs.kind })
-      .from(tables.companyOutputs)
-      .where(eq(tables.companyOutputs.companyId, companyId)),
+      .select({ usage: tables.intelCompanyOutputs.usage, data: tables.intelCompanyOutputs.data, runId: tables.intelCompanyOutputs.runId, kind: tables.intelCompanyOutputs.kind })
+      .from(tables.intelCompanyOutputs)
+      .where(eq(tables.intelCompanyOutputs.intelCompanyId, companyId)),
   ]);
   const photos = (data: unknown) => (data as { photosUsage?: RunUsage } | null)?.photosUsage ?? null;
   const seen = new Set<string>();
@@ -65,14 +65,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     latestOutputs(company.id),
     db()
       .select({
-        id: tables.companyInputs.id,
-        filename: tables.companyInputs.filename,
-        chars: sql<number>`length(${tables.companyInputs.content})::int`,
-        createdAt: tables.companyInputs.createdAt,
+        id: tables.intelCompanyInputs.id,
+        filename: tables.intelCompanyInputs.filename,
+        chars: sql<number>`length(${tables.intelCompanyInputs.content})::int`,
+        createdAt: tables.intelCompanyInputs.createdAt,
       })
-      .from(tables.companyInputs)
-      .where(eq(tables.companyInputs.companyId, company.id))
-      .orderBy(asc(tables.companyInputs.createdAt)),
+      .from(tables.intelCompanyInputs)
+      .where(eq(tables.intelCompanyInputs.intelCompanyId, company.id))
+      .orderBy(asc(tables.intelCompanyInputs.createdAt)),
     pendingCockpitRun(company.id),
   ]);
 
@@ -125,8 +125,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
     }
   }
   await db()
-    .update(tables.companies)
+    .update(tables.intelCompanies)
     .set({ website, logoUrl: website === company.website ? company.logoUrl : null, updatedAt: new Date() })
-    .where(eq(tables.companies.id, company.id));
+    .where(eq(tables.intelCompanies.id, company.id));
   return NextResponse.json({ website });
 }

@@ -17,8 +17,8 @@ export async function adminOr404() {
 export async function companyBySlug(slug: string) {
   const [company] = await db()
     .select()
-    .from(tables.companies)
-    .where(eq(tables.companies.slug, slug))
+    .from(tables.intelCompanies)
+    .where(eq(tables.intelCompanies.slug, slug))
     .limit(1);
   return company ?? null;
 }

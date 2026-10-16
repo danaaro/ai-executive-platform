@@ -87,9 +87,9 @@ export async function loadRunParts(companyId: string, runId: string): Promise<Pa
 async function loadRun(companyId: string, runId: string) {
   const rows = await db()
     .select()
-    .from(tables.companyOutputs)
-    .where(and(eq(tables.companyOutputs.companyId, companyId), eq(tables.companyOutputs.runId, runId), eq(tables.companyOutputs.kind, "section")))
-    .orderBy(desc(tables.companyOutputs.createdAt));
+    .from(tables.intelCompanyOutputs)
+    .where(and(eq(tables.intelCompanyOutputs.intelCompanyId, companyId), eq(tables.intelCompanyOutputs.runId, runId), eq(tables.intelCompanyOutputs.kind, "section")))
+    .orderBy(desc(tables.intelCompanyOutputs.createdAt));
   const parts: Part[] = [];
   let register: unknown = null;
   for (const r of rows) {
@@ -109,7 +109,7 @@ export async function runExec10xWriter(opts: {
   onText?: (t: string) => void;
 }) {
   const d = db();
-  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, opts.companyId)).limit(1);
+  const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
   const { research, text, inputs, check } = await evidence(company.id, opts.writer);
   if (!research.length) throw new Error("No saved research yet for this company");
@@ -164,8 +164,8 @@ export async function runExec10xWriter(opts: {
   // A rejected attempt was still paid for: keep its usage (as a failed row the
   // merge ignores) so the cost lines stay true, then fail the writer.
   const reject = async (message: string): Promise<never> => {
-    await d.insert(tables.companyOutputs).values({
-      companyId: company.id,
+    await d.insert(tables.intelCompanyOutputs).values({
+      intelCompanyId: company.id,
       kind: "section",
       version: 0,
       mode: "full",
@@ -188,9 +188,9 @@ export async function runExec10xWriter(opts: {
   if (broken.length) await reject(`${def.label} failed its checks (${broken.slice(0, 3).join("; ")}). Please re-run`);
 
   const [row] = await d
-    .insert(tables.companyOutputs)
+    .insert(tables.intelCompanyOutputs)
     .values({
-      companyId: company.id,
+      intelCompanyId: company.id,
       kind: "section",
       version: 0,
       mode: "full",
@@ -214,10 +214,10 @@ export async function runExec10xWriter(opts: {
 export async function pendingCockpitRun(companyId: string): Promise<{ runId: string; done: Exec10xWriterId[] } | null> {
   const d = db();
   const since = new Date(Date.now() - 2 * 24 * 3600 * 1000);
-  const o = tables.companyOutputs;
+  const o = tables.intelCompanyOutputs;
   const [[latest], reports, sections] = await Promise.all([
-    d.select({ at: max(tables.companyResearch.createdAt) }).from(tables.companyResearch).where(eq(tables.companyResearch.companyId, companyId)),
-    d.select({ runId: o.runId }).from(o).where(and(eq(o.companyId, companyId), eq(o.kind, "report"), gt(o.createdAt, since))),
+    d.select({ at: max(tables.intelCompanyResearch.createdAt) }).from(tables.intelCompanyResearch).where(eq(tables.intelCompanyResearch.intelCompanyId, companyId)),
+    d.select({ runId: o.runId }).from(o).where(and(eq(o.intelCompanyId, companyId), eq(o.kind, "report"), gt(o.createdAt, since))),
     // Only the small JSON fields, never the parts themselves.
     d
       .select({
@@ -229,7 +229,7 @@ export async function pendingCockpitRun(companyId: string): Promise<{ runId: str
         rejected: sql<string | null>`${o.data}->>'rejected'`,
       })
       .from(o)
-      .where(and(eq(o.companyId, companyId), eq(o.kind, "section"), gt(o.createdAt, since)))
+      .where(and(eq(o.intelCompanyId, companyId), eq(o.kind, "section"), gt(o.createdAt, since)))
       .orderBy(desc(o.createdAt)),
   ]);
   const closed = new Set(reports.map((r) => r.runId));
@@ -248,20 +248,20 @@ export async function pendingCockpitRun(companyId: string): Promise<{ runId: str
 /** Merges this run's four parts, validates, and saves the report. All or nothing. */
 export async function runCockpit(opts: { companyId: string; runId: string; userId: string }) {
   const d = db();
-  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, opts.companyId)).limit(1);
+  const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
   // Idempotent: if this run's report was already saved (the response was lost), return it.
   const [done] = await d
     .select()
-    .from(tables.companyOutputs)
-    .where(and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.runId, opts.runId), eq(tables.companyOutputs.kind, "report")))
+    .from(tables.intelCompanyOutputs)
+    .where(and(eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.runId, opts.runId), eq(tables.intelCompanyOutputs.kind, "report")))
     .limit(1);
   if (done) return { row: done, validation: (done.data as { validation: ReturnType<typeof mergeAll>["data"]["validation"] }).validation };
 
   // Every rejection is recorded on the run, so it is never offered for resuming.
   const rejected = async (message: string): Promise<never> => {
-    await d.insert(tables.companyOutputs).values({
-      companyId: company.id,
+    await d.insert(tables.intelCompanyOutputs).values({
+      intelCompanyId: company.id,
       kind: "section",
       version: 0,
       mode: "full",
@@ -291,13 +291,13 @@ export async function runCockpit(opts: { companyId: string; runId: string; userI
   }
 
   const [agg] = await d
-    .select({ v: max(tables.companyOutputs.version) })
-    .from(tables.companyOutputs)
-    .where(and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.kind, "report")));
+    .select({ v: max(tables.intelCompanyOutputs.version) })
+    .from(tables.intelCompanyOutputs)
+    .where(and(eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.kind, "report")));
   const [row] = await d
-    .insert(tables.companyOutputs)
+    .insert(tables.intelCompanyOutputs)
     .values({
-      companyId: company.id,
+      intelCompanyId: company.id,
       kind: "report",
       version: (agg.v ?? 0) + 1,
       mode: "full",
@@ -309,6 +309,6 @@ export async function runCockpit(opts: { companyId: string; runId: string; userI
       createdBy: opts.userId,
     })
     .returning();
-  await d.update(tables.companies).set({ updatedAt: new Date() }).where(eq(tables.companies.id, company.id));
+  await d.update(tables.intelCompanies).set({ updatedAt: new Date() }).where(eq(tables.intelCompanies.id, company.id));
   return { row, validation: data.validation };
 }

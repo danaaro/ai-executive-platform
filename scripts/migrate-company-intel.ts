@@ -28,6 +28,15 @@ const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
 const TABLES = ["companies", "company_inputs", "company_research", "company_outputs"];
 
 async function main() {
+  // Superseded by ADR-010: these tables now live under an `intel_` prefix
+  // (scripts/migrate-intel-rename.ts). Running the CREATE IF NOT EXISTS below
+  // after the rename would quietly recreate empty old-name tables.
+  const [{ renamed }] = await sql<{ renamed: boolean }[]>`
+    select exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'intel_companies') as renamed`;
+  if (renamed) {
+    console.log("Company Intel tables already renamed (ADR-010) — this script is retired. Nothing to do.");
+    return;
+  }
   console.log("1. Tables…");
   await sql`
     CREATE TABLE IF NOT EXISTS companies (

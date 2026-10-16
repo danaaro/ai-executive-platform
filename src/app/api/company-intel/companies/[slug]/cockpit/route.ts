@@ -23,8 +23,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       ? (
           await db()
             .select()
-            .from(tables.companyOutputs)
-            .where(and(eq(tables.companyOutputs.id, id), eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.kind, "report")))
+            .from(tables.intelCompanyOutputs)
+            .where(and(eq(tables.intelCompanyOutputs.id, id), eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.kind, "report")))
             .limit(1)
         )[0]
       : id

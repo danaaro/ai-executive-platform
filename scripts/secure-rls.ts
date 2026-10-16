@@ -41,10 +41,11 @@ const TABLES = [
   "intake_answers",
   "artifacts",
   "artifact_approvals",
-  "companies",
-  "company_inputs",
-  "company_research",
-  "company_outputs",
+  // Company Intel, renamed by ADR-010 (scripts/migrate-intel-rename.ts).
+  "intel_companies",
+  "intel_company_inputs",
+  "intel_company_research",
+  "intel_company_outputs",
 ] as const;
 
 function databaseUrl(): string {

@@ -37,6 +37,7 @@ Today the platform does not meet these rules:
 
 ### Data and rollout
 8. **Existing projects, conversations, messages, intake answers and artifacts are deleted** (test data only; Dana, 2026-10-17), after a backup export kept outside git. **Company Intel research is kept** and only renamed.
+- Clerk (Development, 2026-10-17): Organizations enabled; home org **SusanDana** = `org_3GigNkgZzCCszpTi1TrgFVdKa7T` (Susan + both Dana accounts, admins). No Production instance exists yet; it is created with the app.exec10x.ai move (repo-structure.md → Deployment) and must exist before the first real customer.
 9. **Order, so nothing goes dark:** (1) backup; (2) enable Organizations in Clerk, create the SusanDana organization; (3) rename research tables; (4) create `companies`, delete old customer data, add `company_id` NOT NULL + indexes; (5) ship `tenantDb()` and the `getProjectAccess` company check; (6) RLS policies + switch the connection to `app_user` last. Each step is an idempotent script in `scripts/`, like `secure-rls.ts`.
 10. **Verification is a test, not a promise.** `scripts/test-tenant-isolation.ts` creates two companies with a role each and asserts: user A cannot read, list, update or approve anything of B's through any API route; changing a company id in a request does nothing; a raw query as `app_user` with A's setting returns zero rows of B's; admin cross-company reads only go through the audited path.
 

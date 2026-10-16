@@ -24,9 +24,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   }
 
   const [row] = await db()
-    .insert(tables.companyInputs)
-    .values({ companyId: company.id, filename, content, createdBy: user.id })
-    .returning({ id: tables.companyInputs.id });
+    .insert(tables.intelCompanyInputs)
+    .values({ intelCompanyId: company.id, filename, content, createdBy: user.id })
+    .returning({ id: tables.intelCompanyInputs.id });
   return NextResponse.json({ id: row.id });
 }
 
@@ -38,7 +38,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   if (!company || !id) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await db()
-    .delete(tables.companyInputs)
-    .where(and(eq(tables.companyInputs.id, id), eq(tables.companyInputs.companyId, company.id)));
+    .delete(tables.intelCompanyInputs)
+    .where(and(eq(tables.intelCompanyInputs.id, id), eq(tables.intelCompanyInputs.intelCompanyId, company.id)));
   return NextResponse.json({ ok: true });
 }

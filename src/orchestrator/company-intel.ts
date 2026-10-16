@@ -114,9 +114,9 @@ function addDays(isoDate: string, days: number): string {
 export async function moduleStates(companyId: string): Promise<ModuleState[]> {
   const rows = await db()
     .select()
-    .from(tables.companyResearch)
-    .where(eq(tables.companyResearch.companyId, companyId))
-    .orderBy(desc(tables.companyResearch.createdAt));
+    .from(tables.intelCompanyResearch)
+    .where(eq(tables.intelCompanyResearch.intelCompanyId, companyId))
+    .orderBy(desc(tables.intelCompanyResearch.createdAt));
 
   const now = today();
   return MODULES.map(({ id, title }) => {
@@ -140,11 +140,11 @@ export async function moduleStates(companyId: string): Promise<ModuleState[]> {
 export async function latestResearch(companyId: string) {
   // Newest row per module, picked in SQL: the full history (every refresh) is
   // never downloaded just to throw most of it away.
-  const r = tables.companyResearch;
+  const r = tables.intelCompanyResearch;
   const newest = db()
     .selectDistinctOn([r.module], { id: r.id })
     .from(r)
-    .where(eq(r.companyId, companyId))
+    .where(eq(r.intelCompanyId, companyId))
     .orderBy(r.module, desc(r.createdAt));
   return db().select().from(r).where(inArray(r.id, newest)).orderBy(asc(r.module));
 }
@@ -152,9 +152,9 @@ export async function latestResearch(companyId: string) {
 export async function latestOutputs(companyId: string) {
   const rows = await db()
     .select()
-    .from(tables.companyOutputs)
-    .where(eq(tables.companyOutputs.companyId, companyId))
-    .orderBy(desc(tables.companyOutputs.version));
+    .from(tables.intelCompanyOutputs)
+    .where(eq(tables.intelCompanyOutputs.intelCompanyId, companyId))
+    .orderBy(desc(tables.intelCompanyOutputs.version));
   // brief/culture are the pre-report format (kept as history, no longer produced);
   // "section" rows are intermediate v2 writer outputs, never shown on their own.
   return { report: rows.find((r) => r.kind === "report") ?? null };
@@ -162,10 +162,10 @@ export async function latestOutputs(companyId: string) {
 
 export async function loadInputs(companyId: string) {
   return db()
-    .select({ filename: tables.companyInputs.filename, content: tables.companyInputs.content })
-    .from(tables.companyInputs)
-    .where(eq(tables.companyInputs.companyId, companyId))
-    .orderBy(asc(tables.companyInputs.createdAt));
+    .select({ filename: tables.intelCompanyInputs.filename, content: tables.intelCompanyInputs.content })
+    .from(tables.intelCompanyInputs)
+    .where(eq(tables.intelCompanyInputs.intelCompanyId, companyId))
+    .orderBy(asc(tables.intelCompanyInputs.createdAt));
 }
 
 /* -------------------------------------------------------------------------
@@ -317,8 +317,8 @@ export async function runResearchModule(opts: {
   const d = db();
   const [company] = await d
     .select()
-    .from(tables.companies)
-    .where(eq(tables.companies.id, opts.companyId))
+    .from(tables.intelCompanies)
+    .where(eq(tables.intelCompanies.id, opts.companyId))
     .limit(1);
   if (!company) throw new Error("Company not found");
 
@@ -395,9 +395,9 @@ export async function runResearchModule(opts: {
   const sources = Number(frontmatterField(md, "sources_count"));
 
   const [row] = await d
-    .insert(tables.companyResearch)
+    .insert(tables.intelCompanyResearch)
     .values({
-      companyId: company.id,
+      intelCompanyId: company.id,
       module: opts.module,
       content: md,
       researchedOn: date,
@@ -410,9 +410,9 @@ export async function runResearchModule(opts: {
     })
     .returning();
   await d
-    .update(tables.companies)
+    .update(tables.intelCompanies)
     .set({ updatedAt: new Date() })
-    .where(eq(tables.companies.id, company.id));
+    .where(eq(tables.intelCompanies.id, company.id));
   await ensureCompanyLogo(company.id).catch((err) => console.warn("[company-intel] logo lookup failed:", err));
   return row;
 }
@@ -495,8 +495,8 @@ export async function runSynthesis(opts: {
   const d = db();
   const [company] = await d
     .select()
-    .from(tables.companies)
-    .where(eq(tables.companies.id, opts.companyId))
+    .from(tables.intelCompanies)
+    .where(eq(tables.intelCompanies.id, opts.companyId))
     .limit(1);
   if (!company) throw new Error("Company not found");
 
@@ -560,15 +560,15 @@ export async function runSynthesis(opts: {
   });
 
   const [agg] = await d
-    .select({ v: max(tables.companyOutputs.version) })
-    .from(tables.companyOutputs)
+    .select({ v: max(tables.intelCompanyOutputs.version) })
+    .from(tables.intelCompanyOutputs)
     .where(
-      and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.kind, "report"))
+      and(eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.kind, "report"))
     );
   const [row] = await d
-    .insert(tables.companyOutputs)
+    .insert(tables.intelCompanyOutputs)
     .values({
-      companyId: company.id,
+      intelCompanyId: company.id,
       kind: "report",
       version: (agg.v ?? 0) + 1,
       mode: opts.mode,
@@ -579,9 +579,9 @@ export async function runSynthesis(opts: {
     })
     .returning();
   await d
-    .update(tables.companies)
+    .update(tables.intelCompanies)
     .set({ updatedAt: new Date() })
-    .where(eq(tables.companies.id, company.id));
+    .where(eq(tables.intelCompanies.id, company.id));
   return row;
 }
 
@@ -592,7 +592,7 @@ export async function runSynthesis(opts: {
  */
 export async function addPersonaPhotos(companyId: string, userId?: string) {
   const d = db();
-  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
+  const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, companyId)).limit(1);
   const { report } = await latestOutputs(companyId);
   if (!company || !report?.data) throw new Error("No visual report to add photos to");
   const data = report.data as ReportData;
@@ -609,7 +609,7 @@ export async function addPersonaPhotos(companyId: string, userId?: string) {
     );
     siteInput = (await loadInputs(companyId)).find((f) => f.filename.startsWith(SITE_INPUT_PREFIX));
   }
-  const [fresh] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
+  const [fresh] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, companyId)).limit(1);
   const officialPages = [...(siteInput?.content.matchAll(/^## Page: (\S+)/gm) ?? [])].map((m) => m[1]);
   // Plus the usual team-page addresses, in case the website read capped them out.
   if (fresh?.website) {
@@ -631,7 +631,7 @@ export async function addPersonaPhotos(companyId: string, userId?: string) {
     photosCheckedAt: new Date().toISOString(),
     photosUsage: usage,
   };
-  await d.update(tables.companyOutputs).set({ data: next }).where(eq(tables.companyOutputs.id, report.id));
+  await d.update(tables.intelCompanyOutputs).set({ data: next }).where(eq(tables.intelCompanyOutputs.id, report.id));
   return next.keyPersonas.filter((p) => p.photo).length;
 }
 
@@ -643,7 +643,7 @@ export async function addPersonaPhotos(companyId: string, userId?: string) {
  */
 export async function ensureCompanyLogo(companyId: string, force = false) {
   const d = db();
-  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
+  const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, companyId)).limit(1);
   if (!company || (company.logoUrl && !force)) return company?.logoUrl ?? null;
 
   const website =
@@ -651,9 +651,9 @@ export async function ensureCompanyLogo(companyId: string, force = false) {
   if (!website) return null;
   const logoUrl = await findCompanyLogo(website, company.name);
   await d
-    .update(tables.companies)
+    .update(tables.intelCompanies)
     .set({ logoUrl, website: company.website ?? website })
-    .where(eq(tables.companies.id, companyId));
+    .where(eq(tables.intelCompanies.id, companyId));
   return logoUrl;
 }
 
@@ -670,13 +670,13 @@ export async function ensureCompanyLogo(companyId: string, force = false) {
  */
 export async function refreshCompanySite(companyId: string, userId: string) {
   const d = db();
-  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, companyId)).limit(1);
+  const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, companyId)).limit(1);
   if (!company) throw new Error("Company not found");
 
   const website = company.website ?? (await findOfficialWebsite(company.name));
   if (!website) return { website: null, pages: 0 };
   if (!company.website) {
-    await d.update(tables.companies).set({ website }).where(eq(tables.companies.id, companyId));
+    await d.update(tables.intelCompanies).set({ website }).where(eq(tables.intelCompanies.id, companyId));
   }
 
   const date = today();
@@ -684,10 +684,10 @@ export async function refreshCompanySite(companyId: string, userId: string) {
   if (!pack) return { website, pages: 0 };
 
   await d
-    .delete(tables.companyInputs)
-    .where(and(eq(tables.companyInputs.companyId, companyId), like(tables.companyInputs.filename, `${SITE_INPUT_PREFIX}%`)));
-  await d.insert(tables.companyInputs).values({
-    companyId,
+    .delete(tables.intelCompanyInputs)
+    .where(and(eq(tables.intelCompanyInputs.intelCompanyId, companyId), like(tables.intelCompanyInputs.filename, `${SITE_INPUT_PREFIX}%`)));
+  await d.insert(tables.intelCompanyInputs).values({
+    intelCompanyId: companyId,
     filename: `${SITE_INPUT_PREFIX}${date}.md`,
     content: pack.markdown,
     createdBy: userId,

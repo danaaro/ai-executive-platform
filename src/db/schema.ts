@@ -259,13 +259,16 @@ export const artifactApprovals = pgTable(
 
 /**
  * Company Intelligence (ADR-009) — INTERNAL, admin-only research tool.
+ * Renamed with an `intel_` prefix by ADR-010 so `companies` / `company_id`
+ * mean the paying customer. Admins may attach one report to a customer
+ * company (ADR-010 §3); nothing else links here.
  *
  * These four tables are the interim seed of the future CRM company record:
- * `companies` is the entity the CRM will extend (contacts, deals, activity),
+ * `intel_companies` is the entity the CRM will extend (contacts, deals, activity),
  * so nothing here is shaped around the research tool alone. Not connected to
  * projects, conversations or artifacts — the tool feeds no other agent.
  */
-export const companies = pgTable("companies", {
+export const intelCompanies = pgTable("intel_companies", {
   id: uuid("id").primaryKey().defaultRandom(),
   // lowercase, hyphenated, legal suffix stripped ("Acme Corp Ltd." → "acme")
   slug: text("slug").notNull().unique(),
@@ -281,13 +284,13 @@ export const companies = pgTable("companies", {
 });
 
 /** Documents we already hold about a company — highest-trust research source. */
-export const companyInputs = pgTable(
-  "company_inputs",
+export const intelCompanyInputs = pgTable(
+  "intel_company_inputs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
+    intelCompanyId: uuid("intel_company_id")
       .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+      .references(() => intelCompanies.id, { onDelete: "cascade" }),
     filename: text("filename").notNull(),
     content: text("content").notNull(), // extracted text, not the file
     createdBy: text("created_by")
@@ -295,7 +298,7 @@ export const companyInputs = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("company_inputs_company_idx").on(t.companyId)]
+  (t) => [index("intel_company_inputs_company_idx").on(t.intelCompanyId)]
 );
 
 /**
@@ -303,13 +306,13 @@ export const companyInputs = pgTable(
  * (company, module) is current; older rows are history. Freshness =
  * researchedOn + shelfLifeDays vs today (the package's cache rule).
  */
-export const companyResearch = pgTable(
-  "company_research",
+export const intelCompanyResearch = pgTable(
+  "intel_company_research",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
+    intelCompanyId: uuid("intel_company_id")
       .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+      .references(() => intelCompanies.id, { onDelete: "cascade" }),
     module: text("module").notNull(), // e.g. "05-culture-voice"
     content: text("content").notNull(), // the research-module Markdown, frontmatter included
     researchedOn: date("researched_on").notNull(),
@@ -326,17 +329,17 @@ export const companyResearch = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("company_research_company_module_idx").on(t.companyId, t.module, t.createdAt)]
+  (t) => [index("intel_company_research_company_module_idx").on(t.intelCompanyId, t.module, t.createdAt)]
 );
 
 /** The INTERPRETATION layer: the versioned final report per company. */
-export const companyOutputs = pgTable(
-  "company_outputs",
+export const intelCompanyOutputs = pgTable(
+  "intel_company_outputs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
+    intelCompanyId: uuid("intel_company_id")
       .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+      .references(() => intelCompanies.id, { onDelete: "cascade" }),
     // "report" is the deliverable; "brief"/"culture" = pre-2026-09-26 format, history only.
     // "section" = one category writer's output within a v2 run (ADR-009 §17).
     kind: text("kind", { enum: ["report", "section", "brief", "culture"] }).notNull(),
@@ -359,8 +362,8 @@ export const companyOutputs = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("company_outputs_company_kind_version_uq")
-      .on(t.companyId, t.kind, t.version)
+    uniqueIndex("intel_company_outputs_company_kind_version_uq")
+      .on(t.intelCompanyId, t.kind, t.version)
       .where(sql`${t.kind} <> 'section'`),
   ]
 );

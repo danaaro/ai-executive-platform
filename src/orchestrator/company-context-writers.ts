@@ -120,7 +120,7 @@ export async function runSectionWriter(opts: {
   onRaw?: (raw: unknown) => void;
 }) {
   const d = db();
-  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, opts.companyId)).limit(1);
+  const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
   const { research, text } = await writerCorpus(company.id, opts.writer);
   if (!research.length) throw new Error(`No research yet for ${WRITERS[opts.writer].label}`);
@@ -186,9 +186,9 @@ export async function runSectionWriter(opts: {
     }
   }
   const [row] = await d
-    .insert(tables.companyOutputs)
+    .insert(tables.intelCompanyOutputs)
     .values({
-      companyId: company.id,
+      intelCompanyId: company.id,
       kind: "section",
       version: 0,
       mode: opts.mode,
@@ -271,14 +271,14 @@ export async function runOverview(opts: {
   onText?: (t: string) => void;
 }) {
   const d = db();
-  const [company] = await d.select().from(tables.companies).where(eq(tables.companies.id, opts.companyId)).limit(1);
+  const [company] = await d.select().from(tables.intelCompanies).where(eq(tables.intelCompanies.id, opts.companyId)).limit(1);
   if (!company) throw new Error("Company not found");
 
   const sectionRows = await d
     .select()
-    .from(tables.companyOutputs)
-    .where(and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.runId, opts.runId), eq(tables.companyOutputs.kind, "section")))
-    .orderBy(desc(tables.companyOutputs.createdAt));
+    .from(tables.intelCompanyOutputs)
+    .where(and(eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.runId, opts.runId), eq(tables.intelCompanyOutputs.kind, "section")))
+    .orderBy(desc(tables.intelCompanyOutputs.createdAt));
   const sections = sectionRows.map((r) => r.data as SectionData);
   if (!sections.length) throw new Error("No category sections were written in this run");
   // All or nothing: a report missing a writer's categories looks complete but isn't.
@@ -303,10 +303,10 @@ export async function runOverview(opts: {
   // Carry over what an earlier report already established and this run didn't
   // re-write (e.g. personas + verified photos), so saved work is reused.
   const [prev] = await d
-    .select({ data: tables.companyOutputs.data })
-    .from(tables.companyOutputs)
-    .where(and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.kind, "report")))
-    .orderBy(desc(tables.companyOutputs.version))
+    .select({ data: tables.intelCompanyOutputs.data })
+    .from(tables.intelCompanyOutputs)
+    .where(and(eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.kind, "report")))
+    .orderBy(desc(tables.intelCompanyOutputs.version))
     .limit(1);
   const prevData = (prev?.data ?? null) as Partial<ReportData & ContextReportData> | null;
   if (prevData) {
@@ -393,13 +393,13 @@ export async function runOverview(opts: {
   };
 
   const [agg] = await d
-    .select({ v: max(tables.companyOutputs.version) })
-    .from(tables.companyOutputs)
-    .where(and(eq(tables.companyOutputs.companyId, company.id), eq(tables.companyOutputs.kind, "report")));
+    .select({ v: max(tables.intelCompanyOutputs.version) })
+    .from(tables.intelCompanyOutputs)
+    .where(and(eq(tables.intelCompanyOutputs.intelCompanyId, company.id), eq(tables.intelCompanyOutputs.kind, "report")));
   const [row] = await d
-    .insert(tables.companyOutputs)
+    .insert(tables.intelCompanyOutputs)
     .values({
-      companyId: company.id,
+      intelCompanyId: company.id,
       kind: "report",
       version: (agg.v ?? 0) + 1,
       mode: opts.mode,
@@ -410,6 +410,6 @@ export async function runOverview(opts: {
       createdBy: opts.userId,
     })
     .returning();
-  await d.update(tables.companies).set({ updatedAt: new Date() }).where(eq(tables.companies.id, company.id));
+  await d.update(tables.intelCompanies).set({ updatedAt: new Date() }).where(eq(tables.intelCompanies.id, company.id));
   return row;
 }
