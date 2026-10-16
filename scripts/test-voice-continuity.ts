@@ -56,14 +56,21 @@ async function main() {
   // --- 2. DB hydration through the real handler path ---
   const d = db();
   const testUserId = "test-voice-continuity-user";
+  // Throwaway company (ADR-010): every customer row needs one.
+  const [testCompany] = await d
+    .insert(tables.companies)
+    .values({ clerkOrgId: "test-voice-continuity-org", name: "voice-continuity test company" })
+    .onConflictDoUpdate({ target: tables.companies.clerkOrgId, set: { name: "voice-continuity test company" } })
+    .returning({ id: tables.companies.id });
+  const companyId = testCompany.id;
   await d.insert(tables.users).values({ id: testUserId, role: "member" }).onConflictDoNothing();
   const [project] = await d
     .insert(tables.projects)
-    .values({ title: "voice-continuity test project", createdBy: testUserId })
+    .values({ companyId, title: "voice-continuity test project", createdBy: testUserId })
     .returning({ id: tables.projects.id });
   const [conv] = await d
     .insert(tables.conversations)
-    .values({ projectId: project.id, agentSlug: "job-description", createdBy: testUserId, title: "continuity test" })
+    .values({ companyId, projectId: project.id, agentSlug: "job-description", createdBy: testUserId, title: "continuity test" })
     .returning({ id: tables.conversations.id });
   try {
     const priorTurns = [
@@ -74,7 +81,7 @@ async function main() {
       { role: "user" as const, content: "SOC 2 audit in five months, deploys weekly to daily, team grows 3 to 6." },
     ];
     await d.insert(tables.messages).values(
-      priorTurns.map((m, i) => ({ conversationId: conv.id, seq: i, role: m.role, content: m.content }))
+      priorTurns.map((m, i) => ({ companyId, conversationId: conv.id, seq: i, role: m.role, content: m.content }))
     );
 
     const validGrant = signVoiceGrant(conv.id, priorTurns.length);
@@ -118,6 +125,7 @@ async function main() {
     await d.delete(tables.conversations).where(eq(tables.conversations.id, conv.id));
     await d.delete(tables.projects).where(eq(tables.projects.id, project.id));
     await d.delete(tables.users).where(eq(tables.users.id, testUserId));
+    await d.delete(tables.companies).where(eq(tables.companies.id, companyId));
   }
 
   console.log(failures === 0 ? "\nAll voice-continuity checks passed." : `\n${failures} check(s) FAILED.`);

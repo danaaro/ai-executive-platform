@@ -9,23 +9,39 @@ import { db, tables } from "@/db";
  * makes a platform admin. The `users` table is a mirror for joins and
  * listings. Role lookups are cached per process for 5 minutes.
  *
- * Authorization: per-project membership (ADR-008), NOT `createdBy`.
- * `getProjectAccess()` is the single choke point — every route touching
- * project-scoped data goes through it. `createdBy` survives only as
+ * Tenancy (ADR-010): every user acts inside ONE customer company — the Clerk
+ * Organization active in their session, resolved on the server to our
+ * `companies` row. The company is never read from the request. Nothing of
+ * another company is visible, admins included: platform admin (Dana, Susan)
+ * is admin *within* their own company here; cross-company admin views get
+ * their own audited path in the admin back office.
+ *
+ * Authorization: company first, then per-project membership (ADR-008), NOT
+ * `createdBy`. `getProjectAccess()` is the single choke point — every route
+ * touching project-scoped data goes through it. `createdBy` survives only as
  * provenance ("who made this"), never as permission.
  */
 
-export type CurrentUser = { id: string; role: "admin" | "member"; email: string | null };
+export type CurrentUser = {
+  id: string;
+  role: "admin" | "member";
+  email: string | null;
+  /** The customer company of this session, or null = sees no customer data. */
+  companyId: string | null;
+};
 export type ProjectRole = "owner" | "editor" | "viewer" | "admin";
 
 const cache = new Map<string, { user: CurrentUser; at: number }>();
 const TTL = 5 * 60 * 1000;
 
 export async function requireUser(): Promise<CurrentUser | null> {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   if (!userId) return null;
 
-  const hit = cache.get(userId);
+  // Keyed by organization too: switching company in the session must never
+  // serve the previous company from cache.
+  const key = `${userId}:${orgId ?? ""}`;
+  const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.user;
 
   const clerk = await clerkClient();
@@ -33,13 +49,15 @@ export async function requireUser(): Promise<CurrentUser | null> {
   const role = cu.publicMetadata?.role === "admin" ? "admin" : "member";
   const email = cu.emailAddresses[0]?.emailAddress ?? null;
   const name = [cu.firstName, cu.lastName].filter(Boolean).join(" ") || null;
+  const companyId = await resolveCompanyId(userId, orgId ?? null);
 
   await db()
     .insert(tables.users)
-    .values({ id: userId, email, name, role })
+    .values({ id: userId, email, name, role, companyId })
     .onConflictDoUpdate({
       target: tables.users.id,
-      set: { email, name, role },
+      // The home company only ever moves to a known company, never to null.
+      set: companyId ? { email, name, role, companyId } : { email, name, role },
     });
 
   // Collaborators are invited by email before they have a Clerk id
@@ -48,9 +66,98 @@ export async function requireUser(): Promise<CurrentUser | null> {
   // cache miss.
   if (email) await claimPendingInvites(userId, email);
 
-  const user: CurrentUser = { id: userId, role, email };
-  cache.set(userId, { user, at: Date.now() });
+  const user: CurrentUser = { id: userId, role, email, companyId };
+  cache.set(key, { user, at: Date.now() });
   return user;
+}
+
+/**
+ * The session's organization → our `companies` row.
+ *
+ * Normally the session carries an active organization. When it does not, Clerk
+ * is asked (server-side) which organizations the user belongs to: exactly one
+ * is unambiguous and used; none or several means no company until they pick
+ * one. An organization with no `companies` row (not set up by an admin) also
+ * resolves to null. Null always means "sees no customer data", never "sees all".
+ */
+async function resolveCompanyId(userId: string, orgId: string | null): Promise<string | null> {
+  let clerkOrgId = orgId;
+  if (!clerkOrgId) {
+    try {
+      const clerk = await clerkClient();
+      const list = await clerk.users.getOrganizationMembershipList({ userId, limit: 2 });
+      if (list.data.length === 1) clerkOrgId = list.data[0].organization.id;
+    } catch (err) {
+      console.warn("[tenancy] membership lookup failed — no company for this request:", err);
+    }
+  }
+  if (!clerkOrgId) return null;
+  const [row] = await db()
+    .select({ id: tables.companies.id })
+    .from(tables.companies)
+    .where(eq(tables.companies.clerkOrgId, clerkOrgId))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** The Clerk organization behind a company — for organization invitations. */
+export async function companyClerkOrgId(companyId: string): Promise<string | null> {
+  const [row] = await db()
+    .select({ clerkOrgId: tables.companies.clerkOrgId })
+    .from(tables.companies)
+    .where(eq(tables.companies.id, companyId))
+    .limit(1);
+  return row?.clerkOrgId ?? null;
+}
+
+/**
+ * Invites an email address into the company's Clerk Organization, so a person
+ * added to a role can actually reach it once they sign in (ADR-010: access
+ * requires being in the company). Already a member or already invited counts
+ * as success. Never throws — the role membership row is the record either way.
+ */
+export async function inviteToCompany(
+  companyId: string,
+  email: string,
+  inviterUserId: string
+): Promise<"invited" | "already" | "failed"> {
+  try {
+    const organizationId = await companyClerkOrgId(companyId);
+    if (!organizationId) return "failed";
+    const clerk = await clerkClient();
+    await clerk.organizations.createOrganizationInvitation({
+      organizationId,
+      emailAddress: email,
+      role: "org:member",
+      inviterUserId,
+    });
+    return "invited";
+  } catch (err) {
+    const codes = ((err as { errors?: { code?: string }[] })?.errors ?? []).map((e) => e.code ?? "");
+    if (codes.some((c) => /already|duplicate/.test(c))) return "already";
+    console.warn("[tenancy] organization invitation failed:", codes.join(",") || "unknown error");
+    return "failed";
+  }
+}
+
+/** Owning company of a project — child rows copy it from here (ADR-010 §5). */
+export async function projectCompanyId(projectId: string): Promise<string | null> {
+  const [row] = await db()
+    .select({ companyId: tables.projects.companyId })
+    .from(tables.projects)
+    .where(eq(tables.projects.id, projectId))
+    .limit(1);
+  return row?.companyId ?? null;
+}
+
+/** Owning company of a conversation — messages and answers copy it from here. */
+export async function conversationCompanyId(conversationId: string): Promise<string | null> {
+  const [row] = await db()
+    .select({ companyId: tables.conversations.companyId })
+    .from(tables.conversations)
+    .where(eq(tables.conversations.id, conversationId))
+    .limit(1);
+  return row?.companyId ?? null;
 }
 
 /**
@@ -130,11 +237,15 @@ export async function getProjectAccess(
 ): Promise<ProjectRole | null> {
   const d = db();
   const [project] = await d
-    .select({ createdBy: tables.projects.createdBy })
+    .select({ createdBy: tables.projects.createdBy, companyId: tables.projects.companyId })
     .from(tables.projects)
     .where(eq(tables.projects.id, projectId))
     .limit(1);
   if (!project) return null;
+
+  // ADR-010: another company's project does not exist for this user — same
+  // answer as a missing one, so ids cannot be probed. Admins included.
+  if (!user.companyId || project.companyId !== user.companyId) return null;
 
   if (user.role === "admin") return "admin";
   if (project.createdBy === user.id) return "owner";
@@ -163,19 +274,26 @@ export function canAdminister(role: ProjectRole | null): boolean {
 }
 
 /**
- * Every project id the user can see. Returns **null for platform admins**,
- * meaning "no restriction" — callers must treat null as *unfiltered*, not as
- * *empty*. Used by the list endpoints, which now filter by project instead
- * of by `createdBy`.
+ * Every project id the user can see, always inside their own company
+ * (ADR-010). Admins see every project of their company; members see the ones
+ * they own or were added to. No company → nothing. Used by the list endpoints.
  */
-export async function accessibleProjectIds(user: CurrentUser): Promise<string[] | null> {
-  if (user.role === "admin") return null;
+export async function accessibleProjectIds(user: CurrentUser): Promise<string[]> {
+  if (!user.companyId) return [];
+  const inCompany = eq(tables.projects.companyId, user.companyId);
+  if (user.role === "admin") {
+    const rows = await db().select({ id: tables.projects.id }).from(tables.projects).where(inCompany);
+    return rows.map((r) => r.id);
+  }
   const rows = await db()
     .selectDistinct({ id: tables.projects.id })
     .from(tables.projects)
     .leftJoin(tables.projectMembers, eq(tables.projectMembers.projectId, tables.projects.id))
     .where(
-      or(eq(tables.projects.createdBy, user.id), eq(tables.projectMembers.userId, user.id))
+      and(
+        inCompany,
+        or(eq(tables.projects.createdBy, user.id), eq(tables.projectMembers.userId, user.id))
+      )
     );
   return rows.map((r) => r.id);
 }
@@ -212,6 +330,8 @@ export async function appendUserTurn(opts: {
   if (!dbEnabled() || !isPersistableAgent(opts.agentSlug)) return null;
   const d = db();
   let convId = opts.conversationId;
+  const companyId = await projectCompanyId(opts.projectId);
+  if (!companyId) return null;
 
   if (convId) {
     const [conv] = await d
@@ -233,6 +353,7 @@ export async function appendUserTurn(opts: {
     const [row] = await d
       .insert(tables.conversations)
       .values({
+        companyId,
         projectId: opts.projectId,
         agentSlug: opts.agentSlug,
         createdBy: opts.userId,
@@ -250,7 +371,7 @@ export async function appendUserTurn(opts: {
 
   await d
     .insert(tables.messages)
-    .values({ conversationId: convId, seq: nextSeq, role: "user", content: opts.userText })
+    .values({ companyId, conversationId: convId, seq: nextSeq, role: "user", content: opts.userText })
     .onConflictDoNothing();
   await d
     .update(tables.conversations)
@@ -268,9 +389,12 @@ export async function appendAssistantTurn(opts: {
 }): Promise<void> {
   if (!dbEnabled() || !opts.assistantText.trim()) return;
   const d = db();
+  const companyId = await conversationCompanyId(opts.conversationId);
+  if (!companyId) return;
   await d
     .insert(tables.messages)
     .values({
+      companyId,
       conversationId: opts.conversationId,
       seq: opts.seq,
       role: "assistant",
@@ -313,11 +437,12 @@ export async function appendTurns(opts: {
 export async function getConversationAccess(
   conversationId: string,
   user: CurrentUser
-): Promise<{ projectId: string; agentSlug: string; role: ProjectRole } | null> {
+): Promise<{ projectId: string; agentSlug: string; companyId: string; role: ProjectRole } | null> {
   const [conv] = await db()
     .select({
       projectId: tables.conversations.projectId,
       agentSlug: tables.conversations.agentSlug,
+      companyId: tables.conversations.companyId,
     })
     .from(tables.conversations)
     .where(eq(tables.conversations.id, conversationId))
@@ -325,5 +450,5 @@ export async function getConversationAccess(
   if (!conv) return null;
   const role = await getProjectAccess(conv.projectId, user);
   if (!role) return null;
-  return { projectId: conv.projectId, agentSlug: conv.agentSlug, role };
+  return { projectId: conv.projectId, agentSlug: conv.agentSlug, companyId: conv.companyId, role };
 }

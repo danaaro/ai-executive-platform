@@ -8,6 +8,8 @@ import {
   canAdminister,
   canWrite,
   getUserNames,
+  projectCompanyId,
+  inviteToCompany,
 } from "@/shared/current-user";
 import { deriveStages } from "@/orchestrator/stages";
 
@@ -185,9 +187,12 @@ export async function POST(
     .where(eq(tables.users.email, email))
     .limit(1);
 
+  const companyId = await projectCompanyId(id);
+  if (!companyId) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await d
     .insert(tables.projectMembers)
     .values({
+      companyId,
       projectId: id,
       userId: existing?.id ?? null,
       invitedEmail: email,
@@ -197,7 +202,10 @@ export async function POST(
     })
     .onConflictDoNothing();
 
-  return NextResponse.json({ invited: email, role: memberRole, pending: !existing });
+  // Invitees must be in the company to reach the role (ADR-010).
+  const orgInvite = await inviteToCompany(companyId, email, user.id);
+
+  return NextResponse.json({ invited: email, role: memberRole, pending: !existing, orgInvite });
 }
 
 /** Remove a collaborator. Owner or admin only; the owner cannot be removed. */

@@ -49,7 +49,7 @@ export async function POST(
     .where(eq(tables.messages.conversationId, id));
   const seq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
 
-  await d.insert(tables.messages).values({ conversationId: id, seq, role, content });
+  await d.insert(tables.messages).values({ companyId: access.companyId, conversationId: id, seq, role, content });
   await d
     .update(tables.conversations)
     .set({ updatedAt: new Date() })

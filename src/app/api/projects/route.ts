@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db, tables } from "@/db";
-import { requireUser, dbEnabled, getUserNames } from "@/shared/current-user";
+import { requireUser, dbEnabled, getUserNames, inviteToCompany } from "@/shared/current-user";
 import { deriveStages, PHASE_1_STAGES } from "@/orchestrator/stages";
 
 /**
@@ -16,6 +16,11 @@ export async function GET(_req: NextRequest) {
 
   const d = db();
   const isAdmin = user.role === "admin";
+  // ADR-010: no company in this session → no customer data at all.
+  if (!user.companyId) {
+    return NextResponse.json({ isAdmin, noCompany: true, owned: [], shared: [] });
+  }
+  const inCompany = eq(tables.projects.companyId, user.companyId);
 
   // This user's membership rows, so each shared card can show the viewer's
   // own permission level without a second round trip.
@@ -38,7 +43,7 @@ export async function GET(_req: NextRequest) {
   };
 
   const rows = isAdmin
-    ? await d.select(columns).from(tables.projects).orderBy(desc(tables.projects.updatedAt))
+    ? await d.select(columns).from(tables.projects).where(inCompany).orderBy(desc(tables.projects.updatedAt))
     : await d
         .selectDistinct(columns)
         .from(tables.projects)
@@ -47,9 +52,12 @@ export async function GET(_req: NextRequest) {
           eq(tables.projectMembers.projectId, tables.projects.id)
         )
         .where(
-          or(
-            eq(tables.projects.createdBy, user.id),
-            eq(tables.projectMembers.userId, user.id)
+          and(
+            inCompany,
+            or(
+              eq(tables.projects.createdBy, user.id),
+              eq(tables.projectMembers.userId, user.id)
+            )
           )
         )
         .orderBy(desc(tables.projects.updatedAt));
@@ -133,6 +141,13 @@ export async function POST(req: NextRequest) {
   }
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const companyId = user.companyId;
+  if (!companyId) {
+    return NextResponse.json(
+      { error: "Your account is not linked to a company yet." },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json().catch(() => ({}));
   const title: string = (body.title ?? "").trim();
@@ -157,7 +172,7 @@ export async function POST(req: NextRequest) {
   const d = db();
   const [row] = await d
     .insert(tables.projects)
-    .values({ title, createdBy: user.id })
+    .values({ companyId, title, createdBy: user.id })
     .returning({ id: tables.projects.id, title: tables.projects.title });
 
   // The creator's owner row. getProjectAccess() also treats `createdBy` as
@@ -165,6 +180,7 @@ export async function POST(req: NextRequest) {
   // complete, which is what the sharing UI reads.
   const memberValues = [
     {
+      companyId,
       projectId: row.id,
       userId: user.id,
       role: "owner" as const,
@@ -173,6 +189,7 @@ export async function POST(req: NextRequest) {
     ...invites
       .filter((i) => i.email !== (user.email ?? "").toLowerCase())
       .map((i) => ({
+        companyId,
         projectId: row.id,
         invitedEmail: i.email,
         role: i.role,
@@ -180,6 +197,12 @@ export async function POST(req: NextRequest) {
       })),
   ];
   await d.insert(tables.projectMembers).values(memberValues).onConflictDoNothing();
+  // Invitees must be in the company to reach the role (ADR-010).
+  await Promise.all(
+    invites
+      .filter((i) => i.email !== (user.email ?? "").toLowerCase())
+      .map((i) => inviteToCompany(companyId, i.email, user.id))
+  );
 
   return NextResponse.json({ project: row, invited: invites.length });
 }

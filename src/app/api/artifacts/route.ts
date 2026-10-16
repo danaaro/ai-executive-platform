@@ -64,19 +64,19 @@ export async function GET(req: NextRequest) {
   const projectFilter = req.nextUrl.searchParams.get("project");
   const allowed = await accessibleProjectIds(user);
 
-  // `allowed === null` means platform admin — unfiltered, NOT empty.
-  let scope: string[] | null = allowed;
+  // Always a list, always inside the user's company (ADR-010) — admins too.
+  let scope: string[] = allowed;
   if (projectFilter) {
-    if (allowed !== null && !allowed.includes(projectFilter)) {
+    if (!allowed.includes(projectFilter)) {
       return NextResponse.json({ isAdmin: false, artifacts: [] });
     }
     scope = [projectFilter];
   }
-  if (scope !== null && scope.length === 0) {
+  if (scope.length === 0) {
     return NextResponse.json({ isAdmin: user.role === "admin", artifacts: [] });
   }
 
-  let q = d
+  const rows = await d
     .select({
       id: tables.artifacts.id,
       projectId: tables.artifacts.projectId,
@@ -90,12 +90,9 @@ export async function GET(req: NextRequest) {
     })
     .from(tables.artifacts)
     .innerJoin(tables.projects, eq(tables.projects.id, tables.artifacts.projectId))
+    .where(inArray(tables.artifacts.projectId, scope))
     .orderBy(desc(tables.artifacts.createdAt))
-    .limit(200)
-    .$dynamic();
-
-  if (scope !== null) q = q.where(inArray(tables.artifacts.projectId, scope));
-  const rows = await q;
+    .limit(200);
 
   const names = await getUserNames(rows.map((r) => r.createdBy));
 

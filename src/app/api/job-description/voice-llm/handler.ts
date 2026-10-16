@@ -10,7 +10,7 @@ import {
   recordIntakeAnswers,
   splitIntakeBlock,
 } from "@/shared/intake-answers";
-import { dbEnabled } from "@/shared/current-user";
+import { dbEnabled, conversationCompanyId } from "@/shared/current-user";
 import { db, tables } from "@/db";
 
 /**
@@ -240,11 +240,15 @@ export async function persistVoiceTurns(
 
     const pending = turns.slice(persistedInSession);
     if (pending.length === 0) return nextSeq;
+    // ADR-010: the company comes from the conversation the signed grant names.
+    const companyId = await conversationCompanyId(grant.conversationId);
+    if (!companyId) return null;
 
     await d
       .insert(tables.messages)
       .values(
         pending.map((t, j) => ({
+          companyId,
           conversationId: grant.conversationId,
           seq: grant.baseSeq + persistedInSession + j,
           role: t.role,
@@ -276,9 +280,11 @@ export async function persistAssistantTurn(
   if (!dbEnabled() || !content.trim()) return;
   try {
     const d = db();
+    const companyId = await conversationCompanyId(conversationId);
+    if (!companyId) return;
     await d
       .insert(tables.messages)
-      .values({ conversationId, seq, role: "assistant", content: content.slice(0, 20_000) })
+      .values({ companyId, conversationId, seq, role: "assistant", content: content.slice(0, 20_000) })
       .onConflictDoNothing();
     await d
       .update(tables.conversations)

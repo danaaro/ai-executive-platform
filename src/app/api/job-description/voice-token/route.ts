@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
-import { requireUser, dbEnabled, getProjectAccess, canWrite } from "@/shared/current-user";
+import {
+  requireUser,
+  dbEnabled,
+  getProjectAccess,
+  canWrite,
+  projectCompanyId,
+} from "@/shared/current-user";
 import { signVoiceGrant, type VoiceGrant } from "@/shared/voice-grant";
 import { db, tables } from "@/db";
 
@@ -113,13 +119,14 @@ export async function POST(req: NextRequest) {
           if (conv && conv.projectId === projectId) conversationId = conv.id;
         }
 
-        if (!conversationId && projectId) {
+        const companyId = projectId ? await projectCompanyId(projectId) : null;
+        if (!conversationId && projectId && companyId) {
           const title =
             messages.find((m) => m.role === "user")?.content.replace(/\s+/g, " ").slice(0, 80) ||
             "Voice intake session";
           const [row] = await d
             .insert(tables.conversations)
-            .values({ projectId, agentSlug: "job-description", createdBy: user.id, title })
+            .values({ companyId, projectId, agentSlug: "job-description", createdBy: user.id, title })
             .returning({ id: tables.conversations.id });
           conversationId = row.id;
           // A brand-new conversation may carry unpersisted context from the
@@ -127,6 +134,7 @@ export async function POST(req: NextRequest) {
           if (messages.length > 0) {
             await d.insert(tables.messages).values(
               messages.map((m, i) => ({
+                companyId,
                 conversationId: conversationId!,
                 seq: i,
                 role: m.role,

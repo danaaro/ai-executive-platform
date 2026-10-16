@@ -43,6 +43,7 @@ export async function POST(
     .select({
       id: tables.artifacts.id,
       projectId: tables.artifacts.projectId,
+      companyId: tables.artifacts.companyId,
       agentSlug: tables.artifacts.agentSlug,
       version: tables.artifacts.version,
     })
@@ -61,6 +62,7 @@ export async function POST(
   }
 
   await d.insert(tables.artifactApprovals).values({
+    companyId: artifact.companyId,
     artifactId: id,
     action: "changes_requested",
     note,

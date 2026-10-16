@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql as raw } from "drizzle-orm";
 import { db, tables } from "@/db";
-import { dbEnabled } from "@/shared/current-user";
+import { dbEnabled, conversationCompanyId } from "@/shared/current-user";
 
 /**
  * The structured intake record: parsing it out of an agent turn, keeping it
@@ -184,9 +184,13 @@ export async function recordIntakeAnswers(
   channel: "text" | "voice"
 ): Promise<number> {
   if (!dbEnabled() || answers.length === 0) return 0;
+  // ADR-010: answers belong to the conversation's company.
+  const companyId = await conversationCompanyId(conversationId);
+  if (!companyId) return 0;
 
   const now = new Date();
   const rows = answers.map((a) => ({
+    companyId,
     conversationId,
     questionId: a.questionId,
     sectionId: a.sectionId,

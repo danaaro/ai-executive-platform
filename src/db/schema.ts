@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   boolean,
   date,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -34,6 +35,9 @@ export const users = pgTable("users", {
   email: text("email"),
   name: text("name"),
   role: text("role", { enum: ["admin", "member"] }).notNull().default("member"),
+  // Home company (ADR-010). Nullable: a first sign-in is mirrored before its
+  // organization is known. Access is decided by the session's organization.
+  companyId: uuid("company_id").references((): AnyPgColumn => companies.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -52,7 +56,7 @@ export const companies = pgTable("companies", {
   clerkOrgId: text("clerk_org_id").notNull().unique(),
   name: text("name").notNull(),
   // Hidden from the customer; set and cleared by admins only.
-  intelCompanyId: uuid("intel_company_id").references(() => intelCompanies.id, {
+  intelCompanyId: uuid("intel_company_id").references((): AnyPgColumn => intelCompanies.id, {
     onDelete: "set null",
   }),
   // The customer's own profile, reused on every role (docs/customer-journey.md).
@@ -65,6 +69,10 @@ export const companies = pgTable("companies", {
 
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // ADR-010: the owning customer, from the creator's session.
+  companyId: uuid("company_id")
+    .notNull()
+    .references(() => companies.id),
   title: text("title").notNull(), // the role being hired for, e.g. "Head of DevOps"
   // "draft" added for the wireframe #4b status chips. Plain text column with
   // a TS-level enum, so widening it needs no migration.
@@ -94,6 +102,11 @@ export const projectMembers = pgTable(
   "project_members",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // ADR-010: the owning customer. Copied from the parent row, never taken
+    // from the browser.
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
@@ -123,6 +136,11 @@ export const conversations = pgTable(
   "conversations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // ADR-010: the owning customer. Copied from the parent row, never taken
+    // from the browser.
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id),
@@ -149,6 +167,11 @@ export const messages = pgTable(
   "messages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // ADR-010: the owning customer. Copied from the parent row, never taken
+    // from the browser.
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     conversationId: uuid("conversation_id")
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
@@ -187,6 +210,11 @@ export const intakeAnswers = pgTable(
   "intake_answers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // ADR-010: the owning customer. Copied from the parent row, never taken
+    // from the browser.
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     conversationId: uuid("conversation_id")
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
@@ -232,6 +260,11 @@ export const artifacts = pgTable(
   "artifacts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // ADR-010: the owning customer. Copied from the parent row, never taken
+    // from the browser.
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id),
@@ -270,6 +303,11 @@ export const artifactApprovals = pgTable(
   "artifact_approvals",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // ADR-010: the owning customer. Copied from the parent row, never taken
+    // from the browser.
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     artifactId: uuid("artifact_id")
       .notNull()
       .references(() => artifacts.id, { onDelete: "cascade" }),

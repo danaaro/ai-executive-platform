@@ -5,6 +5,7 @@ import {
   requireUser,
   dbEnabled,
   getProjectAccess,
+  projectCompanyId,
   canWrite,
 } from "@/shared/current-user";
 import { db, tables } from "@/db";
@@ -60,6 +61,22 @@ export async function POST(
 
   try {
     const d = db();
+    const companyId = await projectCompanyId(projectId);
+    if (!companyId) {
+      return NextResponse.json({ error: "Project not found or not accessible" }, { status: 403 });
+    }
+    // The browser names the source conversation; keep it only if it really
+    // belongs to this project (ADR-010: ids from the browser are never trusted
+    // to cross a project or company boundary).
+    let conversationId: string | null = null;
+    if (typeof body.conversationId === "string" && body.conversationId) {
+      const [conv] = await d
+        .select({ projectId: tables.conversations.projectId })
+        .from(tables.conversations)
+        .where(eq(tables.conversations.id, body.conversationId))
+        .limit(1);
+      if (conv?.projectId === projectId) conversationId = body.conversationId;
+    }
     const [latest] = await d
       .select({ version: tables.artifacts.version })
       .from(tables.artifacts)
@@ -76,6 +93,7 @@ export async function POST(
     const [row] = await d
       .insert(tables.artifacts)
       .values({
+        companyId,
         projectId,
         agentSlug: slug,
         version,
@@ -87,7 +105,7 @@ export async function POST(
           promptVersion: "1.0",
           inputsSummary: body.inputsSummary ?? null,
         },
-        conversationId: body.conversationId ?? null,
+        conversationId,
         createdBy: user.id,
       })
       .returning({ id: tables.artifacts.id, version: tables.artifacts.version });

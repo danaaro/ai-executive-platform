@@ -22,30 +22,27 @@ export async function GET(req: NextRequest) {
   const project = req.nextUrl.searchParams.get("project");
 
   const allowed = await accessibleProjectIds(user);
-  // `allowed === null` means platform admin — unfiltered, NOT empty.
-  let scope: string[] | null = allowed;
+  // Always a list, always inside the user's company (ADR-010) — admins too.
+  let scope: string[] = allowed;
   if (project) {
-    if (allowed !== null && !allowed.includes(project)) {
+    if (!allowed.includes(project)) {
       return NextResponse.json({ isAdmin: false, conversations: [] });
     }
     scope = [project];
   }
-  if (scope !== null && scope.length === 0) {
+  if (scope.length === 0) {
     return NextResponse.json({ isAdmin: user.role === "admin", conversations: [] });
   }
 
-  const filters = [];
-  if (scope !== null) filters.push(inArray(tables.conversations.projectId, scope));
+  const filters = [inArray(tables.conversations.projectId, scope)];
   if (agent) filters.push(eq(tables.conversations.agentSlug, agent));
 
-  let q = db()
+  const rows = await db()
     .select()
     .from(tables.conversations)
+    .where(and(...filters))
     .orderBy(desc(tables.conversations.updatedAt))
-    .limit(50)
-    .$dynamic();
-  if (filters.length) q = q.where(and(...filters));
-  const rows = await q;
+    .limit(50);
 
   const names = await getUserNames(rows.map((r) => r.createdBy));
   return NextResponse.json({

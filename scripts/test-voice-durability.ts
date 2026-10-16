@@ -45,14 +45,22 @@ type Row = { seq: number; role: string; content: string };
 async function main() {
   const d = db();
   const testUserId = "test-voice-durability-user";
+  // Throwaway company (ADR-010): every customer row needs one.
+  const [testCompany] = await d
+    .insert(tables.companies)
+    .values({ clerkOrgId: "test-voice-durability-org", name: "voice-durability test company" })
+    .onConflictDoUpdate({ target: tables.companies.clerkOrgId, set: { name: "voice-durability test company" } })
+    .returning({ id: tables.companies.id });
+  const companyId = testCompany.id;
   await d.insert(tables.users).values({ id: testUserId, role: "member" }).onConflictDoNothing();
   const [project] = await d
     .insert(tables.projects)
-    .values({ title: "voice-durability test project", createdBy: testUserId })
+    .values({ companyId, title: "voice-durability test project", createdBy: testUserId })
     .returning({ id: tables.projects.id });
   const [conv] = await d
     .insert(tables.conversations)
     .values({
+      companyId,
       projectId: project.id,
       agentSlug: "job-description",
       createdBy: testUserId,
@@ -93,8 +101,8 @@ async function main() {
     // --- 2. Seed pre-session context, then open a voice session -----------
     // Two turns of prior text chat: the call's baseSeq is therefore 2.
     await d.insert(tables.messages).values([
-      { conversationId: conv.id, seq: 0, role: "user", content: "Start the NEW JOB intake session." },
-      { conversationId: conv.id, seq: 1, role: "assistant", content: "Tell me about the role." },
+      { companyId, conversationId: conv.id, seq: 0, role: "user", content: "Start the NEW JOB intake session." },
+      { companyId, conversationId: conv.id, seq: 1, role: "assistant", content: "Tell me about the role." },
     ]);
     const grant = { conversationId: conv.id, baseSeq: 2 };
 
@@ -170,6 +178,7 @@ async function main() {
     const [conv2] = await d
       .insert(tables.conversations)
       .values({
+        companyId,
         projectId: project.id,
         agentSlug: "job-description",
         createdBy: testUserId,
@@ -218,6 +227,7 @@ async function main() {
     await d.delete(tables.conversations).where(eq(tables.conversations.id, conv.id));
     await d.delete(tables.projects).where(eq(tables.projects.id, project.id));
     await d.delete(tables.users).where(eq(tables.users.id, testUserId));
+    await d.delete(tables.companies).where(eq(tables.companies.id, companyId));
   }
 
   console.log(
