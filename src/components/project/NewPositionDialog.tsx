@@ -86,9 +86,9 @@ export function NewPositionDialog() {
         }
       }}
     >
-      <Button variant="primary" onClick={() => setOpen(true)}>
-        <Plus /> New position
-      </Button>
+      <button type="button" className="btn btn-gold" onClick={() => setOpen(true)}>
+        <Plus className="size-4" /> Start new role
+      </button>
 
       <DialogContent>
         <DialogTitle>Start a new hiring position</DialogTitle>

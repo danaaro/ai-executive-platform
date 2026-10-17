@@ -126,8 +126,16 @@ export const GET = tenantRoute(async function GET(_req: NextRequest) {
     };
   });
 
+  // The company's own record — readable in this tenant scope (ADR-010 policy).
+  const [company] = await d
+    .select({ name: tables.companies.name })
+    .from(tables.companies)
+    .where(eq(tables.companies.id, user.companyId))
+    .limit(1);
+
   return NextResponse.json({
     isAdmin,
+    companyName: company?.name ?? null,
     owned: projects.filter((p) => p.isOwner),
     shared: projects.filter((p) => !p.isOwner),
   });

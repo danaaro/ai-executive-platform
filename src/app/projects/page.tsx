@@ -2,21 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { AppHeader } from "@/components/AppHeader";
 import { NewPositionDialog } from "@/components/project/NewPositionDialog";
-import {
-  StageMiniProgress,
-  type MiniStage,
-} from "@/components/project/StageMiniProgress";
+import type { MiniStage } from "@/components/project/StageMiniProgress";
 import { relativeTime } from "@/lib/utils";
 
 /**
- * Home (#4b) — "Your hiring positions": what you own, and what was shared
- * with you. Each card carries the 4-node stage indicator so the state of a
- * whole search reads at a glance.
+ * Company home — the customer's roles, in the Exec10X mockup's layout
+ * ("Organization detail", UI review 2026-10-17): company name as the title,
+ * gold "Start new role", one row per role with progress and status. Roles the
+ * user owns come first; roles shared with them follow.
  */
 
 type Project = {
@@ -36,6 +33,7 @@ type Project = {
 export default function ProjectsPage() {
   const [owned, setOwned] = useState<Project[] | null>(null);
   const [shared, setShared] = useState<Project[]>([]);
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // ADR-010: signed in, but not (yet) part of a customer company.
   const [noCompany, setNoCompany] = useState(false);
@@ -44,13 +42,14 @@ export default function ProjectsPage() {
     fetch("/api/projects")
       .then(async (r) => {
         const d = await r.json();
-        if (!r.ok) throw new Error(d.error ?? "Could not load your positions");
+        if (!r.ok) throw new Error(d.error ?? "Could not load your roles");
         setNoCompany(Boolean(d.noCompany));
+        setCompanyName(d.companyName ?? null);
         setOwned(d.owned ?? []);
         setShared(d.shared ?? []);
       })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : "Could not load your positions");
+        setError(e instanceof Error ? e.message : "Could not load your roles");
         setOwned([]);
       });
   }, []);
@@ -58,127 +57,113 @@ export default function ProjectsPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-display text-[22px] font-semibold text-ink">
-            Your hiring positions
-          </h1>
-          <NewPositionDialog />
+      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="label-mono mb-3">Executive roles</p>
+            <h1 className="font-display text-4xl font-normal text-ink">
+              {companyName ?? "Your roles"}
+            </h1>
+          </div>
+          {!noCompany && <NewPositionDialog />}
         </div>
 
         {error && (
-          <Alert tone="danger" className="mt-5">
+          <Alert tone="danger" className="mb-6">
             {error}
           </Alert>
         )}
 
         {noCompany && (
-          <Alert className="mt-5">
+          <Alert className="mb-6">
             Your account is not linked to a company yet. If you were invited, open the invitation
             email and accept it, then sign in again. Otherwise, contact the person who invited you.
           </Alert>
         )}
 
-        <Section title="Owned by you">
-          {owned === null ? (
-            <LoadingGrid />
-          ) : owned.length === 0 ? (
-            <EmptyCard>
-              No positions yet. Start one and the Job Description agent will interview you.
-            </EmptyCard>
-          ) : (
-            <Grid>
-              {owned.map((p) => (
-                <ProjectCard key={p.id} project={p} />
-              ))}
-            </Grid>
-          )}
-        </Section>
+        {owned === null ? (
+          <LoadingRows />
+        ) : owned.length === 0 && shared.length === 0 ? (
+          !noCompany && (
+            <div className="card-surface border-dashed px-6 py-12 text-center text-muted">
+              No roles yet. Start one and the agent will interview you to build the brief.
+            </div>
+          )
+        ) : (
+          <div className="space-y-3">
+            {owned.map((p) => (
+              <RoleRow key={p.id} project={p} />
+            ))}
+          </div>
+        )}
 
         {shared.length > 0 && (
-          <Section title="Shared with you">
-            <Grid>
+          <section className="mt-12">
+            <p className="label-mono mb-4">Shared with you</p>
+            <div className="space-y-3">
               {shared.map((p) => (
-                <ProjectCard key={p.id} project={p} />
+                <RoleRow key={p.id} project={p} />
               ))}
-            </Grid>
-          </Section>
+            </div>
+          </section>
         )}
       </main>
     </>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-8">
-      <h2 className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
+/**
+ * The role's status in the mockup's words, read from its Job Description
+ * stage: approved JD → Approved; a saved draft → Draft ready; otherwise the
+ * briefing is still going → Interviewing.
+ */
+function roleStatus(p: Project): { label: string; className: string } {
+  const jd = p.stages.find((s) => s.slug === "job-description") ?? p.stages[0];
+  if (jd?.status === "done") return { label: "Approved", className: "text-success" };
+  if (jd?.version) return { label: "Draft ready", className: "text-ink" };
+  return { label: "Interviewing", className: "text-accent" };
 }
 
-function Grid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
-  );
-}
-
-const STATUS_TONE = {
-  open: "active",
-  draft: "draft",
-  filled: "done",
-  archived: "neutral",
-} as const;
-
-function ProjectCard({ project: p }: { project: Project }) {
+function RoleRow({ project: p }: { project: Project }) {
+  const status = roleStatus(p);
+  const pct = p.stageCount ? Math.round((p.doneCount / p.stageCount) * 100) : 0;
   return (
     <Link
       href={`/projects/${p.id}`}
-      className="flex flex-col gap-3 rounded-card border border-line bg-card p-4 transition-all hover:border-line-strong hover:shadow-[0_2px_10px_rgba(10,17,25,0.07)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
+      className="card-surface flex items-center gap-6 p-5 transition hover:border-accent/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="font-display text-[15px] font-semibold leading-tight text-ink">
-          {p.title}
-        </h3>
-        <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate font-display text-xl font-normal text-ink">{p.title}</h3>
+        <p className="mt-1 text-xs text-faint">
+          Updated {relativeTime(p.updatedAt)}
+          {!p.isOwner && <> · {p.ownerName} · you are a {p.viewerRole}</>}
+        </p>
       </div>
-
-      <StageMiniProgress stages={p.stages} />
-
-      <p className="text-[11.5px] leading-snug text-muted">
-        {p.doneCount} of {p.stageCount} stages · updated {relativeTime(p.updatedAt)}
-        {!p.isOwner && (
-          <>
-            <br />
-            {p.ownerName} · you are a {p.viewerRole}
-          </>
-        )}
-      </p>
+      <div className="hidden w-48 sm:block">
+        <div className="h-1 overflow-hidden rounded-full bg-elevated">
+          <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="mt-2 font-mono text-xs text-muted">
+          {p.doneCount} of {p.stageCount} stages
+        </p>
+      </div>
+      <span className={`label-mono w-28 text-right ${status.className}`}>{status.label}</span>
     </Link>
   );
 }
 
-function EmptyCard({ children }: { children: React.ReactNode }) {
+function LoadingRows() {
   return (
-    <div className="rounded-card border border-dashed border-line-strong px-4 py-8 text-center text-[13px] text-muted">
-      {children}
-    </div>
-  );
-}
-
-function LoadingGrid() {
-  return (
-    <Grid>
+    <div className="space-y-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="rounded-card border border-line bg-card p-4">
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="mt-3 h-[18px] w-32" />
-          <Skeleton className="mt-3 h-3 w-full" />
+        <div key={i} className="card-surface flex items-center gap-6 p-5">
+          <div className="flex-1">
+            <Skeleton className="h-5 w-1/3" />
+            <Skeleton className="mt-2 h-3 w-24" />
+          </div>
+          <Skeleton className="hidden h-1 w-48 sm:block" />
         </div>
       ))}
-    </Grid>
+    </div>
   );
 }
