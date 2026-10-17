@@ -35,11 +35,14 @@ export function InterviewWorkspace({
   projectId,
   data,
   stage,
+  mode,
   onChanged,
 }: {
   projectId: string;
   data: ProjectDetail;
   stage: Stage;
+  /** How the user chose to begin (start screen, U7); null when resuming. */
+  mode: "upload" | "voice" | "type" | null;
   onChanged: () => void;
 }) {
   const router = useRouter();
@@ -48,6 +51,10 @@ export function InterviewWorkspace({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const uploadRef = useRef<HTMLInputElement>(null);
+  // The chosen start method's prompt stays until it has been used once.
+  const [startHint, setStartHint] = useState<"upload" | "voice" | null>(
+    mode === "upload" || mode === "voice" ? mode : null
+  );
 
   const session = useIntakeSession({
     agentSlug: stage.slug,
@@ -184,6 +191,37 @@ export function InterviewWorkspace({
                 ))}
             </div>
           </div>
+
+          {canWrite && startHint === "upload" && !session.uploading && (
+            <div className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/50 bg-accent-wash px-4 py-3">
+              <p className="text-sm text-ink">Start by attaching your documents — the agent reads them first.</p>
+              <button
+                className="btn btn-gold px-4 py-2 text-xs"
+                onClick={() => {
+                  setStartHint(null);
+                  uploadRef.current?.click();
+                }}
+                disabled={session.loading}
+              >
+                Choose files
+              </button>
+            </div>
+          )}
+          {canWrite && startHint === "voice" && !session.voiceLive && (
+            <div className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/50 bg-accent-wash px-4 py-3">
+              <p className="text-sm text-ink">Ready when you are — start talking with the agent.</p>
+              <button
+                className="btn btn-gold px-4 py-2 text-xs"
+                onClick={() => {
+                  setStartHint(null);
+                  session.startVoice();
+                }}
+                disabled={session.loading || session.voiceStarting}
+              >
+                <Phone className="size-3.5" /> {session.voiceStarting ? "Connecting…" : "Start talking"}
+              </button>
+            </div>
+          )}
 
           {session.hydrating ? (
             <p className="label-mono flex-1 px-6 py-6">Loading this session…</p>

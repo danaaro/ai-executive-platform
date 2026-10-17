@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { ConversationProvider } from "@elevenlabs/react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
@@ -22,6 +22,9 @@ export default function InterviewPage() {
 
 function Interview() {
   const params = useParams<{ id: string }>();
+  const search = useSearchParams();
+  const modeParam = search.get("mode");
+  const mode = modeParam === "upload" || modeParam === "voice" || modeParam === "type" ? modeParam : null;
   const { data, error, reload } = useProjectDetail(params.id);
   const stage = data?.stages.find((s) => s.slug === "job-description") ?? null;
 
@@ -47,5 +50,7 @@ function Interview() {
     );
   }
   // Keyed by role only: the session keeps its own conversation once started.
-  return <InterviewWorkspace key={params.id} projectId={params.id} data={data} stage={stage} onChanged={reload} />;
+  return (
+    <InterviewWorkspace key={params.id} projectId={params.id} data={data} stage={stage} mode={mode} onChanged={reload} />
+  );
 }

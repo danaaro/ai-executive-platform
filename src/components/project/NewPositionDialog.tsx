@@ -98,7 +98,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not open the role");
-      router.push(`/projects/${data.project.id}/interview`);
+      router.push(`/projects/${data.project.id}/start`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not open the role");
       setBusy(false);

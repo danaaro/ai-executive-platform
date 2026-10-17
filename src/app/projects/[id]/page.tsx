@@ -154,7 +154,11 @@ function jdStatus(stage: Stage): { label: string; className: string } {
 
 function JobDescriptionBox({ projectId, stage }: { projectId: string; stage: Stage }) {
   const status = jdStatus(stage);
-  const href = stage.latest ? `/projects/${projectId}/review?artifact=${(stage.approved ?? stage.latest).id}` : `/projects/${projectId}/interview`;
+  const href = stage.latest
+    ? `/projects/${projectId}/review?artifact=${(stage.approved ?? stage.latest).id}`
+    : stage.threadId
+      ? `/projects/${projectId}/interview`
+      : `/projects/${projectId}/start`;
   return (
     <div className="card-surface flex flex-col p-7">
       <div className="flex items-start justify-between">
