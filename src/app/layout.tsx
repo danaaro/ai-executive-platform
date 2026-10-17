@@ -1,30 +1,39 @@
 import type { Metadata } from "next";
-import { Roboto, Roboto_Slab } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SusieBrain",
+  title: "Exec10X",
   description: "AI hiring intelligence — evidence-based hiring, agent by agent.",
 };
 
-// Susan Pike & Partners type pairing (UX-Shell.md §5): Roboto for body,
-// Roboto Slab for display/headings.
-const roboto = Roboto({
+// Exec10X type (UI review 2026-10-17, same as exec10x.ai): Newsreader for
+// display, IBM Plex Sans for body, IBM Plex Mono for small labels. next/font
+// serves the files from our own domain, so visitors' browsers never call Google.
+const newsreader = Newsreader({
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-roboto",
+  weight: ["300", "400", "500"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
   display: "swap",
 });
 
-const robotoSlab = Roboto_Slab({
+const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-roboto-slab",
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-sans",
   display: "swap",
 });
 
-// "SusieBrain" is the working app name (public product brand still ADR-002).
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
+
+// Product name in the app: Exec10X (UI review U1, 2026-10-17).
 // The localization override fixes the Clerk card saying "My Application"
 // regardless of the Clerk dashboard app name. Sign-in copy follows
 // wireframe #4a ("Sign in to your workspace").
@@ -37,34 +46,33 @@ const clerkLocalization = {
   },
   signUp: {
     start: {
-      title: "Create your SusieBrain account",
+      title: "Create your Exec10X account",
       subtitle: "Invitation-only while we're in early testing",
     },
   },
 };
 
-// Clerk renders into its own DOM, so the SPP palette reaches the sign-in
-// card (#4a) through Clerk's variables rather than our Tailwind classes.
-// Hex literals are required — Clerk cannot resolve our CSS custom properties.
-// Primary is accent-ink (#8a6524), not brass (#c69746): Clerk uses this color
-// for link TEXT as well as buttons, and brass on white fails contrast.
+// Clerk renders into its own DOM, so the Exec10X palette reaches the sign-in
+// card through Clerk's variables rather than our Tailwind classes. Hex literals
+// are required — Clerk cannot resolve our CSS custom properties. Keep in step
+// with the tokens in globals.css.
 const clerkAppearance = {
   variables: {
-    colorPrimary: "#8a6524",
-    colorText: "#0a1119",
-    colorTextSecondary: "#4b535d",
-    colorBackground: "#ffffff",
-    colorInputBackground: "#ffffff",
-    colorInputText: "#0a1119",
+    colorPrimary: "#8a5d19",
+    colorText: "#14201c",
+    colorTextSecondary: "#47554f",
+    colorBackground: "#fafbf9",
+    colorInputBackground: "#fafbf9",
+    colorInputText: "#14201c",
     colorDanger: "#a33323",
-    borderRadius: "10px",
-    fontFamily: "var(--font-roboto), system-ui, sans-serif",
+    borderRadius: "8px",
+    fontFamily: "var(--font-plex-sans), system-ui, sans-serif",
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${roboto.variable} ${robotoSlab.variable}`}>
+    <html lang="en" className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable}`}>
       <body>
         <ClerkProvider localization={clerkLocalization} appearance={clerkAppearance}>
           {children}

@@ -1,18 +1,16 @@
 @import "tailwindcss";
 
 /*
- * Susan Pike & Partners visual identity (UX-Shell.md §5, locked 2026-07-18,
- * implemented 2026-07-26). Ink navy grounds, warm cream page, brass-gold
- * accent, slate muted text.
+ * Exec10X visual identity (2026-10-17, Dana) — the light palette of the Lovable
+ * mockup (danaaro/executive-job-studio), which itself matches exec10x.ai:
+ * soft sage page, near-white cards, deep green-black ink, burnished-gold accent.
+ * Light only for now (UI review U6); dark mode is a later, contained change of
+ * these tokens. Supersedes the Susan Pike & Partners navy/cream palette.
  *
- * Contrast rule that shapes this palette: brass #C69746 on cream is ~2.3:1 —
- * fine as a FILL or marker, unreadable as body text. So the accent splits in
- * two: `accent` (fills, connectors, active rings) and `accent-ink` (darker
- * brass, used whenever the brand color has to carry text).
- *
- * Status hues are deliberately NOT amber: brass owns the warm-gold range, so
- * an amber warning reads as "approved" at a glance. Drafts are slate-blue,
- * warnings are rust/terracotta instead (UX-Shell flagged this collision).
+ * The token NAMES are unchanged so every existing screen re-skins at once.
+ * Accent #8a5d19 reads as text on the page (≈4.7:1) and carries white text as a
+ * fill (≈5.9:1); accent-ink is the darker hover/emphasis step. Status hues stay
+ * off the gold range so a warning never reads as "approved".
  */
 
 @theme inline {
@@ -22,6 +20,8 @@
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-elevated: var(--elevated);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
 
@@ -39,25 +39,31 @@
   --color-chart-mark: var(--chart-mark);
   --color-chart-track: var(--chart-track);
 
-  --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-roboto-slab), ui-serif, Georgia, serif;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-newsreader), Georgia, ui-serif, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, Menlo, monospace;
+
+  --color-success: var(--success);
 
   --radius-card: 12px;
 }
 
 :root {
-  --canvas: #f5f1e9;
-  --canvas-subtle: #faf7f1;
-  --card: #ffffff;
-  --ink: #0a1119;
-  --ink-soft: #121c27;
-  --muted: #4b535d;
-  --line: #e3dcce;
-  --line-strong: #d2c8b6;
+  --canvas: #edefec;
+  --canvas-subtle: #f4f6f3;
+  --card: #fafbf9;
+  --ink: #14201c;
+  --ink-soft: #1d2823;
+  --muted: #47554f;
+  --faint: #5a6660;
+  --elevated: #e1e6e2;
+  --line: #cdd5d0;
+  --line-strong: #b4bfb8;
 
-  --accent: #c69746;
-  --accent-ink: #8a6524;
-  --accent-wash: #f7efdf;
+  --accent: #8a5d19;
+  --accent-ink: #6e4a14;
+  --accent-wash: #efe6d6;
+  --success: #2f6b4f;
 
   --draft: #4a6178;
   --draft-wash: #eceff3;
@@ -67,7 +73,7 @@
   --danger-wash: #fbeae7;
 
   /* Dot-grid board canvas (#1b) */
-  --dot: #ded5c5;
+  --dot: #d5dcd7;
 
   /*
    * Data marks (Company Intel report charts, 2026-09-26). Brass as a MARK is
@@ -96,38 +102,6 @@
   --bubble-assistant: var(--canvas-subtle);
   --bubble-assistant-text: var(--ink);
   --radius: 14px;
-}
-
-/* Screen only: a PDF is always the light, paper version. */
-@media screen and (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #0a1119;
-    --canvas-subtle: #0e1620;
-    --card: #121c27;
-    --ink: #f5f1e9;
-    --ink-soft: #e7e0d3;
-    --muted: #8b96a3;
-    --line: #23303f;
-    --line-strong: #33445a;
-
-    --accent: #d3a857;
-    --accent-ink: #e2bd76;
-    --accent-wash: #241d10;
-
-    --draft: #8ba6c0;
-    --draft-wash: #16202b;
-    --warn: #e08258;
-    --warn-wash: #251610;
-    --danger: #e0705d;
-    --danger-wash: #241211;
-
-    --dot: #1d2937;
-
-    /* #d3a857 sits above the dark lightness band; #b88d42 passes all checks
-       against the dark card #121c27. */
-    --chart-mark: #b88d42;
-    --chart-track: #1f2a37;
-  }
 }
 
 /*
@@ -199,8 +173,86 @@ body {
 
 body {
   margin: 0;
-  font-family: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Display headings as in the mockup: Newsreader at a light-regular weight. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.01em;
+}
+
+/*
+ * Building blocks from the mockup, for the redesigned screens. Existing
+ * screens keep their own components until they are rebuilt.
+ */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+@utility btn-gold {
+  background: var(--accent);
+  color: var(--card);
+  &:hover:not(:disabled) {
+    background: var(--accent-ink);
+  }
+}
+@utility btn-ghost {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  &:hover:not(:disabled) {
+    background: var(--elevated);
+  }
+}
+@utility field {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  outline: none;
+  &:focus {
+    border-color: var(--accent);
+  }
+  &::placeholder {
+    color: var(--faint);
+  }
+}
+@utility card-surface {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+@utility gold-glow {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 50%, transparent),
+    0 12px 40px -12px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+@utility bg-grain {
+  background-image: radial-gradient(ellipse at top left, color-mix(in oklab, var(--accent) 14%, transparent), transparent 55%),
+    radial-gradient(ellipse at bottom right, color-mix(in oklab, var(--success) 10%, transparent), transparent 50%);
 }
 
 button {

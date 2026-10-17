@@ -4,9 +4,8 @@ import Link from "next/link";
 import { UserButton, useUser } from "@clerk/nextjs";
 
 /**
- * Persistent top bar. The Susan Pike & Partners mark is a brass monogram plus
- * a spaced-caps wordmark (UX-Shell.md §5); the product name itself stays a
- * placeholder until ADR-002 settles.
+ * Persistent top bar: the Exec10X wordmark (UI review U1, 2026-10-17), set in
+ * Newsreader like exec10x.ai and the Lovable mockup.
  */
 export function AppHeader({
   children,
@@ -22,14 +21,10 @@ export function AppHeader({
 
   return (
     <header className="no-print sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-        <Link href="/projects" className="flex items-center gap-2.5">
-          <span className="flex size-7 items-center justify-center rounded-[6px] bg-accent font-display text-[13px] font-bold text-white">
-            S
-          </span>
-          <span className="hidden font-display text-[12px] font-semibold uppercase tracking-[0.18em] text-ink sm:inline">
-            Susie&thinsp;Brain
-          </span>
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+        <Link href="/projects" className="flex items-baseline gap-2">
+          <span className="font-display text-2xl font-normal text-ink">Exec10X</span>
+          <span className="label-mono hidden sm:inline">Executive Search</span>
         </Link>
 
         {breadcrumb && (
