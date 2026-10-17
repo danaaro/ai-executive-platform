@@ -26,6 +26,24 @@ function stripFrontmatter(markdown: string): string {
 }
 
 let cachedSystemPrompt: string | null = null;
+let cachedVoiceOpeners: Record<string, string> | null = null;
+
+/**
+ * The voice agent's spoken first line, from
+ * prompts/01-job-description-voice-opener.md ("new" or "continuing"), with
+ * {title} and {company} filled in. Wording lives in the prompt file, not here.
+ */
+export function voiceOpeningLine(kind: "new" | "continuing", title: string, company: string): string {
+  if (!cachedVoiceOpeners) {
+    cachedVoiceOpeners = {};
+    const body = stripFrontmatter(readProductFile("prompts/01-job-description-voice-opener.md"));
+    for (const part of body.split(/^## /m).slice(1)) {
+      const [name, ...text] = part.split("\n");
+      cachedVoiceOpeners[name.trim()] = text.join("\n").trim();
+    }
+  }
+  return (cachedVoiceOpeners[kind] ?? "").replaceAll("{title}", title).replaceAll("{company}", company);
+}
 
 export function buildJobDescriptionSystemPrompt(): string {
   if (cachedSystemPrompt) return cachedSystemPrompt;

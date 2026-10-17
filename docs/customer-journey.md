@@ -12,7 +12,7 @@
 
 ## Role flow (Step 1)
 1. Customer opens a role using one credit: enters title and salary range, which are then locked.
-2. Interview in chat, one question at a time, using company context. Progress saved; can pause and resume.
+2. Interview in chat, one question at a time, using company context. Before the first question the agent studies everything it has (locked role facts, company documents, documents attached to the role, and the hidden Company Intel), opens with a short "here is what I already know" summary, and never asks what the documents already answer; it may confirm a point, phrased as already knowing it (2026-10-18). Progress saved; can pause and resume.
 3. Draft job description shown in sections; editable directly or via agent requests.
 4. Only the interviewed hiring manager approves.
 5. On approval: save to database, generate branded Word and PDF, unlock Step 2.

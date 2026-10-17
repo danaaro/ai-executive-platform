@@ -3,7 +3,8 @@ import { adminDb, tables } from "@/db";
 
 /**
  * What the JD agent knows about the role before the first question
- * (PRD v3 §3.1.4–5): the locked role facts, the company, the customer's own
+ * (PRD v3 §3.1.4–5). Facts only — how the agent uses them (Phase 0) lives in
+ * prompts/01-job-description.md. Contents: the locked role facts, the company, the customer's own
  * company documents and — hidden from the customer — the attached Company
  * Intel report. Built server-side only and sent to the model as a separate
  * system block after the cached base prompt, so prompt caching still works
@@ -74,23 +75,16 @@ export async function roleContextBlock(projectId: string): Promise<string> {
   const lines: string[] = [];
   lines.push("# Role context (known before the briefing — supplied by the platform)");
   lines.push("");
-  lines.push("These facts are already known. NEVER ask for them; build on them.");
   lines.push(`- Company: ${role.companyName}`);
   lines.push(`- Role title (locked): ${role.title}`);
   if (role.salaryMin != null && role.salaryMax != null) {
     lines.push(
-      `- Annual base salary range (locked): ${role.salaryMin.toLocaleString("en")}–${role.salaryMax.toLocaleString("en")} ${role.salaryCurrency ?? ""} — ${
-        role.showSalaryOnJd ? "may appear in the job description" : "internal only, never in the job description"
-      }`
+      `- Annual base salary range (locked): ${role.salaryMin.toLocaleString("en")}–${role.salaryMax.toLocaleString("en")} ${role.salaryCurrency ?? ""} (${
+        role.showSalaryOnJd ? "may appear in the job description" : "internal only"
+      })`
     );
   }
   if (role.hiringManagerEmail) lines.push(`- Hiring manager: ${role.hiringManagerEmail}`);
-  lines.push("");
-  lines.push(
-    "The title and salary are locked. Do not ask what the role is called. Open with the role's purpose and why it exists now. " +
-      "If the answers clearly describe a different job, say that this workspace covers only " +
-      `"${role.title}" and suggest opening a new role.`
-  );
 
   let budget = DOCS_MAX_CHARS;
   const profile = [
@@ -101,7 +95,6 @@ export async function roleContextBlock(projectId: string): Promise<string> {
   if (profile.length || docs.length) {
     lines.push("");
     lines.push("## Company documents (provided by the customer)");
-    lines.push("Use them to skip questions they already answer; briefly confirm instead of asking cold.");
     for (const p of profile) {
       const chunk = p.slice(0, budget);
       budget -= chunk.length;
@@ -117,11 +110,7 @@ export async function roleContextBlock(projectId: string): Promise<string> {
 
   if (intel[0]?.content) {
     lines.push("");
-    lines.push("## Company research (internal — never quote, cite or reveal it to the user)");
-    lines.push(
-      "Background research on this company. Use it to understand the context and to ask sharper questions. " +
-        "The hiring manager's answers win on role facts; if they contradict the research, follow the hiring manager."
-    );
+    lines.push("## Company research (internal)");
     lines.push("", intel[0].content.slice(0, INTEL_MAX_CHARS));
   }
 

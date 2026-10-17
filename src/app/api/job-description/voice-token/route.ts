@@ -2,7 +2,7 @@ import { validateChatMessages } from "@/shared/chat-limits";
 import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, max } from "drizzle-orm";
-import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
+import { buildJobDescriptionSystemPrompt, voiceOpeningLine } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import {
   requireUser,
@@ -190,9 +190,9 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * The agent's spoken opening line, built from the locked role facts so the
- * voice agent never opens by asking what the role is (PRD v3 §3.1.4). Only
- * the title and company name reach the browser — no prompt text.
+ * The agent's spoken opening line (wording in the prompt file), filled with
+ * the locked role facts so the voice agent never opens by asking what the
+ * role is. Only this one sentence reaches the browser — no prompt text.
  */
 async function openingLine(projectId: string, continuing: boolean): Promise<string | null> {
   const [row] = await adminDb()
@@ -202,11 +202,5 @@ async function openingLine(projectId: string, continuing: boolean): Promise<stri
     .where(eq(tables.projects.id, projectId))
     .limit(1);
   if (!row) return null;
-  if (continuing) {
-    return `Welcome back. Let's pick up the ${row.title} briefing where we left off. Go ahead whenever you're ready.`;
-  }
-  return (
-    `Hi, I'm your Exec10X briefing partner. Let's shape the ${row.title} role at ${row.company} together. ` +
-    `To start: why does this role exist, and why now?`
-  );
+  return voiceOpeningLine(continuing ? "continuing" : "new", row.title, row.company) || null;
 }

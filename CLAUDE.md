@@ -29,6 +29,25 @@
 - Never write prompts, API keys or personal data to application logs.
 - All usage limits enforced on the server.
 
+## Agent behaviour changes
+- All interview agent behaviour lives in prompt files on the server (e.g. products/interview-intelligence/prompts/01-job-description.md for the JD agent; shared rules in prompts/system/).
+- When I ask for a change in how the agent behaves, update the relevant prompt file. Never hardcode behaviour elsewhere.
+- After each change, tell me which file you changed and what you added.
+- Add the decision to docs/decisions.md.
+
+## Documentation rules — always follow
+After any change or decision, update the right file before finishing the task:
+- How the interview agent behaves → the agent's prompt file (e.g. products/interview-intelligence/prompts/01-job-description.md; shared rules in prompts/system/)
+- Screens, flow, onboarding, payments → docs/customer-journey.md
+- Limits, IP protection, monitoring → docs/guardrails.md
+- Quality tests → docs/evals.md
+- Every decision, with date and reason → docs/decisions.md
+
+At the end of every task, report:
+1. Which files you changed
+2. What you added or changed in each, in one line
+If a request doesn't fit any file, ask me where it belongs.
+
 ## Read before working on specific areas
 - Before working on onboarding, payments, credits, roles or the job description flow → read docs/customer-journey.md
 - Before working on agent prompts, usage limits, IP protection or monitoring → read docs/guardrails.md
