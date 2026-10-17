@@ -111,19 +111,10 @@ export function findDeliverable(messages: Message[]): Deliverable | null {
 export const INTERIM_DRAFT_MARKER = "[PLATFORM ACTION: INTERIM DRAFT]";
 
 export function generateDraftPrompt(agentSlug: string, stageName: string): string {
-  if (agentSlug === "job-description") {
-    return (
-      `${INTERIM_DRAFT_MARKER}\n\n` +
-      "Produce an interim draft of the job description now, using everything I have given you so far — " +
-      "even though the questionnaire isn't fully resolved. Follow your required structure exactly, and include " +
-      "the Intake & Coverage Record. Where information is still missing, write a clearly marked placeholder such " +
-      "as [TO CONFIRM: …] rather than inventing anything. Then tell me which questions still need answering."
-    );
-  }
-  return (
-    `${INTERIM_DRAFT_MARKER}\n\n` +
-    `Produce an interim draft of the ${stageName.toLowerCase()} now, using everything provided so far. ` +
-    "Follow your required output structure, mark anything still unknown as [TO CONFIRM: …] rather than inventing it, " +
-    "and then tell me what you still need."
-  );
+  // Only the request travels from the browser. How to write the interim draft
+  // (structure, [TO CONFIRM: …] placeholders, what to report) lives on the
+  // server: prompts/system/guardrails.md "Sanctioned platform action" and the
+  // agent's own prompt (01-job-description.md, Phase 2 exception).
+  const what = agentSlug === "job-description" ? "job description" : stageName.toLowerCase();
+  return `${INTERIM_DRAFT_MARKER}\n\nPlease produce an interim draft of the ${what} now.`;
 }

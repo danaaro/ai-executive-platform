@@ -27,6 +27,15 @@ function stripFrontmatter(markdown: string): string {
 
 let cachedSystemPrompt: string | null = null;
 let cachedVoiceOpeners: Record<string, string> | null = null;
+let cachedVoiceNote: string | null = null;
+
+/** Voice-only instructions, from prompts/01-job-description-voice.md. */
+export function voiceChannelNote(): string {
+  if (cachedVoiceNote === null) {
+    cachedVoiceNote = "\n\n---\n\n" + stripFrontmatter(readProductFile("prompts/01-job-description-voice.md")).trim();
+  }
+  return cachedVoiceNote;
+}
 
 /**
  * The voice agent's spoken first line, from

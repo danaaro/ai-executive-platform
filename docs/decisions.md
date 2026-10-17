@@ -1,9 +1,19 @@
-# Agent behaviour decisions
+# Decisions
 
-One line per change to how an agent behaves: date, what changed, why, and the prompt file it lives in. Newest first.
+One line per decision: date, what was decided, why, and where it lives. Newest first. Bigger decision sets keep their own files and are pointed to here.
 
 | Date | Decision | Why | File |
 |---|---|---|---|
+| 2026-10-18 | Voice-only instructions moved from code to 01-job-description-voice.md; the "Generate draft" button now sends only the marker and a one-line request (the drafting rules were already in the prompt and guardrails). | Behaviour lives in prompt files; prompt text must not ship to the browser. | 01-job-description-voice.md, src/components/review/deliverable.ts |
+| 2026-10-18 | End every session by updating the relevant docs and logging the day's decisions here. | Nothing gets lost between sessions. | CLAUDE.md |
+| 2026-10-17 | Extended thinking only when the agent writes or revises the document, off for interview turns. | First word went from ~22s to under 1s; interview questions don't need it. | src/app/api/job-description/route.ts |
+| 2026-10-17 | Host the app in Frankfurt (fra1), next to the database; trust a user's synced identity for 10 minutes instead of calling Clerk on every request. | Pages were slow because every request crossed the Atlantic. | vercel.json, src/shared/current-user.ts |
+| 2026-10-17 | Agent preloads the role context (locked facts, company documents, Intel) as a separate block after the cached prompt. | It must never ask the title; the cache keeps replies fast. | src/orchestrator/role-context.ts |
+| 2026-10-17 | Company documents: customer-visible, one place per company; Company Intel attached there by admins, one report at a time, never visible to the customer. | Dana's call; Intel is internal research. | docs/customer-journey.md |
+| 2026-10-17 | UI redesign decisions U1–U8 (Exec10X brand, questions shown for now, Generate at 80%, org list admin-only, downloads after approval, light only, three start options, new role needs credits). | Match the Lovable mockup, keep it minimal. | docs/platform-architecture/(C) UI-Redesign-Mockup-Review.md |
+| 2026-10-17 | JD v3 decisions D1–D10 (68 + 3 questions, recruiter brief moves to the interview kit, up to 6 accountabilities, separate approvals, offer to save documents to the company profile). | Susan's new method. | products/interview-intelligence/docs/(C) job-description-v3-gap-analysis.md |
+| 2026-10-17 | Credits: admin-only grants against signed contracts, append-only ledger, title and salary locked when a role opens. | Sales-led, invoice first; Stripe later. | docs/adrs/ADR-011-Role-Credits-and-Locked-Roles.md |
+| 2026-10-17 | Each customer company is a Clerk Organization; every customer table carries company_id with row-level security. | B2B multi-tenant; company A must never see company B. | docs/adrs/ADR-010-Customer-Accounts-Multi-Tenancy.md |
 | 2026-10-18 | JD agent studies all context before the first question (role facts, company documents, role documents, Intel), opens with a "what I already know" summary, never asks what the context answers, confirms only in an "I already know" tone; context answers are credited `answered` / `inferred` with source `document`. | Many answers are already in the documents; the hiring manager should feel the agent knows the company. | products/interview-intelligence/prompts/01-job-description.md (Phase 0, v1.4) |
 | 2026-10-18 | Company Intel is never credited as an answer or used in the opening summary. | It is hidden from the customer; crediting it would show its content in their progress list. | 01-job-description.md, docs/guardrails.md |
 | 2026-10-18 | Behaviour rules removed from code (role-context.ts) and the voice opening line moved to a prompt file. | CLAUDE.md: behaviour lives only in prompt files. | 01-job-description.md, 01-job-description-voice-opener.md |

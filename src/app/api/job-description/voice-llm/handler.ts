@@ -2,7 +2,7 @@ import { errorSummary } from "@/shared/safe-log";
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { asc, and, eq, lt, max } from "drizzle-orm";
-import { buildJobDescriptionSystemPrompt } from "@/orchestrator/job-description-orchestrator";
+import { buildJobDescriptionSystemPrompt, voiceChannelNote } from "@/orchestrator/job-description-orchestrator";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import { extractVoiceGrant } from "@/shared/voice-grant";
 import { INTAKE_START } from "@/shared/intake-openers";
@@ -16,44 +16,10 @@ import { roleContextBlock } from "@/orchestrator/role-context";
 import { db, withTenant, tables } from "@/db";
 
 /**
- * Appended only on the voice channel: the same agent brain, but replies are
- * spoken aloud by TTS, so they must sound like speech, not read like a doc.
- *
- * This note used to carry the ONE-QUESTION rule as a named override, because
- * the operative prompt's Phase 1 mandated bundling 2–4 questions per turn and a
- * milder clause here lost to it every time (Dana 2026-08-13). Phase 1 now
- * mandates one question per turn on every channel (2026-09-05), so the override
- * is gone — an override that names an instruction which no longer exists is
- * worse than none, since the model is left reconciling a rule it cannot find.
- * What remains is a short reinforcement: voice is where a second question does
- * the most damage, because a listener cannot re-read the turn and will only
- * answer the last thing they heard.
- */
-const VOICE_CHANNEL_NOTE =
-  "\n\n---\n\n# Channel note: LIVE VOICE\n\n" +
-  "This is a LIVE VOICE conversation — the user is speaking to you and your reply is " +
-  "spoken aloud via text-to-speech. Live voice IS fully supported; never say it is " +
-  "unavailable or planned for later.\n\n" +
-  "## One question per turn matters most here\n\n" +
-  "Your instructions already require exactly one question per turn. On voice this is " +
-  "unforgiving, so verify it before every reply:\n" +
-  "- Your entire spoken turn must contain EXACTLY ONE question mark character. Zero is " +
-  "allowed when you are only acknowledging something. Two or more is always wrong — " +
-  "rewrite the turn until one remains.\n" +
-  "- A listener cannot re-read what you said and will only answer the last thing they " +
-  "heard, so a second question does not get a second answer — it costs you the first one.\n\n" +
-  "## Speaking style\n\n" +
-  "Short conversational sentences. No markdown, no bullet lists, no headings, no numbering — " +
-  "every character you emit is read aloud. Keep each turn to a few sentences at most: brief " +
-  "acknowledgement of what they just said, then the single next question.\n\n" +
-  "When you reach the final job description and intake record, offer to continue in text chat " +
-  "so the user can read and copy them, rather than reading long documents aloud.";
-
-/**
  * Shared cached prefix + voice-only suffix. The base prompt block carries the
  * cache breakpoint and is byte-identical to the text channel's system block,
  * so voice and text turns read the same Anthropic prompt-cache entry; the
- * voice note sits AFTER the breakpoint and doesn't invalidate it.
+ * voice note (prompts/01-job-description-voice.md) sits AFTER the breakpoint and doesn't invalidate it.
  */
 function buildVoiceSystemBlocks(context = "") {
   return [
@@ -62,7 +28,7 @@ function buildVoiceSystemBlocks(context = "") {
       text: buildJobDescriptionSystemPrompt(),
       cache_control: { type: "ephemeral" as const },
     },
-    { type: "text" as const, text: VOICE_CHANNEL_NOTE + (context ? `\n\n---\n\n${context}` : "") },
+    { type: "text" as const, text: voiceChannelNote() + (context ? `\n\n---\n\n${context}` : "") },
   ];
 }
 

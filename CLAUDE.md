@@ -48,6 +48,8 @@ At the end of every task, report:
 2. What you added or changed in each, in one line
 If a request doesn't fit any file, ask me where it belongs.
 
+At the end of each session: update the relevant docs and add today's decisions to docs/decisions.md, so nothing gets lost.
+
 ## Read before working on specific areas
 - Before working on onboarding, payments, credits, roles or the job description flow → read docs/customer-journey.md
 - Before working on agent prompts, usage limits, IP protection or monitoring → read docs/guardrails.md

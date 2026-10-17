@@ -17,6 +17,18 @@
 4. Only the interviewed hiring manager approves.
 5. On approval: save to database, generate branded Word and PDF, unlock Step 2.
 
+## Screens and flow (Exec10X UI, built 2026-10-17/18)
+Decisions U1–U8 are in docs/platform-architecture/(C) UI-Redesign-Mockup-Review.md; this is what the screens do.
+- **Look:** Exec10X brand (U1), light mode only (U6). Every mandatory form field is marked with *.
+- **Company home (/projects):** the company's roles and credit balance. "Open new role" needs at least one credit (U8): title*, salary min/max/currency*, "show salary on the job description" box, hiring manager (me, or by email), optional invites. Opening spends one credit and locks title and salary.
+- **How would you like to begin? (/projects/[id]/start):** three options (U7): upload documents, voice conversation, or type. Each opens the interview in that mode.
+- **Interview (/projects/[id]/interview):** chat with the agent plus a progress ring. "Generate" stays locked until 80% of the questionnaire is covered (U3); then "Save draft & review". Questions are shown for now (U2, behind a setting). A documents card lists what was attached to the role and links to the company documents.
+  - Dictation (mic): shows a moving "Listening… speak, then press Done" bar; the mic is never shown red or muted.
+  - Voice: always called "voice conversation" (never "live call"). The agent speaks a role-specific opening line, then its "what I already know" summary.
+- **Review (/projects/[id]/review):** the formatted draft; Approve; "Ask the agent" sends a revision request back to the interview; Word/PDF download only once approved (U5).
+- **Company documents (/company):** the customer uploads several files at once (PDF, Word, Markdown, text) or removes them. Used on every role. Company Intel never appears here.
+- **Admin (admins only, U4):** company list; company page with credit balance, add / correct credits, roles, credit history, and the attached Company Intel: one report per company, replaced by detaching and attaching another. Every admin action is logged.
+
 ## Role statuses
 interviewing → draft → approved (locked) → reopened (creates a new version)
 
