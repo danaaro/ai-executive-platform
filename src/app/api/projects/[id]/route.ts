@@ -35,14 +35,9 @@ export const GET = tenantRoute(async function GET(
   if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const d = db();
-  const [project] = await d
-    .select()
-    .from(tables.projects)
-    .where(eq(tables.projects.id, id))
-    .limit(1);
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const [artifactRows, conversationRows, memberRows] = await Promise.all([
+  // One batch (pipelined): the role and everything hanging off it.
+  const [[project], artifactRows, conversationRows, memberRows] = await Promise.all([
+    d.select().from(tables.projects).where(eq(tables.projects.id, id)).limit(1),
     d
       .select({
         id: tables.artifacts.id,
@@ -76,6 +71,7 @@ export const GET = tenantRoute(async function GET(
       .from(tables.projectMembers)
       .where(eq(tables.projectMembers.projectId, id)),
   ]);
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const names = await getUserNames([
     project.createdBy,

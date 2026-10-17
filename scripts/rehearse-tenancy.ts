@@ -129,6 +129,7 @@ async function main() {
     // ADR-011: credits ledger, then the policies again (they include the ledger's).
     const t4 = await run("migrate:credits --apply", ["tsx", "scripts/migrate-credits.ts", "--apply"]);
     const t6 = await run("migrate:admin-audit --apply", ["tsx", "scripts/migrate-admin-audit.ts", "--apply"]);
+    await run("migrate:user-sync --apply", ["tsx", "scripts/migrate-user-sync.ts", "--apply"]);
     const t5 = await run("secure:tenancy --apply (with ledger + audit)", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
     console.log(`  · database work takes ${(t1 + t2 + t3 + t4 + t5 + t6).toFixed(1)}s in total`);
 

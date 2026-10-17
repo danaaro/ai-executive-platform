@@ -26,14 +26,15 @@ export const GET = tenantRoute(async function GET(_req: NextRequest) {
 
   // This user's membership rows, so each shared card can show the viewer's
   // own permission level without a second round trip.
-  const memberships = await d
+  // Independent reads go out together (pipelined on the tenant connection):
+  // every round trip to the database costs tens of milliseconds.
+  const membershipsQ = d
     .select({
       projectId: tables.projectMembers.projectId,
       role: tables.projectMembers.role,
     })
     .from(tables.projectMembers)
     .where(eq(tables.projectMembers.userId, user.id));
-  const memberRole = new Map(memberships.map((m) => [m.projectId, m.role]));
 
   const columns = {
     id: tables.projects.id,
@@ -44,9 +45,9 @@ export const GET = tenantRoute(async function GET(_req: NextRequest) {
     updatedAt: tables.projects.updatedAt,
   };
 
-  const rows = isAdmin
-    ? await d.select(columns).from(tables.projects).where(inCompany).orderBy(desc(tables.projects.updatedAt))
-    : await d
+  const rowsQ = isAdmin
+    ? d.select(columns).from(tables.projects).where(inCompany).orderBy(desc(tables.projects.updatedAt))
+    : d
         .selectDistinct(columns)
         .from(tables.projects)
         .leftJoin(
@@ -63,6 +64,21 @@ export const GET = tenantRoute(async function GET(_req: NextRequest) {
           )
         )
         .orderBy(desc(tables.projects.updatedAt));
+
+  // The company's own record — readable in this tenant scope (ADR-010 policy).
+  const companyQ = d
+    .select({ name: tables.companies.name })
+    .from(tables.companies)
+    .where(eq(tables.companies.id, user.companyId))
+    .limit(1);
+
+  const [memberships, rows, [company], credits] = await Promise.all([
+    membershipsQ,
+    rowsQ,
+    companyQ,
+    creditBalance(user.companyId),
+  ]);
+  const memberRole = new Map(memberships.map((m) => [m.projectId, m.role]));
 
   const ids = rows.map((r) => r.id);
   const [artifactRows, conversationRows, names] = await Promise.all([
@@ -126,15 +142,6 @@ export const GET = tenantRoute(async function GET(_req: NextRequest) {
       stageCount: stages.length,
     };
   });
-
-  // The company's own record — readable in this tenant scope (ADR-010 policy).
-  const [company] = await d
-    .select({ name: tables.companies.name })
-    .from(tables.companies)
-    .where(eq(tables.companies.id, user.companyId))
-    .limit(1);
-
-  const credits = await creditBalance(user.companyId);
 
   return NextResponse.json({
     isAdmin,

@@ -82,8 +82,11 @@ export async function withTenant<T>(companyId: string | null, fn: () => Promise<
     return fn();
   }
   return connection().transaction(async (tx) => {
-    await tx.execute(sql`SET LOCAL ROLE app_user`);
-    await tx.execute(sql`SELECT set_config('app.company_id', ${companyId ?? ""}, true)`);
+    // One round trip for both settings (each trip to the database costs tens
+    // of milliseconds). set_config('role', …, true) is SET LOCAL ROLE.
+    await tx.execute(
+      sql`SELECT set_config('role', 'app_user', true), set_config('app.company_id', ${companyId ?? ""}, true)`
+    );
     return scope.run({ tx: tx as unknown as Db, companyId }, fn);
   });
 }

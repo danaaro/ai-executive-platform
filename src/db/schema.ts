@@ -38,6 +38,9 @@ export const users = pgTable("users", {
   // Home company (ADR-010). Nullable: a first sign-in is mirrored before its
   // organization is known. Access is decided by the session's organization.
   companyId: uuid("company_id").references((): AnyPgColumn => companies.id),
+  // Last full sync with Clerk (role, email, company). requireUser() trusts this
+  // row for up to 10 minutes instead of calling Clerk on every request.
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

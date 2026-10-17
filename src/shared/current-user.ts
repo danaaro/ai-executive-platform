@@ -34,6 +34,13 @@ export type ProjectRole = "owner" | "editor" | "viewer" | "admin";
 
 const cache = new Map<string, { user: CurrentUser; at: number }>();
 const TTL = 5 * 60 * 1000;
+/**
+ * How long our own copy of a user (role, home company) is trusted before Clerk
+ * is asked again. Each Clerk call costs ~0.4 s, so it is not made per request.
+ * Consequence: revoking admin or removing someone from a company in Clerk takes
+ * effect within this window.
+ */
+const SYNC_WINDOW = 10 * 60 * 1000;
 
 export async function requireUser(): Promise<CurrentUser | null> {
   const { userId, orgId } = await auth();
@@ -45,6 +52,14 @@ export async function requireUser(): Promise<CurrentUser | null> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.user;
 
+  // Fast path: one database read — our synced copy, plus the session
+  // organization's company when the session names one.
+  const fresh = await fromRecentSync(userId, orgId ?? null);
+  if (fresh) {
+    cache.set(key, { user: fresh, at: Date.now() });
+    return fresh;
+  }
+
   const clerk = await clerkClient();
   const cu = await clerk.users.getUser(userId);
   const role = cu.publicMetadata?.role === "admin" ? "admin" : "member";
@@ -53,13 +68,14 @@ export async function requireUser(): Promise<CurrentUser | null> {
   const companyId = await resolveCompanyId(userId, orgId ?? null);
 
   // System mirror of the Clerk identity, before any tenant scope exists.
+  const syncedAt = new Date();
   await adminDb()
     .insert(tables.users)
-    .values({ id: userId, email, name, role, companyId })
+    .values({ id: userId, email, name, role, companyId, syncedAt })
     .onConflictDoUpdate({
       target: tables.users.id,
       // The home company only ever moves to a known company, never to null.
-      set: companyId ? { email, name, role, companyId } : { email, name, role },
+      set: companyId ? { email, name, role, companyId, syncedAt } : { email, name, role, syncedAt },
     });
 
   // Collaborators are invited by email before they have a Clerk id
@@ -71,6 +87,34 @@ export async function requireUser(): Promise<CurrentUser | null> {
   const user: CurrentUser = { id: userId, role, email, companyId };
   cache.set(key, { user, at: Date.now() });
   return user;
+}
+
+/**
+ * The user as of the last Clerk sync, if that was within SYNC_WINDOW — in ONE
+ * database round trip. With an organization in the session, the company is
+ * that organization's (no row → no company, never a fallback). Without one,
+ * the home company recorded at the last sync is used.
+ */
+async function fromRecentSync(userId: string, orgId: string | null): Promise<CurrentUser | null> {
+  const [row] = await adminDb()
+    .select({
+      role: tables.users.role,
+      email: tables.users.email,
+      homeCompanyId: tables.users.companyId,
+      syncedAt: tables.users.syncedAt,
+      sessionCompanyId: tables.companies.id,
+    })
+    .from(tables.users)
+    .leftJoin(tables.companies, eq(tables.companies.clerkOrgId, orgId ?? "__no_org__"))
+    .where(eq(tables.users.id, userId))
+    .limit(1);
+  if (!row?.syncedAt || Date.now() - row.syncedAt.getTime() > SYNC_WINDOW) return null;
+  return {
+    id: userId,
+    role: row.role,
+    email: row.email,
+    companyId: orgId ? (row.sessionCompanyId ?? null) : row.homeCompanyId,
+  };
 }
 
 /**
