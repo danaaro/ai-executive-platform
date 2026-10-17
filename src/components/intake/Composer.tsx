@@ -90,7 +90,7 @@ export function Composer({
           }}
         />
         <Button
-          variant="ghost"
+          variant="secondary"
           size="icon"
           aria-label="Attach a document"
           title="Upload a job description, brief or notes (PDF, DOCX, MD, TXT)"
@@ -119,14 +119,14 @@ export function Composer({
               ? "Voice conversation is live — just talk"
               : dictating
                 ? "Listening… speak, then edit before sending"
-                : "Type your answer, or use the mic"
+                : "Type your answer…"
           }
           disabled={disabled || voiceLive}
           className="max-h-[140px] min-h-10 flex-1 resize-none rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm leading-relaxed text-ink placeholder:text-faint focus-visible:border-accent focus-visible:outline-none disabled:opacity-60"
         />
 
         <Button
-          variant="ghost"
+          variant="secondary"
           size="icon"
           aria-label={dictating ? "Stop dictation" : "Dictate your answer"}
           title="Dictate — the transcript lands here for you to review before sending"
