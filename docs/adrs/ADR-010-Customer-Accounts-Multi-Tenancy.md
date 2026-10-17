@@ -1,6 +1,6 @@
 # ADR-010 — Customer accounts and multi-tenant isolation
 
-Date: 2026-10-17 | Status: **accepted** (Dana, 2026-10-17) — built on branch `feat/customer-accounts`, rehearsed, not yet switched live
+Date: 2026-10-17 | Status: **accepted and LIVE** (switched 2026-10-17, ~13:00; Dana's signed-in smoke test passed). Pre-switch backup: `_archive/db-backup-2026-10-17-switch/`
 Merges the earlier draft "ADR-010 Multi-Tenant Isolation" (proposed 2026-10-16, never reviewed) into this record.
 
 ## Title
