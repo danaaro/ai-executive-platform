@@ -25,7 +25,8 @@
 - Voice: the only agent text sent to the browser is the spoken opening line (role title + company). ElevenLabs calls our server with a secret key, and each voice session carries a server-signed grant naming its conversation.
 
 ## Company Intel confidentiality
-- The agent uses the Intel report only to understand the business and ask sharper questions. It never quotes, cites or mentions it, never uses it in the opening summary, and never records an answer from it, so Intel content cannot surface in the customer's progress list or provenance (2026-10-18).
+- The agent uses the Intel report only to understand the business and ask sharper questions. It never quotes, cites or mentions it, never uses it in the opening summary, and never records an answer from it, so Intel content cannot surface in the customer's progress list or provenance (2026-10-18). It never uses it to challenge the hiring manager or the locked facts, and ignores it if it seems to describe a different company. These rules sit directly above the research text in the agent's context (prompts/…/01-job-description-context.md), because rules placed only in the main prompt were ignored.
+- The refusal sentence is only for out-of-scope requests. Surprising or contradictory answers are part of the briefing and get a normal reply (prompts/system/guardrails.md).
 
 ## Monitoring
 - Log all agent conversations with company_id, user_id, role_id and timestamp.

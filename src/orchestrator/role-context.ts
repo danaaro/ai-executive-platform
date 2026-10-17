@@ -1,4 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
+import fs from "node:fs";
+import path from "node:path";
 import { adminDb, tables } from "@/db";
 
 /**
@@ -25,6 +27,23 @@ const INTEL_MAX_CHARS = 12_000;
 const DOCS_MAX_CHARS = 20_000;
 const cache = new Map<string, { text: string; at: number }>();
 
+/** Section headings + usage rules, from prompts/01-job-description-context.md. */
+let labels: Record<string, string> | null = null;
+function label(name: "facts" | "documents" | "research", fill: Record<string, string>): string {
+  if (!labels) {
+    const raw = fs.readFileSync(
+      path.join(process.cwd(), "products/interview-intelligence/prompts/01-job-description-context.md"),
+      "utf-8"
+    );
+    labels = {};
+    for (const part of raw.replace(/^---\n[\s\S]*?\n---\n/, "").split(/^## (?=facts|documents|research)/m).slice(1)) {
+      const [key, ...rest] = part.split("\n");
+      labels[key.trim()] = rest.join("\n").trim();
+    }
+  }
+  return (labels[name] ?? "").replace(/\{(\w+)\}/g, (_, k: string) => fill[k] ?? "");
+}
+
 export async function roleContextBlock(projectId: string): Promise<string> {
   const hit = cache.get(projectId);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.text;
@@ -44,9 +63,11 @@ export async function roleContextBlock(projectId: string): Promise<string> {
       values: tables.companies.values,
       cultureNotes: tables.companies.cultureNotes,
       intelCompanyId: tables.companies.intelCompanyId,
+      intelName: tables.intelCompanies.name,
     })
     .from(tables.projects)
     .innerJoin(tables.companies, eq(tables.companies.id, tables.projects.companyId))
+    .leftJoin(tables.intelCompanies, eq(tables.intelCompanies.id, tables.companies.intelCompanyId))
     .where(eq(tables.projects.id, projectId))
     .limit(1);
   if (!role) return "";
@@ -73,7 +94,7 @@ export async function roleContextBlock(projectId: string): Promise<string> {
   ]);
 
   const lines: string[] = [];
-  lines.push("# Role context (known before the briefing — supplied by the platform)");
+  lines.push(label("facts", { company: role.companyName, title: role.title }));
   lines.push("");
   lines.push(`- Company: ${role.companyName}`);
   lines.push(`- Role title (locked): ${role.title}`);
@@ -94,7 +115,7 @@ export async function roleContextBlock(projectId: string): Promise<string> {
   ].filter(Boolean) as string[];
   if (profile.length || docs.length) {
     lines.push("");
-    lines.push("## Company documents (provided by the customer)");
+    lines.push(label("documents", {}));
     for (const p of profile) {
       const chunk = p.slice(0, budget);
       budget -= chunk.length;
@@ -110,7 +131,7 @@ export async function roleContextBlock(projectId: string): Promise<string> {
 
   if (intel[0]?.content) {
     lines.push("");
-    lines.push("## Company research (internal)");
+    lines.push(label("research", { research_subject: role.intelName ?? "the company" }));
     lines.push("", intel[0].content.slice(0, INTEL_MAX_CHARS));
   }
 
