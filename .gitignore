@@ -34,3 +34,6 @@ generated/*
 /.clerk/
 .vercel
 .env*
+
+# Personal Claude Code settings (permissions, local hooks)
+.claude/settings.local.json
