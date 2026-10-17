@@ -65,7 +65,17 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 export async function streamJobDescriptionTurn(
   messages: ChatMessage[],
   onDelta: (text: string) => void,
-  onReset?: () => void
+  onReset?: () => void,
+  opts: {
+    /**
+     * Adaptive thinking: on for writing or revising the document, off for
+     * ordinary interview turns — a next question does not need it, and it
+     * added many seconds before the first word.
+     */
+    thinking?: boolean;
+    /** Role context (role-context.ts), sent after the cached base prompt. */
+    context?: string;
+  } = {}
 ): Promise<string> {
   const runStream = async (thinking: boolean) => {
     const stream = await getAnthropicClient().messages.create({
@@ -78,6 +88,7 @@ export async function streamJobDescriptionTurn(
           text: buildJobDescriptionSystemPrompt(),
           cache_control: { type: "ephemeral" },
         },
+        ...(opts.context ? [{ type: "text" as const, text: opts.context }] : []),
       ],
       messages,
       stream: true,
@@ -100,8 +111,8 @@ export async function streamJobDescriptionTurn(
     return { text, truncated };
   };
 
-  let { text, truncated } = await runStream(true);
-  if (truncated) {
+  let { text, truncated } = await runStream(opts.thinking ?? false);
+  if (truncated && (opts.thinking ?? false)) {
     console.warn("[job-description] stream hit max_tokens — retrying without thinking");
     onReset?.();
     const retry = await runStream(false);

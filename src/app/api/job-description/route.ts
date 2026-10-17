@@ -1,3 +1,5 @@
+import { roleContextBlock } from "@/orchestrator/role-context";
+import { INTERIM_DRAFT_MARKER } from "@/components/review/deliverable";
 import { validateChatMessages } from "@/shared/chat-limits";
 import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
@@ -95,6 +97,19 @@ export async function POST(req: NextRequest) {
     // The agent closes each turn with an [INTAKE ANSWERS] block. It is
     // bookkeeping, not conversation, so it is withheld from the stream as it
     // arrives rather than typed out on screen and removed afterwards.
+    // The role's context (title, salary, company, documents, research) and
+    // whether this turn writes the document (deep thinking) or just asks.
+    let context = "";
+    if (dbEnabled() && projectId) {
+      try {
+        context = await roleContextBlock(projectId);
+      } catch (err) {
+        console.error("[job-description] role context unavailable (turn served):", errorSummary(err));
+      }
+    }
+    const last = messages[messages.length - 1]?.content ?? "";
+    const writesDocument = last.includes(INTERIM_DRAFT_MARKER) || /^Please revise the /.test(last);
+
     let filter = createIntakeBlockFilter();
     const raw = await streamJobDescriptionTurn(
       messages,
@@ -105,7 +120,8 @@ export async function POST(req: NextRequest) {
       () => {
         filter = createIntakeBlockFilter();
         emit({ type: "reset" });
-      }
+      },
+      { thinking: writesDocument, context }
     );
     const tail = filter.flush();
     if (tail) emit({ type: "delta", text: tail });

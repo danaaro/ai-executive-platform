@@ -12,7 +12,7 @@ import {
   projectCompanyId,
 } from "@/shared/current-user";
 import { signVoiceGrant, type VoiceGrant } from "@/shared/voice-grant";
-import { db, withTenant, tables } from "@/db";
+import { adminDb, db, withTenant, tables } from "@/db";
 
 /**
  * Fire-and-forget cache pre-warm (see shared prompt-caching guidance):
@@ -100,6 +100,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Started now, awaited at the end — runs alongside the database work.
+  const tokenFetch = fetch(
+    `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
+    { headers: { "xi-api-key": apiKey }, cache: "no-store" }
+  );
+  const opener = projectId && dbEnabled() ? openingLine(projectId, messages.length > 0).catch(() => null) : Promise.resolve(null);
+
   // Anchor the session to a persisted conversation (skip silently if the DB
   // is not configured — voice still works, minus durability).
   let conversationId: string | null = null;
@@ -167,10 +174,7 @@ export async function POST(req: NextRequest) {
 
   prewarmPromptCache();
 
-  const res = await fetch(
-    `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
-    { headers: { "xi-api-key": apiKey }, cache: "no-store" }
-  );
+  const res = await tokenFetch;
 
   if (!res.ok) {
     console.error("ElevenLabs token request failed:", res.status, await res.text());
@@ -181,5 +185,28 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await res.json();
-  return NextResponse.json({ token: data.token, conversationId, extraBody });
+  const firstMessage = await opener;
+  return NextResponse.json({ token: data.token, conversationId, extraBody, firstMessage });
+}
+
+/**
+ * The agent's spoken opening line, built from the locked role facts so the
+ * voice agent never opens by asking what the role is (PRD v3 §3.1.4). Only
+ * the title and company name reach the browser — no prompt text.
+ */
+async function openingLine(projectId: string, continuing: boolean): Promise<string | null> {
+  const [row] = await adminDb()
+    .select({ title: tables.projects.title, company: tables.companies.name })
+    .from(tables.projects)
+    .innerJoin(tables.companies, eq(tables.companies.id, tables.projects.companyId))
+    .where(eq(tables.projects.id, projectId))
+    .limit(1);
+  if (!row) return null;
+  if (continuing) {
+    return `Welcome back. Let's pick up the ${row.title} briefing where we left off. Go ahead whenever you're ready.`;
+  }
+  return (
+    `Hi, I'm your Exec10X briefing partner. Let's shape the ${row.title} role at ${row.company} together. ` +
+    `To start: why does this role exist, and why now?`
+  );
 }

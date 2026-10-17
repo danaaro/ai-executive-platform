@@ -1,9 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { Mic, MicOff, Paperclip, Send, Phone, PhoneOff } from "lucide-react";
+import { Mic, Paperclip, Send, Phone, PhoneOff, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 /**
  * The composer, consistent across every stage drawer: text input + dictation
@@ -71,12 +70,32 @@ export function Composer({
               onClick={onStartVoice}
               disabled={disabled || voiceStarting}
             >
-              <Phone /> {voiceStarting ? "Connecting…" : "Start live voice conversation"}
+              <Phone /> {voiceStarting ? "Connecting…" : "Start voice conversation"}
             </Button>
           )}
         </div>
       )}
 
+      {dictating ? (
+        // Listening bar (Exec10X mockup): unmistakably "on", with one clear way
+        // to finish. The transcript lands in the text box to review before
+        // sending.
+        <div className="flex items-center gap-4 rounded-xl bg-elevated px-4 py-3" role="status" aria-live="polite">
+          <div className="flex h-8 flex-1 items-center gap-1" aria-hidden>
+            {Array.from({ length: 32 }).map((_, i) => (
+              <span
+                key={i}
+                className="animate-wave h-full w-1 rounded-full bg-accent"
+                style={{ animationDelay: `${(i % 8) * 0.1}s` }}
+              />
+            ))}
+          </div>
+          <span className="label-mono text-accent">Listening… speak, then press Done</span>
+          <button type="button" className="btn btn-gold px-4 py-2" onClick={onToggleDictation}>
+            <Square className="size-3.5" /> Done
+          </button>
+        </div>
+      ) : (
       <div className="flex items-end gap-2">
         <input
           ref={fileRef}
@@ -116,7 +135,7 @@ export function Composer({
           rows={1}
           placeholder={
             voiceLive
-              ? "Voice conversation is live — just talk"
+              ? "Voice conversation on — just talk"
               : dictating
                 ? "Listening… speak, then edit before sending"
                 : "Type your answer…"
@@ -128,13 +147,12 @@ export function Composer({
         <Button
           variant="secondary"
           size="icon"
-          aria-label={dictating ? "Stop dictation" : "Dictate your answer"}
-          title="Dictate — the transcript lands here for you to review before sending"
+          aria-label="Dictate your answer"
+          title="Dictate — speak, and your words appear here to review before sending"
           onClick={onToggleDictation}
           disabled={disabled || voiceLive}
-          className={cn(dictating && "bg-warn-wash text-warn")}
         >
-          {dictating ? <MicOff /> : <Mic />}
+          <Mic />
         </Button>
 
         <Button
@@ -147,6 +165,7 @@ export function Composer({
           <Send />
         </Button>
       </div>
+      )}
 
       {uploading && (
         <p className="label-mono mt-2">Parsing document…</p>

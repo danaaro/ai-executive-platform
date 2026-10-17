@@ -202,12 +202,27 @@ export async function projectCompanyId(projectId: string): Promise<string | null
  * (voice-grant.ts) — there is no user session to take the company from.
  */
 export async function trustedConversationCompanyId(conversationId: string): Promise<string | null> {
+  return (await trustedConversation(conversationId))?.companyId ?? null;
+}
+
+/** The project of a conversation named by a signed voice grant (see above). */
+export async function trustedConversationProjectId(conversationId: string): Promise<string | null> {
+  return (await trustedConversation(conversationId))?.projectId ?? null;
+}
+
+// A conversation's company and project never change, so voice turns look them
+// up once per process instead of on every spoken turn.
+const conversationOwners = new Map<string, { companyId: string; projectId: string }>();
+async function trustedConversation(conversationId: string) {
+  const hit = conversationOwners.get(conversationId);
+  if (hit) return hit;
   const [row] = await adminDb()
-    .select({ companyId: tables.conversations.companyId })
+    .select({ companyId: tables.conversations.companyId, projectId: tables.conversations.projectId })
     .from(tables.conversations)
     .where(eq(tables.conversations.id, conversationId))
     .limit(1);
-  return row?.companyId ?? null;
+  if (row) conversationOwners.set(conversationId, row);
+  return row ?? null;
 }
 
 /** Owning company of a conversation — messages and answers copy it from here. */

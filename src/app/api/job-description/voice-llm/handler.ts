@@ -11,7 +11,8 @@ import {
   recordIntakeAnswers,
   splitIntakeBlock,
 } from "@/shared/intake-answers";
-import { dbEnabled, trustedConversationCompanyId } from "@/shared/current-user";
+import { dbEnabled, trustedConversationCompanyId, trustedConversationProjectId } from "@/shared/current-user";
+import { roleContextBlock } from "@/orchestrator/role-context";
 import { db, withTenant, tables } from "@/db";
 
 /**
@@ -54,15 +55,27 @@ const VOICE_CHANNEL_NOTE =
  * so voice and text turns read the same Anthropic prompt-cache entry; the
  * voice note sits AFTER the breakpoint and doesn't invalidate it.
  */
-function buildVoiceSystemBlocks() {
+function buildVoiceSystemBlocks(context = "") {
   return [
     {
       type: "text" as const,
       text: buildJobDescriptionSystemPrompt(),
       cache_control: { type: "ephemeral" as const },
     },
-    { type: "text" as const, text: VOICE_CHANNEL_NOTE },
+    { type: "text" as const, text: VOICE_CHANNEL_NOTE + (context ? `\n\n---\n\n${context}` : "") },
   ];
+}
+
+/** The role's context for a voice turn, via the signed grant's conversation. */
+async function voiceRoleContext(conversationId: string | null): Promise<string> {
+  if (!conversationId || !dbEnabled()) return "";
+  try {
+    const projectId = await trustedConversationProjectId(conversationId);
+    return projectId ? await roleContextBlock(projectId) : "";
+  } catch (err) {
+    console.error("[voice-llm] role context unavailable (turn continues):", errorSummary(err));
+    return "";
+  }
 }
 
 /**
@@ -335,17 +348,22 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
 
   const body = await req.json();
   const requestedModel: string = body.model ?? "job-description-agent";
-  const prefix = await loadVoicePrefix(body);
-  const anthropicMessages = toAnthropicMessages(body.messages ?? [], prefix);
-
-  // Capture the transcript server-side before generating, so what the user
-  // already said is durable even if this turn fails outright. A grant that
-  // fails verification persists nothing — the signature is what proves the
-  // caller may write to this conversation.
   const grant = extractVoiceGrant(body);
-  const assistantSeq = grant
-    ? await persistVoiceTurns(grant, historyTurns(body.messages ?? []))
-    : null;
+
+  // Capture the transcript server-side, so what the user already said is
+  // durable even if this turn fails outright. A grant that fails verification
+  // persists nothing — the signature is what proves the caller may write to
+  // this conversation. It runs ALONGSIDE the model call (awaited before the
+  // reply is stored): every database trip before the first word was audible
+  // latency on every spoken turn.
+  const persisting = grant
+    ? persistVoiceTurns(grant, historyTurns(body.messages ?? []))
+    : Promise.resolve(null);
+  const [prefix, context] = await Promise.all([
+    loadVoicePrefix(body),
+    voiceRoleContext(grant?.conversationId ?? null),
+  ]);
+  const anthropicMessages = toAnthropicMessages(body.messages ?? [], prefix);
   const id = `chatcmpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const created = Math.floor(Date.now() / 1000);
   const maxTokens = Math.min(Number(body.max_tokens) || 2048, 8192);
@@ -360,7 +378,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         model: DEFAULT_MODEL,
         max_tokens: maxTokens,
         thinking: { type: "disabled" },
-        system: buildVoiceSystemBlocks(),
+        system: buildVoiceSystemBlocks(context),
         messages: anthropicMessages,
       });
       const text = response.content.find((b) => b.type === "text");
@@ -368,6 +386,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
       // Strip the bookkeeping block before ElevenLabs sees it — on this
       // channel every character that reaches the caller is READ ALOUD.
       const { visibleText: reply, answers } = splitIntakeBlock(raw);
+      const assistantSeq = await persisting;
       if (grant && assistantSeq !== null) {
         await persistAssistantTurn(grant.conversationId, assistantSeq, reply);
         await recordIntakeAnswers(
@@ -421,7 +440,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
             // audible sentence past ElevenLabs' per-attempt cutoff. Disabled
             // here; the text channel keeps the default for quality.
             thinking: { type: "disabled" },
-            system: buildVoiceSystemBlocks(),
+            system: buildVoiceSystemBlocks(context),
             messages: anthropicMessages,
             stream: true,
           });
@@ -463,6 +482,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         // callback because a user who hangs up straight after hearing it
         // would otherwise leave the last turn unrecorded. What is stored is
         // what was SPOKEN — the bookkeeping block goes to intake_answers.
+        const assistantSeq = await persisting;
         if (grant && assistantSeq !== null) {
           const { visibleText, answers } = splitIntakeBlock(spoken);
           await persistAssistantTurn(grant.conversationId, assistantSeq, visibleText);
@@ -504,6 +524,8 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
     });
   } catch (err) {
     console.error(errorSummary(err));
+    // What the user said is still stored, even though this turn failed.
+    await persisting;
     return NextResponse.json({ error: "Voice LLM turn failed" }, { status: 500 });
   }
 }

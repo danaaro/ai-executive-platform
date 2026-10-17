@@ -23,8 +23,8 @@ const OPTIONS = [
   {
     mode: "voice",
     icon: Mic,
-    title: "Talk",
-    desc: "A live voice conversation. Just speak — the agent listens and asks one question at a time.",
+    title: "Voice conversation",
+    desc: "Speak with the agent. It listens and asks one question at a time.",
   },
   {
     mode: "type",

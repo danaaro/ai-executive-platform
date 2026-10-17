@@ -28,6 +28,7 @@
     "migrate:credits": "tsx scripts/migrate-credits.ts",
     "migrate:admin-audit": "tsx scripts/migrate-admin-audit.ts",
     "migrate:user-sync": "tsx scripts/migrate-user-sync.ts",
+    "migrate:company-documents": "tsx scripts/migrate-company-documents.ts",
     "secure:tenancy": "tsx scripts/secure-tenancy.ts",
     "test:tenancy": "tsx scripts/test-tenant-isolation.ts",
     "rehearse:tenancy": "tsx scripts/rehearse-tenancy.ts"

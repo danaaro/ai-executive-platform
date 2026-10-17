@@ -36,6 +36,7 @@ const TABLES = [
   "companies", // paying customers (ADR-010)
   "credit_ledger", // role credits (ADR-011)
   "admin_audit", // admin activity log
+  "company_documents", // customer hiring material (D9)
   "users",
   "projects",
   "project_members",

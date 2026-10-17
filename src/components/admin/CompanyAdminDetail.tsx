@@ -101,6 +101,8 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
           )}
         </div>
 
+        <IntelAndDocuments companyId={companyId} />
+
         <section className="card-surface mt-6 p-6">
           <p className="label-mono mb-4">Roles</p>
           {roles === null ? (
@@ -134,5 +136,119 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
         </section>
       </main>
     </>
+  );
+}
+
+type IntelInfo = {
+  attached: string | null;
+  intel: { id: string; name: string; slug: string }[];
+  documents: { id: string; filename: string; visibleToCustomer: boolean; createdAt: string }[];
+};
+
+/**
+ * Company research (hidden from the customer) + the company's documents.
+ * One Intel report at a time; renewing = detach, then attach the new one.
+ */
+function IntelAndDocuments({ companyId }: { companyId: string }) {
+  const [info, setInfo] = useState<IntelInfo | null>(null);
+  const [choice, setChoice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/admin/companies/${companyId}/intel`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Could not load");
+      setInfo(d);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load");
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function set(intelCompanyId: string | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/admin/companies/${companyId}/intel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intelCompanyId }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Could not save");
+      setChoice("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const attached = info?.intel.find((i) => i.id === info.attached) ?? null;
+
+  return (
+    <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <section className="card-surface p-6">
+        <p className="label-mono mb-2">Company research · hidden from the customer</p>
+        <p className="text-sm text-muted">
+          The attached Company Intel report is read by the agent in every job description briefing for
+          this company. The customer never sees it.
+        </p>
+        {error && (
+          <Alert tone="danger" className="mt-4">
+            {error}
+          </Alert>
+        )}
+        {info === null ? (
+          <Skeleton className="mt-4 h-4 w-1/2" />
+        ) : attached ? (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <p className="font-display text-xl text-ink">{attached.name}</p>
+            <button className="btn btn-ghost" onClick={() => void set(null)} disabled={busy}>
+              Detach
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <select className="field flex-1" value={choice} onChange={(e) => setChoice(e.target.value)} aria-label="Researched company">
+              <option value="">Choose a researched company…</option>
+              {info.intel.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+            <button className="btn btn-gold" onClick={() => void set(choice)} disabled={busy || !choice}>
+              Attach
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className="card-surface p-6">
+        <p className="label-mono mb-2">Company documents</p>
+        <p className="text-sm text-muted">Uploaded by the customer on their Company documents page.</p>
+        {info === null ? (
+          <Skeleton className="mt-4 h-4 w-1/2" />
+        ) : info.documents.length === 0 ? (
+          <p className="mt-4 text-sm text-faint">None yet.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-line">
+            {info.documents.map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="truncate text-ink">{d.filename}</span>
+                <span className="shrink-0 text-xs text-faint">{relativeTime(d.createdAt)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }

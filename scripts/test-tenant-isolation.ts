@@ -258,6 +258,21 @@ async function main() {
   // Deliberate refusals run LAST: each must come from the database's security
   // rules (42501). The throwaway PGlite socket can drop a connection after a
   // refused query, so nothing that needs a healthy connection runs after them.
+  console.log("\n7b · Company documents (D9)");
+  await d.insert(tables.companyDocuments).values([
+    { companyId: A.companyId, filename: "a-values.md", content: "A values", uploadedBy: A.member.id },
+    { companyId: B.companyId, filename: "b-values.md", content: "B values", uploadedBy: B.member.id },
+    { companyId: A.companyId, filename: "a-internal.md", content: "hidden", visibleToCustomer: false, uploadedBy: A.admin.id },
+  ]);
+  const docsA = await retry(() => withTenant(A.companyId, () => db().select().from(tables.companyDocuments)));
+  check("A sees its own visible documents only", docsA.length === 1 && docsA[0].filename === "a-values.md");
+  const delB = await retry(() =>
+    withTenant(A.companyId, () =>
+      db().delete(tables.companyDocuments).where(eq(tables.companyDocuments.filename, "b-values.md")).returning({ id: tables.companyDocuments.id })
+    )
+  );
+  check("A cannot delete B's documents", delB.length === 0);
+
   console.log("\n8 · Refused by the database (row-level security, grants)");
   // Refusals must come from the database's security rules (42501), not any error.
   check(
@@ -294,6 +309,14 @@ async function main() {
       withTenant(A.companyId, () => db().update(tables.creditLedger).set({ delta: 99 }))
     )) &&
       (await deniedByDatabase(() => withTenant(A.companyId, () => db().delete(tables.creditLedger))))
+  );
+  check(
+    "A cannot add a document to company B (refused by the database)",
+    await deniedByDatabase(() =>
+      withTenant(A.companyId, () =>
+        db().insert(tables.companyDocuments).values({ companyId: B.companyId, filename: "x", content: "x", uploadedBy: A.member.id })
+      )
+    )
   );
   check(
     "customers cannot read the admin activity log (refused by the database)",

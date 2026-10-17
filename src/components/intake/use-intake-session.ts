@@ -349,7 +349,7 @@ export function useIntakeSession({
     const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!SR) {
       setError(
-        "Dictation is not supported in this browser — try Chrome, or use the live voice conversation."
+        "Dictation is not supported in this browser — try Chrome, or use the voice conversation."
       );
       return;
     }
@@ -476,6 +476,7 @@ export function useIntakeSession({
         token: string;
         conversationId?: string;
         extraBody?: Record<string, unknown>;
+        firstMessage?: string | null;
       }>(res);
       if (data.conversationId) {
         setConversationId(data.conversationId);
@@ -485,6 +486,7 @@ export function useIntakeSession({
         conversationToken: data.token,
         connectionType: "webrtc",
         ...(data.extraBody ? { customLlmExtraBody: data.extraBody } : {}),
+        ...(data.firstMessage ? { overrides: { agent: { firstMessage: data.firstMessage } } } : {}),
       });
     } catch (e) {
       setVoiceStarting(false);

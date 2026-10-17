@@ -130,6 +130,31 @@ export const creditLedger = pgTable(
 );
 
 /**
+ * Company documents (D9, ADR-010 §1): one place per customer company for the
+ * material reused on every role — values, culture, leadership behaviours,
+ * other hiring documents. Uploaded by the customer (visible to them) or saved
+ * from a role briefing. Stored as extracted text, not the file. Company Intel
+ * is NOT here — it stays in the admin-only intel_* tables.
+ */
+export const companyDocuments = pgTable(
+  "company_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    filename: text("filename").notNull(),
+    content: text("content").notNull(),
+    visibleToCustomer: boolean("visible_to_customer").notNull().default(true),
+    uploadedBy: text("uploaded_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("company_documents_company_idx").on(t.companyId, t.createdAt)]
+);
+
+/**
  * Admin activity log (guardrails.md: "log every admin action"). One row per
  * admin action — viewing a company, granting or correcting credits. Admin
  * connection only; customers have no access. Append-only.

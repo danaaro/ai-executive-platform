@@ -250,6 +250,25 @@ h3 {
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 50%, transparent),
     0 12px 40px -12px color-mix(in oklab, var(--accent) 45%, transparent);
 }
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+/* Listening waveform bar (mockup): one span per bar, staggered delays. */
+@utility animate-wave {
+  animation: wave 0.9s ease-in-out infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave {
+    animation: none;
+  }
+}
 @utility bg-grain {
   background-image: radial-gradient(ellipse at top left, color-mix(in oklab, var(--accent) 14%, transparent), transparent 55%),
     radial-gradient(ellipse at bottom right, color-mix(in oklab, var(--success) 10%, transparent), transparent 50%);

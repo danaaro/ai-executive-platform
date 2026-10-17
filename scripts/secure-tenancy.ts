@@ -111,11 +111,24 @@ async function main() {
         WITH CHECK (company_id = public.app_company() AND kind = 'spend' AND delta = -1)`);
     }
 
-    console.log("6. Admin activity log stays out of reach of app_user");
+    console.log("6. Company documents: own company, customer-visible only (D9)");
+    const docs = await tx`select 1 from pg_tables where schemaname = 'public' and tablename = 'company_documents'`;
+    if (docs.length === 0) {
+      console.log("  (company_documents not created yet — run migrate:company-documents, then re-run this script)");
+    } else {
+      await run(`GRANT SELECT, INSERT, DELETE ON company_documents TO app_user`);
+      await run(`ALTER TABLE company_documents ENABLE ROW LEVEL SECURITY`);
+      await run(`DROP POLICY IF EXISTS docs_tenant ON company_documents`);
+      await run(`CREATE POLICY docs_tenant ON company_documents FOR ALL TO app_user
+        USING (company_id = public.app_company() AND visible_to_customer)
+        WITH CHECK (company_id = public.app_company() AND visible_to_customer)`);
+    }
+
+    console.log("7. Admin activity log stays out of reach of app_user");
     const audit = await tx`select 1 from pg_tables where schemaname = 'public' and tablename = 'admin_audit'`;
     if (audit.length) await run(`REVOKE ALL ON admin_audit FROM app_user`);
 
-    console.log("7. Company Intel stays out of reach of app_user");
+    console.log("8. Company Intel stays out of reach of app_user");
     for (const t of ["intel_companies", "intel_company_inputs", "intel_company_research", "intel_company_outputs"]) {
       await run(`REVOKE ALL ON "${t}" FROM app_user`);
     }

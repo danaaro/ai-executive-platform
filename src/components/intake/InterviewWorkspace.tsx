@@ -182,11 +182,11 @@ export function InterviewWorkspace({
               {canWrite &&
                 (session.voiceLive ? (
                   <button type="button" className="btn btn-ghost px-3 py-1.5 text-xs text-danger" onClick={session.endVoice} disabled={session.voiceStarting}>
-                    <PhoneOff className="size-3.5" /> End call
+                    <PhoneOff className="size-3.5" /> End voice conversation
                   </button>
                 ) : (
                   <button type="button" className="btn btn-ghost px-3 py-1.5 text-xs" onClick={session.startVoice} disabled={session.loading || session.voiceStarting}>
-                    <Phone className="size-3.5" /> {session.voiceStarting ? "Connecting…" : "Talk live"}
+                    <Phone className="size-3.5" /> {session.voiceStarting ? "Connecting…" : "Voice conversation"}
                   </button>
                 ))}
             </div>
@@ -209,7 +209,7 @@ export function InterviewWorkspace({
           )}
           {canWrite && startHint === "voice" && !session.voiceLive && (
             <div className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/50 bg-accent-wash px-4 py-3">
-              <p className="text-sm text-ink">Ready when you are — start talking with the agent.</p>
+              <p className="text-sm text-ink">Ready when you are — start a voice conversation with the agent.</p>
               <button
                 className="btn btn-gold px-4 py-2 text-xs"
                 onClick={() => {
@@ -218,7 +218,7 @@ export function InterviewWorkspace({
                 }}
                 disabled={session.loading || session.voiceStarting}
               >
-                <Phone className="size-3.5" /> {session.voiceStarting ? "Connecting…" : "Start talking"}
+                <Phone className="size-3.5" /> {session.voiceStarting ? "Connecting…" : "Start voice conversation"}
               </button>
             </div>
           )}
@@ -242,7 +242,7 @@ export function InterviewWorkspace({
           {session.voiceDropped && (
             <Alert tone="warn" className="mx-4 mb-2">
               <RotateCw className="mt-0.5 size-4 shrink-0" />
-              <span>The voice call ended unexpectedly. Everything you said is saved — press “Talk live” to continue.</span>
+              <span>The voice conversation ended unexpectedly. Everything you said is saved — press “Voice conversation” to continue.</span>
             </Alert>
           )}
           {(session.error || saveError) && (
@@ -361,6 +361,13 @@ export function InterviewWorkspace({
 
           <div className="card-surface p-5">
             <p className="label-mono mb-3">Documents</p>
+            <p className="mb-2 text-xs text-faint">
+              The agent also reads your{" "}
+              <Link href="/company" className="text-accent hover:underline">
+                company documents
+              </Link>{" "}
+              on every role.
+            </p>
             {documents.map((d, i) => (
               <p key={`${d}-${i}`} className="flex items-center gap-2 py-1 text-sm text-muted">
                 <FileText className="size-4 text-accent" />

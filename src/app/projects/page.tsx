@@ -67,7 +67,14 @@ export default function ProjectsPage() {
               {companyName ?? "Your roles"}
             </h1>
           </div>
-          {!noCompany && <NewPositionDialog credits={credits} />}
+          {!noCompany && (
+            <div className="flex flex-wrap items-start gap-3">
+              <Link href="/company" className="btn btn-ghost">
+                Company documents
+              </Link>
+              <NewPositionDialog credits={credits} />
+            </div>
+          )}
         </div>
 
         {error && (
