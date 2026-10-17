@@ -11,7 +11,7 @@ import {
   appendAssistantTurn,
 } from "@/shared/current-user";
 import { recordIntakeAnswers } from "@/shared/intake-answers";
-import { adjustCredits, creditBalance, lockCompanyCredits } from "@/shared/credits";
+import { adjustCredits, creditBalance, lockCompanyCredits, setCreditBalance } from "@/shared/credits";
 
 /**
  * ADR-010 §10 — "verification is a test, not a promise".
@@ -254,6 +254,20 @@ async function main() {
   check("an admin correction adds a signed entry", plus.ok && plus.balance === 2);
   const logged = await d.select().from(tables.adminAudit).where(eq(tables.adminAudit.companyId, A.companyId));
   check("every correction is in the admin activity log", logged.some((r) => r.action === "credits.adjust"));
+
+  // One "update" box (2026-10-18): set the balance; the ledger records the difference.
+  const up = { companyId: A.companyId, reference: "test: SPP-1", priceAmount: 9000, priceCurrency: "EUR" as const, note: null, adminUserId: A.admin.id };
+  const toFive = await setCreditBalance({ ...up, newBalance: 5, expectedBalance: 2 });
+  check("update 2 → 5 records a grant of +3", toFive.ok && toFive.balance === 5);
+  const stale = await setCreditBalance({ ...up, newBalance: 7, expectedBalance: 2 });
+  check("an update based on an out-of-date balance is refused", !stale.ok);
+  const toOne = await setCreditBalance({ ...up, reference: "test: amended", newBalance: 1, expectedBalance: 5 });
+  check("update 5 → 1 records a correction of −4", toOne.ok && toOne.balance === 1);
+  const entries = await d.select().from(tables.creditLedger).where(eq(tables.creditLedger.companyId, A.companyId));
+  check("…as a grant with the contract and price, then an adjustment with the reason",
+    entries.some((e) => e.kind === "grant" && e.delta === 3 && e.contractRef === "test: SPP-1" && e.priceAmount === 9000) &&
+    entries.some((e) => e.kind === "adjustment" && e.delta === -4 && (e.note ?? "").includes("test: amended")));
+  check("…and the balance is 1", (await retry(() => withTenant(A.companyId, () => creditBalance(A.companyId)))) === 1);
 
   // Deliberate refusals run LAST: each must come from the database's security
   // rules (42501). The throwaway PGlite socket can drop a connection after a

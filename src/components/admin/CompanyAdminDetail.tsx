@@ -2,16 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { relativeTime } from "@/lib/utils";
-import { AdjustForm, GrantForm, LedgerList, type Company, type Entry } from "./CompaniesAdmin";
+import { CreditsForm, LedgerList, type Company, type Entry } from "./CompaniesAdmin";
 
 /**
- * Admin company page (admins only): balance, add credits against a contract,
- * correct the balance, full credit history, and the company's roles
- * (read-only). Every visit is written to the admin activity log.
+ * Admin company page (admins only): one credits box (update the balance),
+ * full credit history, and the company's roles — each opens a read-only
+ * admin view. Every visit is written to the admin activity log.
  */
 
 type Role = {
@@ -92,13 +93,8 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
           </Alert>
         )}
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          {credits && (
-            <>
-              <GrantForm company={credits} onGranted={() => void load({ withCompany: false })} />
-              <AdjustForm company={credits} onDone={() => void load({ withCompany: false })} />
-            </>
-          )}
+        <div className="mt-10">
+          {credits && <CreditsForm company={credits} onDone={() => void load({ withCompany: false })} />}
         </div>
 
         <IntelAndDocuments companyId={companyId} />
@@ -112,8 +108,14 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
           ) : (
             <ul className="divide-y divide-line">
               {roles.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-baseline gap-x-6 gap-y-1 py-3 text-sm">
-                  <span className="min-w-0 flex-1 font-display text-lg text-ink">{r.title}</span>
+                <li key={r.id}>
+                  <Link
+                    href={`/internal/companies/${companyId}/roles/${r.id}`}
+                    className="group flex flex-wrap items-baseline gap-x-6 gap-y-1 py-3 text-sm"
+                  >
+                  <span className="min-w-0 flex-1 font-display text-lg text-ink group-hover:text-accent">
+                    {r.title} <ArrowUpRight className="inline size-4 text-faint group-hover:text-accent" />
+                  </span>
                   <span className="font-mono text-xs text-muted">
                     {r.salaryMin !== null && r.salaryMax !== null
                       ? `${r.salaryMin.toLocaleString()}–${r.salaryMax.toLocaleString()} ${r.salaryCurrency ?? ""}`
@@ -124,6 +126,7 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
                     {r.hiringManagerEmail && <> · HM {r.hiringManagerEmail}</>}
                   </span>
                   <span className="label-mono w-20 text-right">{r.status}</span>
+                  </Link>
                 </li>
               ))}
             </ul>

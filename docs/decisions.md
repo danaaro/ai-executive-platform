@@ -4,6 +4,8 @@ One line per decision: date, what was decided, why, and where it lives. Newest f
 
 | Date | Decision | Why | File |
 |---|---|---|---|
+| 2026-10-18 | Admin credits: one box where the admin types the new balance and presses Update, replacing "add credits" + "correct balance". The ledger still records the difference (increase = grant with contract ref and price, decrease = adjustment with reason); an update based on an out-of-date balance is refused. | Simpler for Dana and Susan; history stays complete (ADR-011). | src/shared/credits.ts (setCreditBalance), docs/customer-journey.md |
+| 2026-10-18 | Roles on the admin company page are clickable and open a read-only admin view (facts, JD versions, conversation), logged as `role.view`. Admins still cannot open another company's role through the customer screens. | Dana needs to look inside a customer's role; ADR-010 keeps cross-company access on the audited admin path only. | src/app/internal/companies/[id]/roles/[roleId] |
 | 2026-10-18 | Voice-only instructions moved from code to 01-job-description-voice.md; the "Generate draft" button now sends only the marker and a one-line request (the drafting rules were already in the prompt and guardrails). | Behaviour lives in prompt files; prompt text must not ship to the browser. | 01-job-description-voice.md, src/components/review/deliverable.ts |
 | 2026-10-18 | End every session by updating the relevant docs and logging the day's decisions here. | Nothing gets lost between sessions. | CLAUDE.md |
 | 2026-10-17 | Extended thinking only when the agent writes or revises the document, off for interview turns. | First word went from ~22s to under 1s; interview questions don't need it. | src/app/api/job-description/route.ts |

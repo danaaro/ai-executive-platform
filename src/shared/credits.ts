@@ -101,31 +101,62 @@ export async function logAdminAction(opts: {
   });
 }
 
-/** Adds credits against a contract. Admin only — the only way credits appear. */
-export async function grantCredits(opts: {
+/**
+ * Sets a company's balance to a new number (Dana 2026-10-18: one "update"
+ * box instead of add + correct). History is still append-only (ADR-011): the
+ * difference is recorded — an increase as a `grant` against the contract /
+ * invoice reference (with the agreed price), a decrease as an `adjustment`
+ * with the reason. `expectedBalance` is what the admin saw; if a customer
+ * spent a credit in the meantime the update is refused instead of silently
+ * landing on the wrong number. Same per-company lock as a customer's spend.
+ */
+export async function setCreditBalance(opts: {
   companyId: string;
-  credits: number;
+  newBalance: number;
+  expectedBalance: number;
+  reference: string;
   priceAmount: number | null;
   priceCurrency: Currency | null;
-  contractRef: string;
   note: string | null;
   adminUserId: string;
-}): Promise<void> {
-  await adminDb().insert(tables.creditLedger).values({
-    companyId: opts.companyId,
-    kind: "grant",
-    delta: opts.credits,
-    priceAmount: opts.priceAmount,
-    priceCurrency: opts.priceCurrency,
-    contractRef: opts.contractRef,
-    note: opts.note,
-    createdBy: opts.adminUserId,
-  });
-  await logAdminAction({
-    adminUserId: opts.adminUserId,
-    action: "credits.grant",
-    companyId: opts.companyId,
-    details: { credits: opts.credits, contractRef: opts.contractRef, priceAmount: opts.priceAmount, priceCurrency: opts.priceCurrency },
+}): Promise<{ ok: true; balance: number } | { ok: false; error: string }> {
+  return adminDb().transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${"credits:" + opts.companyId}, 0))`);
+    const [row] = await tx
+      .select({ balance: sql<number>`coalesce(sum(${tables.creditLedger.delta}), 0)::int` })
+      .from(tables.creditLedger)
+      .where(eq(tables.creditLedger.companyId, opts.companyId));
+    const balance = row?.balance ?? 0;
+    if (balance !== opts.expectedBalance) {
+      return { ok: false as const, error: `The balance just changed to ${balance}. Check the number and save again.` };
+    }
+    const delta = opts.newBalance - balance;
+    if (delta === 0) return { ok: false as const, error: `The balance is already ${balance}.` };
+    const increase = delta > 0;
+    await tx.insert(tables.creditLedger).values({
+      companyId: opts.companyId,
+      kind: increase ? "grant" : "adjustment",
+      delta,
+      priceAmount: increase ? opts.priceAmount : null,
+      priceCurrency: increase ? opts.priceCurrency : null,
+      contractRef: increase ? opts.reference : null,
+      note: increase ? opts.note : [opts.reference, opts.note].filter(Boolean).join(" — "),
+      createdBy: opts.adminUserId,
+    });
+    await tx.insert(tables.adminAudit).values({
+      adminUserId: opts.adminUserId,
+      action: "credits.update",
+      companyId: opts.companyId,
+      details: {
+        balanceBefore: balance,
+        balanceAfter: opts.newBalance,
+        delta,
+        reference: opts.reference,
+        priceAmount: increase ? opts.priceAmount : null,
+        priceCurrency: increase ? opts.priceCurrency : null,
+      },
+    });
+    return { ok: true as const, balance: opts.newBalance };
   });
 }
 

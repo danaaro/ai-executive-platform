@@ -127,108 +127,55 @@ export function LedgerList({ ledger }: { ledger: Entry[] | null }) {
   );
 }
 
-export function AdjustForm({ company, onDone }: { company: Company; onDone: () => void }) {
-  const [delta, setDelta] = useState("");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "danger" | "info"; text: string } | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/admin/companies/${company.id}/adjust`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delta: Number(delta), reason }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Could not correct the balance");
-      setMessage({ tone: "info", text: `Balance corrected — now ${d.balance} available.` });
-      setDelta("");
-      setReason("");
-      onDone();
-    } catch (err) {
-      setMessage({ tone: "danger", text: err instanceof Error ? err.message : "Could not correct the balance" });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const n = Number(delta);
-  const valid = Number.isInteger(n) && n !== 0 && reason.trim().length > 0;
-
-  return (
-    <form onSubmit={submit} className="card-surface p-6">
-      <p className="label-mono">Correct balance</p>
-      <p className="mt-2 text-sm text-muted">
-        History is never edited: a correction is a new entry. Use a negative number to remove
-        credits (e.g. -2). The balance cannot go below zero.
-      </p>
-      <div className="mt-5 grid gap-4 sm:grid-cols-[160px_1fr]">
-        <label className="block space-y-2">
-          <span className="label-mono">
-            Credits (+/−) <span className="text-accent" aria-hidden>*</span>
-          </span>
-          <input className="field" type="number" value={delta} onChange={(e) => setDelta(e.target.value)} placeholder="-2" required />
-        </label>
-        <label className="block space-y-2">
-          <span className="label-mono">
-            Reason <span className="text-accent" aria-hidden>*</span>
-          </span>
-          <input className="field" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Contract amended to 3 roles" required maxLength={1000} />
-        </label>
-      </div>
-      {message && (
-        <Alert tone={message.tone === "danger" ? "danger" : undefined} className="mt-4">
-          {message.text}
-        </Alert>
-      )}
-      <p className="mt-4 text-xs text-faint">* Required</p>
-      <button className="btn btn-ghost mt-3" disabled={busy || !valid}>
-        {busy ? "Saving…" : "Save correction"}
-      </button>
-    </form>
-  );
-}
-
-export function GrantForm({ company, onGranted }: { company: Company; onGranted: (list: Company[]) => void }) {
-  const [credits, setCredits] = useState("1");
-  const [contractRef, setContractRef] = useState("");
+/**
+ * One credits box (Dana 2026-10-18): the admin types the new balance. The
+ * ledger records the difference — an increase against the contract / invoice
+ * reference (with the agreed price), a decrease with the reason.
+ */
+export function CreditsForm({ company, onDone }: { company: Company; onDone: () => void }) {
+  const [balance, setBalance] = useState(String(company.balance));
+  const [reference, setReference] = useState("");
   const [priceAmount, setPriceAmount] = useState("");
   const [priceCurrency, setPriceCurrency] = useState<string>("EUR");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "danger" | "info"; text: string } | null>(null);
 
+  useEffect(() => {
+    setBalance(String(company.balance));
+  }, [company.balance]);
+
+  const n = Number(balance);
+  const delta = Number.isInteger(n) ? n - company.balance : 0;
+  const increase = delta > 0;
+  const valid = Number.isInteger(n) && n >= 0 && delta !== 0 && reference.trim().length > 0;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/admin/companies", {
+      const res = await fetch(`/api/admin/companies/${company.id}/credits`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyId: company.id,
-          credits: Number(credits),
-          contractRef,
-          priceAmount: priceAmount === "" ? null : Number(priceAmount),
+          newBalance: n,
+          expectedBalance: company.balance,
+          reference,
+          priceAmount: increase && priceAmount !== "" ? Number(priceAmount) : null,
           priceCurrency,
           note,
         }),
       });
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Could not add credits");
-      setMessage({ tone: "info", text: `Added ${credits} credit${credits === "1" ? "" : "s"} to ${company.name}.` });
-      setContractRef("");
+      if (!res.ok) throw new Error(d.error ?? "Could not update the credits");
+      setMessage({ tone: "info", text: `Updated — ${d.balance} credit${d.balance === 1 ? "" : "s"} available.` });
+      setReference("");
       setPriceAmount("");
       setNote("");
-      setCredits("1");
-      onGranted(d.companies);
+      onDone();
     } catch (err) {
-      setMessage({ tone: "danger", text: err instanceof Error ? err.message : "Could not add credits" });
+      setMessage({ tone: "danger", text: err instanceof Error ? err.message : "Could not update the credits" });
     } finally {
       setBusy(false);
     }
@@ -237,31 +184,47 @@ export function GrantForm({ company, onGranted }: { company: Company; onGranted:
   return (
     <form onSubmit={submit} className="card-surface p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="label-mono">Add credits · {company.name}</p>
+        <p className="label-mono">Credits · {company.name}</p>
         <p className="font-display text-2xl text-ink">
           {company.balance} <span className="text-base text-muted">available</span>
         </p>
       </div>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="block space-y-2">
-          <span className="label-mono">Credits <span className="text-accent" aria-hidden>*</span></span>
-          <input className="field" type="number" min={1} max={1000} value={credits} onChange={(e) => setCredits(e.target.value)} required />
+          <span className="label-mono">
+            New balance <span className="text-accent" aria-hidden>*</span>
+          </span>
+          <input className="field" type="number" min={0} max={10000} value={balance} onChange={(e) => setBalance(e.target.value)} required />
+          <span className="block text-xs text-faint">
+            {delta > 0 ? `Adds ${delta}` : delta < 0 ? `Removes ${-delta}` : "Type the number of credits the company should have"}
+          </span>
         </label>
         <label className="block space-y-2">
-          <span className="label-mono">Contract / invoice reference <span className="text-accent" aria-hidden>*</span></span>
-          <input className="field" value={contractRef} onChange={(e) => setContractRef(e.target.value)} placeholder="e.g. SPP-2026-014" required maxLength={200} />
+          <span className="label-mono">
+            {delta < 0 ? "Reason" : "Contract / invoice reference"} <span className="text-accent" aria-hidden>*</span>
+          </span>
+          <input
+            className="field"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder={delta < 0 ? "e.g. Contract amended to 3 roles" : "e.g. SPP-2026-014"}
+            required
+            maxLength={200}
+          />
         </label>
-        <label className="block space-y-2">
-          <span className="label-mono">Agreed price (optional)</span>
-          <div className="flex gap-2">
-            <input className="field" type="number" min={0} value={priceAmount} onChange={(e) => setPriceAmount(e.target.value)} placeholder="Total" />
-            <select className="field w-28" value={priceCurrency} onChange={(e) => setPriceCurrency(e.target.value)} aria-label="Currency">
-              {CURRENCIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-        </label>
+        {increase && (
+          <label className="block space-y-2">
+            <span className="label-mono">Agreed price (optional)</span>
+            <div className="flex gap-2">
+              <input className="field" type="number" min={0} value={priceAmount} onChange={(e) => setPriceAmount(e.target.value)} placeholder="Total" />
+              <select className="field w-28" value={priceCurrency} onChange={(e) => setPriceCurrency(e.target.value)} aria-label="Currency">
+                {CURRENCIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </label>
+        )}
         <label className="block space-y-2">
           <span className="label-mono">Note (optional)</span>
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
@@ -272,9 +235,9 @@ export function GrantForm({ company, onGranted }: { company: Company; onGranted:
           {message.text}
         </Alert>
       )}
-      <p className="mt-4 text-xs text-faint">* Required</p>
-      <button className="btn btn-gold mt-3" disabled={busy || !contractRef.trim()}>
-        {busy ? "Adding…" : "Add credits"}
+      <p className="mt-4 text-xs text-faint">* Required · every change is kept in the credit history.</p>
+      <button className="btn btn-gold mt-3" disabled={busy || !valid}>
+        {busy ? "Saving…" : "Update"}
       </button>
     </form>
   );

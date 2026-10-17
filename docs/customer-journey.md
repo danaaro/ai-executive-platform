@@ -27,7 +27,7 @@ Decisions U1–U8 are in docs/platform-architecture/(C) UI-Redesign-Mockup-Revie
   - Voice: always called "voice conversation" (never "live call"). The agent speaks a role-specific opening line, then its "what I already know" summary.
 - **Review (/projects/[id]/review):** the formatted draft; Approve; "Ask the agent" sends a revision request back to the interview; Word/PDF download only once approved (U5).
 - **Company documents (/company):** the customer uploads several files at once (PDF, Word, Markdown, text) or removes them. Used on every role. Company Intel never appears here.
-- **Admin (admins only, U4):** company list; company page with credit balance, add / correct credits, roles, credit history, and the attached Company Intel: one report per company, replaced by detaching and attaching another. Every admin action is logged.
+- **Admin (admins only, U4):** company list; company page with one credits box (type the new balance, then Update: an increase needs the contract / invoice reference and optionally the price, a decrease needs a reason; the history records the difference), roles, credit history, and the attached Company Intel: one report per company, replaced by detaching and attaching another. Each role opens a read-only admin view: role facts, job description versions and the briefing conversation. Every admin action and view is logged (2026-10-18).
 
 ## Role statuses
 interviewing → draft → approved (locked) → reopened (creates a new version)
