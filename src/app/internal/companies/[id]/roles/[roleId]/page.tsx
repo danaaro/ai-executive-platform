@@ -9,5 +9,6 @@ export default async function AdminRolePage({ params }: { params: Promise<{ id: 
   const user = await requireAdmin();
   if (!user) notFound();
   const { id, roleId } = await params;
-  return <AdminRoleView companyId={id} roleId={roleId} />;
+  // Own company: the admin is also a customer user there and can work the role in the app.
+  return <AdminRoleView companyId={id} roleId={roleId} ownCompany={user.companyId === id} />;
 }

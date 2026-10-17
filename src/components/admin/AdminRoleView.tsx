@@ -12,7 +12,8 @@ import { relativeTime } from "@/lib/utils";
  * Admin read-only view of one customer role (Dana 2026-10-18: roles on the
  * admin company page are clickable). Role facts, the job description versions
  * and the briefing conversation as the customer saw it. Nothing here can be
- * changed; every visit is logged.
+ * changed; every visit is logged. For a role in the admin's own company
+ * (e.g. SusanDana) a "Continue in the app" link opens the normal role page.
  */
 
 type Data = {
@@ -32,7 +33,7 @@ type Data = {
   messages: { role: "user" | "assistant"; content: string; createdAt: string }[];
 };
 
-export function AdminRoleView({ companyId, roleId }: { companyId: string; roleId: string }) {
+export function AdminRoleView({ companyId, roleId, ownCompany }: { companyId: string; roleId: string; ownCompany: boolean }) {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
@@ -72,8 +73,20 @@ export function AdminRoleView({ companyId, roleId }: { companyId: string; roleId
           <>
             <div className="flex flex-wrap items-end justify-between gap-4">
               <h1 className="font-display text-4xl font-normal text-ink">{r.title}</h1>
-              <span className="label-mono">{r.status}</span>
+              <div className="flex items-center gap-4">
+                <span className="label-mono">{r.status}</span>
+                {ownCompany && (
+                  <Link href={`/projects/${roleId}`} className="btn btn-gold">
+                    Continue in the app
+                  </Link>
+                )}
+              </div>
             </div>
+            {!ownCompany && (
+              <p className="mt-2 text-xs text-faint">
+                Read-only: this role belongs to a customer. Only their own users can continue the briefing.
+              </p>
+            )}
             <p className="mt-3 text-sm text-muted">
               {r.salaryMin !== null && r.salaryMax !== null
                 ? `${r.salaryMin.toLocaleString()}–${r.salaryMax.toLocaleString()} ${r.salaryCurrency ?? ""} (${r.showSalaryOnJd ? "shown on JD" : "internal"})`
