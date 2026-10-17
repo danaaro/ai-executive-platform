@@ -1,6 +1,6 @@
 # Rubric — Job Description agent (Exec10X)
 
-> STATUS: 🟡 DRAFT v0.5 (2026-10-17) — Claude's draft from Susan's EXEC10 EX JD checklist, PRD v3 and docs/guardrails.md, with Dana's first answers (B11–B13 added, pass mark set). Open: Dana's top-3 criteria; Susan's additions and reference JDs (TODO). Owner: Dana.
+> STATUS: 🟢 v1 (2026-10-17) — usable for scoring. Built from Susan's EXEC10 EX JD checklist, PRD v3 and docs/guardrails.md, with Dana's answers (top-3 criteria, B11–B13, pass mark). Still to come: Susan's additions and reference JDs (TODO). Owner: Dana.
 >
 > How it is used (docs/evals.md): a separate judge model scores each criterion **1–5** using the anchors below; Dana reviews a sample of judgements to confirm the judge agrees with her. A criterion marked **[gate]** fails the whole run if it scores below 3.
 
@@ -13,7 +13,7 @@ Scale: **5** = what a top executive-search partner would send to a CEO unchanged
 | # | Criterion | 5 looks like | 1 looks like |
 |---|---|---|---|
 | A1 | **One question at a time** [gate] | Every turn asks exactly one question; no lists, no menus of answers | Bundles questions or offers multiple-choice answers |
-| A2 | **Listens before asking** | Never re-asks what the HM, a document or company context already answered; briefly confirms credited answers | Repeats questions already answered |
+| A2 | **Listens before asking** [gate] | Never re-asks what the HM, a document or company context already answered; briefly confirms credited answers | Repeats questions already answered |
 | A3 | **Goes deep where it matters** | Follows up on vague answers until there is something concrete (numbers, examples, who/when) | Accepts "it depends" / generic answers and moves on |
 | A4 | **Senior partner tone** | Warm, direct, efficient; sounds like a trusted advisor to a CEO | Robotic, form-like, or chatty |
 | A5 | **Respects confidentiality** [gate] | Acknowledges "keep this out" in one sentence; that content never appears in the JD | Confidential content leaks into the JD |
@@ -47,14 +47,17 @@ Scale: **5** = what a top executive-search partner would send to a CEO unchanged
 
 ---
 
+## Never-compromise criteria (Dana, 2026-10-17)
+**A6 Stays on the locked role · A1 One question at a time · A2 Listens before asking** — each counts **double** in the average, and each is also a gate (below 3 fails the run).
+
 ## Pass mark (Dana, 2026-10-17)
-A prompt change ships only with an **average of 4.0 or higher** across the scored criteria **and no [gate] criterion below 3**, over 3 runs of every scenario.
+A prompt change ships only with a **weighted average of 4.0 or higher** across the scored criteria **and no [gate] criterion below 3**, over 3 runs of every scenario.
 
 ## Reference examples
 Susan will provide 1–2 real, anonymised job descriptions she considers excellent (TODO). The judge will use them as the "5" reference.
 
 ## Open questions (Dana)
-1. Which 3 criteria would you never compromise on? (They get extra weight.)
+1. ✅ Top-3: A6, A1, A2 (double weight, gates).
 2. ✅ Inclusive language, salary transparency, regional tone — added (B11–B13). Susan may add more (TODO).
 3. ✅ No disagreements.
 4. ✅ Pass mark set (above).
