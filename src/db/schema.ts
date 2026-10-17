@@ -73,7 +73,17 @@ export const projects = pgTable("projects", {
   companyId: uuid("company_id")
     .notNull()
     .references(() => companies.id),
-  title: text("title").notNull(), // the role being hired for, e.g. "Head of DevOps"
+  title: text("title").notNull(), // the role being hired for — locked once opened (ADR-011)
+  // Locked role facts (ADR-011): set when the role is opened, never edited.
+  // Annual base salary range; null only on roles opened before credits.
+  salaryMin: integer("salary_min"),
+  salaryMax: integer("salary_max"),
+  salaryCurrency: text("salary_currency"),
+  showSalaryOnJd: boolean("show_salary_on_jd").notNull().default(false),
+  // The person who will approve the job description (enforced in JD v3).
+  // Pending by email until they sign in.
+  hiringManagerUserId: text("hiring_manager_user_id").references(() => users.id),
+  hiringManagerEmail: text("hiring_manager_email"),
   // "draft" added for the wireframe #4b status chips. Plain text column with
   // a TS-level enum, so widening it needs no migration.
   status: text("status", { enum: ["open", "draft", "filled", "archived"] })
@@ -85,6 +95,36 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Role credits (ADR-011): an append-only ledger per company. Balance = sum of
+ * `delta`. `grant` / `adjustment` rows are written by admins only (contract
+ * reference, agreed price); customers can only insert a `spend` of −1, and
+ * only by opening a role. Rows are never updated or deleted.
+ */
+export const creditLedger = pgTable(
+  "credit_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    kind: text("kind", { enum: ["grant", "spend", "adjustment"] }).notNull(),
+    delta: integer("delta").notNull(),
+    // Grants: what was agreed with the customer.
+    priceAmount: integer("price_amount"), // whole currency units
+    priceCurrency: text("price_currency"),
+    contractRef: text("contract_ref"),
+    note: text("note"),
+    // Spends: the role this credit opened.
+    projectId: uuid("project_id").references(() => projects.id),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("credit_ledger_company_idx").on(t.companyId, t.createdAt)]
+);
 
 /**
  * Per-project membership — the authorization unit (ADR-008 §1-4).

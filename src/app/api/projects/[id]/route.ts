@@ -104,8 +104,8 @@ export const GET = tenantRoute(async function GET(
 });
 
 /**
- * Status changes (`open / draft / filled / archived` chips on #4b) and
- * retitling. Owner or admin only — an editor may work inside a position but
+ * Status changes (`open / draft / filled / archived` chips on #4b). The title
+ * is locked once opened (ADR-011). Owner or admin only — an editor may work inside a position but
  * not redefine or close it.
  */
 export const PATCH = tenantRoute(async function PATCH(
@@ -127,7 +127,7 @@ export const PATCH = tenantRoute(async function PATCH(
   }
 
   const body = await req.json().catch(() => ({}));
-  const update: { status?: "open" | "draft" | "filled" | "archived"; title?: string; updatedAt: Date } =
+  const update: { status?: "open" | "draft" | "filled" | "archived"; updatedAt: Date } =
     { updatedAt: new Date() };
 
   if (body.status !== undefined) {
@@ -136,10 +136,13 @@ export const PATCH = tenantRoute(async function PATCH(
     }
     update.status = body.status;
   }
-  if (body.title !== undefined) {
-    const title = String(body.title).trim();
-    if (!title) return NextResponse.json({ error: "title cannot be empty" }, { status: 400 });
-    update.title = title;
+  // ADR-011: title and salary range are locked once the role is opened —
+  // a different role needs a new credit.
+  if (body.title !== undefined || body.salaryMin !== undefined || body.salaryMax !== undefined || body.salaryCurrency !== undefined) {
+    return NextResponse.json(
+      { error: "The role title and salary range are locked once the role is opened." },
+      { status: 400 }
+    );
   }
 
   const [row] = await db()

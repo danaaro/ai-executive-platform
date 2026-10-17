@@ -40,6 +40,14 @@ export function AppHeader({
           {children}
           {isAdmin && (
             <Link
+              href="/internal/companies"
+              className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
+            >
+              Companies
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
               href="/internal/company-intel"
               className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
             >

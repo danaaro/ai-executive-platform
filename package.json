@@ -25,6 +25,7 @@
     "test:exec10x": "tsx scripts/test-exec10x.ts",
     "migrate:intel-rename": "tsx scripts/migrate-intel-rename.ts",
     "migrate:customer-accounts": "tsx scripts/migrate-customer-accounts.ts",
+    "migrate:credits": "tsx scripts/migrate-credits.ts",
     "secure:tenancy": "tsx scripts/secure-tenancy.ts",
     "test:tenancy": "tsx scripts/test-tenant-isolation.ts",
     "rehearse:tenancy": "tsx scripts/rehearse-tenancy.ts"

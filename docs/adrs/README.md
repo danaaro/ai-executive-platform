@@ -15,3 +15,4 @@ Format: Title · Status · Context · Decision · Consequences.
 - ADR-008 Project Sharing and Approval
 - ADR-009 Company Intelligence Agent (internal, admin-only research tool)
 - ADR-010 Customer Accounts and Multi-Tenant Isolation (accepted, live 2026-10-17)
+- ADR-011 Role Credits and Locked Roles (accepted; built, not yet live)

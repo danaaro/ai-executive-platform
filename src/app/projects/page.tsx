@@ -34,6 +34,7 @@ export default function ProjectsPage() {
   const [owned, setOwned] = useState<Project[] | null>(null);
   const [shared, setShared] = useState<Project[]>([]);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [credits, setCredits] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   // ADR-010: signed in, but not (yet) part of a customer company.
   const [noCompany, setNoCompany] = useState(false);
@@ -45,6 +46,7 @@ export default function ProjectsPage() {
         if (!r.ok) throw new Error(d.error ?? "Could not load your roles");
         setNoCompany(Boolean(d.noCompany));
         setCompanyName(d.companyName ?? null);
+        setCredits(typeof d.credits === "number" ? d.credits : null);
         setOwned(d.owned ?? []);
         setShared(d.shared ?? []);
       })
@@ -65,7 +67,7 @@ export default function ProjectsPage() {
               {companyName ?? "Your roles"}
             </h1>
           </div>
-          {!noCompany && <NewPositionDialog />}
+          {!noCompany && <NewPositionDialog credits={credits} />}
         </div>
 
         {error && (

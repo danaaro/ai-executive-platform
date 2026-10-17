@@ -10,7 +10,7 @@ import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
  *
  *   npm run rehearse:tenancy [-- <backup dir>]
  *
- *  1. Recreates TODAY's live structure from `main`'s schema.ts.
+ *  1. Recreates the backup's database structure (schema.ts at BASE_REF).
  *  2. Loads the backup taken before the switch (default:
  *     ../_archive/db-backup-2026-10-17) — real research, real test roles.
  *  3. Runs the three switch scripts with --apply, timed, exactly as in production.
@@ -27,6 +27,10 @@ const ROOT = process.cwd();
 const BACKUP = path.resolve(process.argv[2] ?? path.join(ROOT, "../_archive/db-backup-2026-10-17"));
 const WORK = path.join(ROOT, "node_modules/.cache/rehearsal");
 const HOME_ORG = "org_rehearsal_home";
+// The database structure the backup was taken from: `main` just before the
+// ADR-010 switch (2026-10-17). Override with REHEARSAL_BASE_REF if a newer
+// backup is used.
+const BASE_REF = process.env.REHEARSAL_BASE_REF ?? "28f6a35";
 
 // Live-structure load order: parents before children.
 const LOAD_ORDER = [
@@ -80,13 +84,13 @@ async function main() {
     // Supabase's roles, so the scripts' REVOKE statements behave as on Supabase.
     await pg.exec(`CREATE ROLE anon; CREATE ROLE authenticated;`);
 
-    console.log("1 · Today's live structure (from main)");
+    console.log(`1 · The backup's database structure (from ${BASE_REF})`);
     // Generated OFFLINE as SQL (drizzle-kit generate needs no database), then
     // executed here — `drizzle-kit push` cannot introspect through the socket.
     const mainSchema = path.join(WORK, "schema-main.ts");
     const sqlDir = path.join(WORK, "sql-main");
     fs.rmSync(sqlDir, { recursive: true, force: true });
-    fs.writeFileSync(mainSchema, execFileSync("git", ["show", "main:src/db/schema.ts"], { cwd: ROOT }));
+    fs.writeFileSync(mainSchema, execFileSync("git", ["show", `${BASE_REF}:src/db/schema.ts`], { cwd: ROOT }));
     execFileSync("npx", ["drizzle-kit", "generate", "--dialect=postgresql", `--schema=${mainSchema}`, `--out=${sqlDir}`], {
       cwd: ROOT,
       stdio: "pipe",
@@ -96,7 +100,7 @@ async function main() {
     for (const stmt of fs.readFileSync(path.join(sqlDir, sqlFile), "utf-8").split("--> statement-breakpoint")) {
       if (stmt.trim()) await pg.exec(stmt);
     }
-    check("structure created from main's schema", true);
+    check(`structure created from ${BASE_REF}'s schema`, true);
 
     console.log("\n2 · Load the backup");
     const summary = JSON.parse(fs.readFileSync(path.join(BACKUP, "_summary.json"), "utf-8")).rows as Record<string, number>;
@@ -113,7 +117,10 @@ async function main() {
     const t1 = await run("migrate:intel-rename --apply", ["tsx", "scripts/migrate-intel-rename.ts", "--apply"]);
     const t2 = await run("migrate:customer-accounts --apply", ["tsx", "scripts/migrate-customer-accounts.ts", "--apply", `--home-org=${HOME_ORG}`]);
     const t3 = await run("secure:tenancy --apply", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
-    console.log(`  · database work takes ${(t1 + t2 + t3).toFixed(1)}s in total`);
+    // ADR-011: credits ledger, then the policies again (they include the ledger's).
+    const t4 = await run("migrate:credits --apply", ["tsx", "scripts/migrate-credits.ts", "--apply"]);
+    const t5 = await run("secure:tenancy --apply (with ledger)", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
+    console.log(`  · database work takes ${(t1 + t2 + t3 + t4 + t5).toFixed(1)}s in total`);
 
     console.log("\n4 · Result");
     const count = async (t: string) => (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM "${t}"`)).rows[0].n;

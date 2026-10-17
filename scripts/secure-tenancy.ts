@@ -94,7 +94,24 @@ async function main() {
     await run(`DROP POLICY IF EXISTS tenant_users ON users`);
     await run(`CREATE POLICY tenant_users ON users FOR SELECT TO app_user USING (company_id = public.app_company())`);
 
-    console.log("5. Company Intel stays out of reach of app_user");
+    console.log("5. Credit ledger: read own company; insert only a -1 spend (ADR-011)");
+    const ledger = await tx`select 1 from pg_tables where schemaname = 'public' and tablename = 'credit_ledger'`;
+    if (ledger.length === 0) {
+      console.log("  (credit_ledger not created yet — run migrate:credits, then re-run this script)");
+    } else {
+      // SELECT + INSERT only: never UPDATE or DELETE, so history is append-only
+      // for customers. Grants and adjustments are written by admins only.
+      await run(`GRANT SELECT, INSERT ON credit_ledger TO app_user`);
+      await run(`ALTER TABLE credit_ledger ENABLE ROW LEVEL SECURITY`);
+      await run(`DROP POLICY IF EXISTS ledger_read ON credit_ledger`);
+      await run(`CREATE POLICY ledger_read ON credit_ledger FOR SELECT TO app_user
+        USING (company_id = public.app_company())`);
+      await run(`DROP POLICY IF EXISTS ledger_spend ON credit_ledger`);
+      await run(`CREATE POLICY ledger_spend ON credit_ledger FOR INSERT TO app_user
+        WITH CHECK (company_id = public.app_company() AND kind = 'spend' AND delta = -1)`);
+    }
+
+    console.log("6. Company Intel stays out of reach of app_user");
     for (const t of ["intel_companies", "intel_company_inputs", "intel_company_research", "intel_company_outputs"]) {
       await run(`REVOKE ALL ON "${t}" FROM app_user`);
     }

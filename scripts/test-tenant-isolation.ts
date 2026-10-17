@@ -11,6 +11,7 @@ import {
   appendAssistantTurn,
 } from "@/shared/current-user";
 import { recordIntakeAnswers } from "@/shared/intake-answers";
+import { creditBalance, lockCompanyCredits } from "@/shared/credits";
 
 /**
  * ADR-010 §10 — "verification is a test, not a promise".
@@ -237,10 +238,56 @@ async function main() {
   }
   check("customer query outside any scope is refused by the code (fail closed)", unscopedBlocked);
 
-  console.log("\n7 · Every customer API route goes through the access layer");
+  console.log("\n7 · Role credits (ADR-011)");
+  await d.insert(tables.creditLedger).values([
+    { companyId: A.companyId, kind: "grant", delta: 1, contractRef: "TEST-A", createdBy: A.admin.id },
+    { companyId: B.companyId, kind: "grant", delta: 5, contractRef: "TEST-B", createdBy: B.admin.id },
+  ]);
+  check("A's balance counts only A's grants", (await retry(() => withTenant(A.companyId, () => creditBalance(A.companyId)))) === 1);
+  const ledgerA = await retry(() => withTenant(A.companyId, () => db().select().from(tables.creditLedger)));
+  check("A's ledger shows no row of B's", ledgerA.length === 1 && ledgerA.every((r) => r.companyId === A.companyId));
+  check(
+    "a customer cannot GRANT itself credits (refused by the database)",
+    await deniedByDatabase(() =>
+      withTenant(A.companyId, () =>
+        db().insert(tables.creditLedger).values({ companyId: A.companyId, kind: "grant", delta: 50, createdBy: A.member.id })
+      )
+    )
+  );
+  check(
+    "a customer cannot write a spend into another company",
+    await deniedByDatabase(() =>
+      withTenant(A.companyId, () =>
+        db().insert(tables.creditLedger).values({ companyId: B.companyId, kind: "spend", delta: -1, createdBy: A.member.id })
+      )
+    )
+  );
+  check(
+    "a customer cannot rewrite or erase credit history",
+    (await deniedByDatabase(() =>
+      withTenant(A.companyId, () => db().update(tables.creditLedger).set({ delta: 99 }))
+    )) &&
+      (await deniedByDatabase(() => withTenant(A.companyId, () => db().delete(tables.creditLedger))))
+  );
+  // Two simultaneous "open role" attempts with ONE credit left: exactly one wins.
+  const attempt = () =>
+    retry(() =>
+      withTenant(A.companyId, async () => {
+        await lockCompanyCredits(A.companyId);
+        if ((await creditBalance(A.companyId)) < 1) return false;
+        await db().insert(tables.creditLedger).values({ companyId: A.companyId, kind: "spend", delta: -1, createdBy: A.member.id });
+        return true;
+      })
+    );
+  const results = await Promise.all([attempt(), attempt()]);
+  check("two simultaneous opens on 1 credit: exactly one succeeds", results.filter(Boolean).length === 1);
+  check("…and the balance ends at 0, never below", (await retry(() => withTenant(A.companyId, () => creditBalance(A.companyId)))) === 0);
+
+  console.log("\n8 · Every customer API route goes through the access layer");
   const apiRoot = path.join(process.cwd(), "src/app/api");
   const exempt: Record<string, string> = {
     "company-intel": "admin-only research tool — requireAdmin (ADR-009)",
+    admin: "admin-only back office — adminOr404 / requireAdmin (ADR-011)",
     "job-description/voice-llm": "ElevenLabs callback — authorized by bearer secret + signed conversation grant",
     "upload-parse": "text extraction only — no database access",
   };

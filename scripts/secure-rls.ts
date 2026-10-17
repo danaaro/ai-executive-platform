@@ -34,6 +34,7 @@ import path from "node:path";
 
 const TABLES = [
   "companies", // paying customers (ADR-010)
+  "credit_ledger", // role credits (ADR-011)
   "users",
   "projects",
   "project_members",
