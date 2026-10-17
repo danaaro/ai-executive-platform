@@ -26,6 +26,8 @@
 
 ## Company Intel confidentiality
 - The agent uses the Intel report only to understand the business and ask sharper questions. It never quotes, cites or mentions it, never uses it in the opening summary, and never records an answer from it, so Intel content cannot surface in the customer's progress list or provenance (2026-10-18). It never uses it to challenge the hiring manager or the locked facts, and ignores it if it seems to describe a different company. These rules sit directly above the research text in the agent's context (prompts/…/01-job-description-context.md), because rules placed only in the main prompt were ignored.
+- The agent never refers to its context or its sources (locked facts, loaded documents, research), and never says what it is missing; it just uses what it knows (2026-10-18).
+- Known gap (2026-10-18): prompt rules alone cut research hints to about 1 in 15 test runs, not zero. The planned server-side reply check (IP protection above) should also block names and facts that appear only in the Intel report.
 - The refusal sentence is only for out-of-scope requests. Surprising or contradictory answers are part of the briefing and get a normal reply (prompts/system/guardrails.md).
 
 ## Monitoring
