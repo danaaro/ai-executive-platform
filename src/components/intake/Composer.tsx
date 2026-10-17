@@ -50,7 +50,7 @@ export function Composer({
   }
 
   return (
-    <div className="border-t border-line bg-card px-3 py-2.5">
+    <div className="border-t border-line bg-card px-4 py-3">
       {voiceEnabled && (
         <div className="mb-2">
           {voiceLive ? (
@@ -77,7 +77,7 @@ export function Composer({
         </div>
       )}
 
-      <div className="flex items-end gap-1.5">
+      <div className="flex items-end gap-2">
         <input
           ref={fileRef}
           type="file"
@@ -122,7 +122,7 @@ export function Composer({
                 : "Type your answer, or use the mic"
           }
           disabled={disabled || voiceLive}
-          className="max-h-[140px] min-h-9 flex-1 resize-none rounded-lg border border-line-strong bg-card px-3 py-2 text-[13px] leading-relaxed text-ink placeholder:text-muted/70 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-ink disabled:opacity-60"
+          className="max-h-[140px] min-h-10 flex-1 resize-none rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm leading-relaxed text-ink placeholder:text-faint focus-visible:border-accent focus-visible:outline-none disabled:opacity-60"
         />
 
         <Button
@@ -149,7 +149,7 @@ export function Composer({
       </div>
 
       {uploading && (
-        <p className="mt-1.5 text-[11.5px] text-muted">Parsing document…</p>
+        <p className="label-mono mt-2">Parsing document…</p>
       )}
     </div>
   );

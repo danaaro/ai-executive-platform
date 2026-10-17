@@ -39,6 +39,12 @@ export type ProjectDetail = {
     ownerName: string;
     createdAt: string;
     updatedAt: string;
+    // Locked role facts (ADR-011); null on roles opened before credits.
+    salaryMin?: number | null;
+    salaryMax?: number | null;
+    salaryCurrency?: string | null;
+    showSalaryOnJd?: boolean;
+    hiringManagerEmail?: string | null;
   };
   viewerRole: "owner" | "editor" | "viewer" | "admin";
   canWrite: boolean;

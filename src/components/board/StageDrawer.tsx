@@ -202,18 +202,17 @@ function StageDrawerBody({
 
   return (
     <>
-      <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+      <header className="flex items-center gap-2 border-b border-line px-5 py-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate font-display text-[14px] font-semibold text-ink">
-              {stage.name}
-            </h2>
+          <p className="label-mono">{mode === "review" ? "Review" : "Brief interview"}</p>
+          <div className="mt-1 flex items-center gap-2">
+            <h2 className="truncate font-display text-2xl font-normal text-ink">{stage.name}</h2>
             {stage.approved && <Badge tone="done">v{stage.approved.version}</Badge>}
           </div>
           {mode === "review" && (
             <button
               onClick={() => setMode("chat")}
-              className="mt-0.5 text-[11.5px] font-medium text-accent-ink hover:underline"
+              className="label-mono mt-1 text-accent hover:underline"
             >
               ← Back to conversation
             </button>
@@ -267,7 +266,7 @@ function StageDrawerBody({
 
           {/* Inheritance note (#3d step 3). */}
           {stage.inheritedFrom.length > 0 && (
-            <div className="flex items-center gap-1.5 border-b border-line bg-accent-wash px-4 py-2 text-[11.5px] text-accent-ink">
+            <div className="flex items-center gap-1.5 border-b border-line bg-accent-wash px-5 py-2.5 text-xs text-accent">
               <ArrowDownToLine className="size-3.5 shrink-0" />
               Inherited from{" "}
               {stage.inheritedFrom.map((i) => `${i.name} v${i.version}`).join(", ")} ✓
@@ -277,7 +276,7 @@ function StageDrawerBody({
           {isJD && <IntakeProgressPanel coverage={session.coverage} loading={session.loading} />}
 
           {session.hydrating ? (
-            <p className="flex-1 px-4 py-3 text-[13px] text-muted">Loading this session…</p>
+            <p className="label-mono flex-1 px-5 py-4">Loading this session…</p>
           ) : (
             <ChatThread
               messages={session.messages}
@@ -298,7 +297,7 @@ function StageDrawerBody({
           )}
 
           {session.voiceLive && (
-            <div className="mx-3 mb-2 rounded-lg border border-accent bg-accent-wash px-3 py-2 text-[12px] font-medium text-accent-ink">
+            <div className="mx-4 mb-2 rounded-xl border border-accent/50 bg-accent-wash px-3.5 py-2.5 text-xs font-medium text-accent">
               {session.voiceStatusLabel}
             </div>
           )}
@@ -311,13 +310,12 @@ function StageDrawerBody({
 
           {/* Saving a draft is what opens the approve loop. */}
           {canWrite && !session.loading && session.messages.length > 1 && (
-            <div className="flex flex-col gap-1.5 border-t border-line px-3 py-2">
+            <div className="flex flex-col gap-2 border-t border-line px-4 py-3">
               {deliverable ? (
                 <>
                   <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
+                    variant="primary"
+                    className="w-full gold-glow"
                     onClick={saveDraft}
                     disabled={saving}
                   >
@@ -329,7 +327,7 @@ function StageDrawerBody({
                         : "Save draft & review"}
                   </Button>
                   {!deliverable.isLatest && (
-                    <p className="text-center text-[11px] text-muted">
+                    <p className="text-center text-xs text-muted">
                       Saves the {stage.name.toLowerCase()} the agent produced — not the latest chat
                       message.
                     </p>
@@ -343,8 +341,7 @@ function StageDrawerBody({
                     the agent to produce the draft instead.
                   */}
                   <Button
-                    variant="secondary"
-                    size="sm"
+                    variant="primary"
                     className="w-full"
                     onClick={() =>
                       session.sendText(generateDraftPrompt(stage.slug, stage.name))
@@ -353,7 +350,7 @@ function StageDrawerBody({
                   >
                     <FileText /> Generate {stage.name.toLowerCase()} draft
                   </Button>
-                  <p className="text-center text-[11px] text-muted">
+                  <p className="text-center text-xs text-muted">
                     Builds a draft from everything answered so far and flags what&apos;s still
                     missing.
                   </p>

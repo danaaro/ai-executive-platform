@@ -32,27 +32,26 @@ export function ChatThread({
   const visible = hideFirstUserTurn ? messages.slice(1) : messages;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-3">
-      <div className="flex flex-col gap-3">
+    <div className="flex-1 overflow-y-auto px-5 py-5">
+      <div className="flex flex-col gap-4">
         {visible.map((m, i) => (
           <div
             key={i}
             className={cn(
-              "max-w-[92%] whitespace-pre-wrap rounded-xl px-3 py-2 text-[13px] leading-relaxed",
-              m.role === "user"
-                ? "self-end bg-ink-soft text-canvas"
-                : "self-start border border-line bg-canvas-subtle text-ink"
+              "max-w-[88%] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm leading-relaxed text-ink",
+              m.role === "user" ? "self-end bg-elevated" : "self-start bg-elevated/50"
             )}
           >
+            {m.role === "assistant" && <p className="label-mono mb-1 text-accent">Agent</p>}
             {truncateForThread(m.content)}
           </div>
         ))}
 
         {loading && (
-          <div className="self-start rounded-xl border border-line bg-canvas-subtle px-3 py-2">
+          <div className="self-start rounded-xl bg-elevated/50 px-4 py-3">
             <div className="flex items-center gap-2">
               <Dots />
-              <span className="text-[12px] text-muted">
+              <span className="label-mono">
                 {elapsedLabel ?? "Thinking…"}
               </span>
             </div>

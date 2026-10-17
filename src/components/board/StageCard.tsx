@@ -31,12 +31,12 @@ export function StageCard({
       type="button"
       onClick={() => onOpen(stage)}
       className={cn(
-        "group flex flex-col gap-2 rounded-card border bg-card p-3 text-left transition-all",
-        "hover:border-line-strong hover:shadow-[0_2px_10px_rgba(10,17,25,0.07)]",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink",
+        "group flex flex-col gap-3 rounded-xl border bg-card p-5 text-left transition-all",
+        "hover:border-accent/50 hover:gold-glow",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         stage.status === "active" && "border-accent",
         stage.status !== "active" && "border-line",
-        compact ? "w-[168px]" : "w-[212px]",
+        compact ? "w-[190px]" : "w-[236px]",
         isPhase2 && "opacity-70"
       )}
       aria-label={`${stage.name} — ${STAGE_LABEL[stage.status]}`}
@@ -48,17 +48,13 @@ export function StageCard({
             ? `v${stage.approved.version}`
             : STAGE_LABEL[stage.status]}
         </Badge>
-        <span className="text-[10px] font-semibold tabular-nums text-muted">
-          {stage.order}
-        </span>
+        <span className="font-mono text-xs tabular-nums text-faint">{stage.order}</span>
       </div>
 
-      <div className="font-display text-[13.5px] font-semibold leading-snug text-ink">
-        {stage.name}
-      </div>
+      <div className="font-display text-xl font-normal leading-snug text-ink">{stage.name}</div>
 
       {isPhase2 ? (
-        <p className="text-[11px] leading-snug text-muted">Phase 2 · per candidate</p>
+        <p className="text-xs leading-snug text-muted">Phase 2 · per candidate</p>
       ) : (
         <StageSummary stage={stage} />
       )}
@@ -69,7 +65,7 @@ export function StageCard({
 function StageSummary({ stage }: { stage: Stage }) {
   if (stage.status === "done" && stage.approved) {
     return (
-      <p className="text-[11px] leading-snug text-muted">
+      <p className="text-xs leading-snug text-muted">
         Approved {relativeTime(stage.approved.createdAt)}
         {stage.history.length > 1 && ` · ${stage.history.length} versions`}
       </p>
@@ -77,30 +73,30 @@ function StageSummary({ stage }: { stage: Stage }) {
   }
   if (stage.latest) {
     return (
-      <p className="text-[11px] leading-snug text-muted">
+      <p className="text-xs leading-snug text-muted">
         Draft v{stage.latest.version} · saved {relativeTime(stage.latest.createdAt)}
       </p>
     );
   }
   if (stage.threadId) {
-    return <p className="text-[11px] leading-snug text-muted">In progress — no draft saved yet</p>;
+    return <p className="text-xs leading-snug text-muted">In progress — no draft saved yet</p>;
   }
   if (stage.blockedBy.length > 0) {
     return (
-      <p className="text-[11px] leading-snug text-warn">
+      <p className="text-xs leading-snug text-warn">
         {stage.blockedBy.map((b) => b.name).join(" + ")} not approved yet
       </p>
     );
   }
   if (stage.inheritedFrom.length > 0) {
     return (
-      <p className="flex items-center gap-1 text-[11px] leading-snug text-accent-ink">
+      <p className="flex items-center gap-1 text-xs leading-snug text-accent">
         <ArrowDownToLine className="size-3" />
         Ready — inherits {stage.inheritedFrom.map((i) => `${i.name} v${i.version}`).join(", ")}
       </p>
     );
   }
-  return <p className="text-[11px] leading-snug text-muted">Not started</p>;
+  return <p className="text-xs leading-snug text-muted">Not started</p>;
 }
 
 function StatusIcon({ status }: { status: Stage["status"] }) {

@@ -25,20 +25,45 @@ export function IntakeProgressPanel({
 }) {
   const { covered, partial, total, fraction } = coverageSummary(coverage);
   const answered = covered + (partial > 0 ? partial * 0.5 : 0);
+  // Completeness ring (Exec10X mockup): gold while filling, green when done.
+  const pct = total ? Math.round((answered / total) * 100) : 0;
+  const R = 22;
+  const C = 2 * Math.PI * R;
+  void fraction;
 
   return (
-    <div className="border-b border-line bg-canvas-subtle px-4 py-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">
-          Intake progress · shared across methods
-        </span>
-        <span className="font-display text-[13px] font-semibold text-ink">
-          {total ? `${formatCount(answered)} / ${total}` : "—"}
-        </span>
+    <div className="border-b border-line bg-canvas-subtle px-5 py-4">
+      <div className="flex items-center gap-4">
+        <div className="relative size-14 shrink-0">
+          <svg viewBox="0 0 56 56" className="size-full -rotate-90" aria-hidden>
+            <circle cx="28" cy="28" r={R} fill="none" stroke="var(--elevated)" strokeWidth="4" />
+            <circle
+              cx="28"
+              cy="28"
+              r={R}
+              fill="none"
+              stroke={pct >= 100 ? "var(--success)" : "var(--accent)"}
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={C}
+              strokeDashoffset={C * (1 - pct / 100)}
+              style={{ transition: "stroke-dashoffset .6s ease" }}
+            />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center font-display text-base text-ink">
+            {pct}%
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="label-mono">Brief progress</p>
+          <p className="mt-1 font-display text-lg text-ink">
+            {total ? `${formatCount(answered)} of ${total} sections` : "Getting started"}
+          </p>
+        </div>
       </div>
 
       <div
-        className="mt-2 flex gap-[3px]"
+        className="mt-3 flex gap-[3px]"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={total || 20}
@@ -53,13 +78,13 @@ export function IntakeProgressPanel({
               "h-1.5 flex-1 rounded-full transition-colors",
               section?.status === "covered" && "bg-accent",
               section?.status === "partial" && "bg-accent/45",
-              (!section || section.status === "missing") && "bg-line-strong/60"
+              (!section || section.status === "missing") && "bg-elevated"
             )}
           />
         ))}
       </div>
 
-      <p className="mt-2 text-[11.5px] leading-snug text-muted">
+      <p className="mt-2 text-xs leading-snug text-muted">
         {loading && !coverage
           ? "Scoring the conversation…"
           : total === 0

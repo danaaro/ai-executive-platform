@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownLite } from "./MarkdownLite";
 import { useEffect, useState } from "react";
 import { Check, PencilLine, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -115,7 +116,7 @@ export function DraftReview({
     return <Alert tone="danger" className="m-4">{error}</Alert>;
   }
   if (!artifact) {
-    return <p className="p-4 text-[13px] text-muted">Loading draft…</p>;
+    return <p className="label-mono p-6">Loading draft…</p>;
   }
 
   const approved = artifact.status === "approved";
@@ -123,25 +124,25 @@ export function DraftReview({
   return (
     <>
       <div className="flex-1 overflow-y-auto">
-        <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
+        <div className="flex items-center justify-between gap-2 border-b border-line px-6 py-3">
           <div className="flex items-center gap-2">
             <Badge tone={approved ? "done" : "draft"}>
               v{artifact.version} · {approved ? "approved" : "draft"}
             </Badge>
-            <span className="text-[11.5px] text-muted">
+            <span className="text-xs text-faint">
               by {artifact.createdByName} · {relativeTime(artifact.createdAt)}
             </span>
           </div>
         </div>
 
-        <article className="whitespace-pre-wrap px-5 py-4 font-sans text-[13.5px] leading-[1.7] text-ink">
-          {artifact.content}
+        <article className="px-6 py-6 text-[15px]">
+          <MarkdownLite text={artifact.content} />
         </article>
 
         {approvals.length > 0 && (
-          <div className="px-5 pb-5">
+          <div className="px-6 pb-6">
             <Separator className="mb-3" />
-            <p className="mb-2 flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">
+            <p className="label-mono mb-2 flex items-center gap-1.5">
               <ShieldCheck className="size-3.5" /> Oversight trail
             </p>
             <ul className="flex flex-col gap-2">
@@ -165,11 +166,11 @@ export function DraftReview({
       {error && <Alert tone="danger" className="mx-4 mb-2">{error}</Alert>}
 
       {canWrite && !approved && (
-        <div className="flex gap-2 border-t border-line bg-canvas-subtle px-4 py-3">
+        <div className="flex gap-2 border-t border-line bg-canvas-subtle px-5 py-4">
           <Button variant="secondary" onClick={() => setChangesOpen(true)} disabled={busy}>
             <PencilLine /> Request changes
           </Button>
-          <Button variant="primary" className="flex-1" onClick={approve} disabled={busy}>
+          <Button variant="primary" className="flex-1 gold-glow" onClick={approve} disabled={busy}>
             <Check /> {busy ? "Approving…" : "Approve"}
           </Button>
         </div>

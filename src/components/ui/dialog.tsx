@@ -38,7 +38,7 @@ export function DialogContent({
       <DialogPrimitive.Content
         data-slot="modal"
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-card border border-line bg-card p-5 shadow-xl focus:outline-none",
+          "fixed left-1/2 top-1/2 z-50 w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-card p-6 shadow-xl focus:outline-none",
           className
         )}
         {...props}
@@ -73,7 +73,7 @@ export function SheetContent({
         data-slot="sheet"
         className={cn(
           "fixed inset-y-0 right-0 z-50 flex flex-col border-l border-line bg-card shadow-2xl transition-[width] duration-200 focus:outline-none",
-          size === "review" ? "w-[min(640px,100vw)]" : "w-[min(360px,100vw)]",
+          size === "review" ? "w-[min(720px,100vw)]" : "w-[min(440px,100vw)]",
           className
         )}
         {...props}
@@ -90,7 +90,7 @@ export function DialogTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("font-display text-base font-semibold text-ink", className)}
+      className={cn("font-display text-xl font-normal text-ink", className)}
       {...props}
     />
   );

@@ -2,7 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const alertVariants = cva("flex gap-2.5 rounded-lg border p-3 text-[13px] leading-relaxed", {
+const alertVariants = cva("flex gap-2.5 rounded-xl border p-3.5 text-[13px] leading-relaxed", {
   variants: {
     tone: {
       warn: "border-warn/40 bg-warn-wash text-warn",

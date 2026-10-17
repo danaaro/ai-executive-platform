@@ -2,11 +2,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const base =
-  "w-full rounded-lg border border-line-strong bg-card px-3 text-sm text-ink placeholder:text-muted/70 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-ink disabled:opacity-50";
+  "w-full rounded-lg border border-line bg-card px-3.5 text-sm text-ink placeholder:text-faint focus-visible:border-accent focus-visible:outline-none disabled:opacity-50";
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
-    <input ref={ref} className={cn(base, "h-9", className)} {...props} />
+    <input ref={ref} className={cn(base, "h-10", className)} {...props} />
   )
 );
 Input.displayName = "Input";

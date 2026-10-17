@@ -112,13 +112,9 @@ function Board() {
     <>
       <AppHeader
         breadcrumb={
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate font-display text-[14px] font-semibold text-ink">
-              {data.project.title}
-            </span>
-            <Badge tone={STATUS_TONE[data.project.status]}>{data.project.status}</Badge>
-            {data.viewerRole === "viewer" && <Badge tone="neutral">view only</Badge>}
-          </div>
+          <Link href="/projects" className="label-mono truncate hover:text-ink">
+            Executive roles
+          </Link>
         }
       >
         {data.members.length > 1 && (
@@ -132,12 +128,29 @@ function Board() {
         )}
       </AppHeader>
 
-      <main className="board-canvas min-h-[calc(100vh-3.5rem)] px-4 py-8">
+      <main className="min-h-[calc(100vh-4rem)] px-4 py-12 sm:px-6">
         <div className="mx-auto max-w-6xl">
-          <p className="mb-4 text-[11.5px] text-muted">
-            Each stage&apos;s approved output feeds the next. Open any stage at any time — nothing
-            is locked.
-          </p>
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+            <div className="min-w-0">
+              <p className="label-mono mb-3">Role</p>
+              <h1 className="font-display text-4xl font-normal text-ink">{data.project.title}</h1>
+              <p className="mt-3 text-sm text-muted">
+                {data.project.salaryMin != null && data.project.salaryMax != null && (
+                  <>
+                    {data.project.salaryMin.toLocaleString()}–{data.project.salaryMax.toLocaleString()}{" "}
+                    {data.project.salaryCurrency} base
+                    {data.project.showSalaryOnJd ? " · shown on the job description" : " · internal"}
+                  </>
+                )}
+                {data.project.hiringManagerEmail && <> · Hiring manager {data.project.hiringManagerEmail}</>}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge tone={STATUS_TONE[data.project.status]}>{data.project.status}</Badge>
+              {data.viewerRole === "viewer" && <Badge tone="neutral">view only</Badge>}
+            </div>
+          </div>
+          <p className="label-mono mb-4">Stages · each approved output feeds the next</p>
 
           {/* Phase 1 — the candidate-agnostic role setup pipeline. */}
           <div className="flex items-stretch overflow-x-auto pb-3">
@@ -160,7 +173,7 @@ function Board() {
             <>
               <div className="mt-8 flex items-center gap-3">
                 <span className="h-px flex-1 bg-line" />
-                <span className="text-center text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted">
+                <span className="label-mono text-center">
                   Interviews happen outside the system · then, per candidate
                 </span>
                 <span className="h-px flex-1 bg-line" />
