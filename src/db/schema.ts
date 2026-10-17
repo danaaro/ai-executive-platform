@@ -127,6 +127,26 @@ export const creditLedger = pgTable(
 );
 
 /**
+ * Admin activity log (guardrails.md: "log every admin action"). One row per
+ * admin action — viewing a company, granting or correcting credits. Admin
+ * connection only; customers have no access. Append-only.
+ */
+export const adminAudit = pgTable(
+  "admin_audit",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adminUserId: text("admin_user_id")
+      .notNull()
+      .references(() => users.id),
+    action: text("action").notNull(), // e.g. "company.view", "credits.grant", "credits.adjust"
+    companyId: uuid("company_id").references(() => companies.id),
+    details: jsonb("details"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("admin_audit_created_idx").on(t.createdAt)]
+);
+
+/**
  * Per-project membership — the authorization unit (ADR-008 §1-4).
  *
  * `userId` is null for a pending invite: collaborators are invited by email

@@ -11,7 +11,7 @@ import {
   appendAssistantTurn,
 } from "@/shared/current-user";
 import { recordIntakeAnswers } from "@/shared/intake-answers";
-import { creditBalance, lockCompanyCredits } from "@/shared/credits";
+import { adjustCredits, creditBalance, lockCompanyCredits } from "@/shared/credits";
 
 /**
  * ADR-010 §10 — "verification is a test, not a promise".
@@ -217,19 +217,6 @@ async function main() {
   check("scope A cannot UPDATE B's role", updated.length === 0);
   const companiesSeen = await retry(() => withTenant(A.companyId, () => db().select({ id: tables.companies.id }).from(tables.companies)));
   check("scope A sees only its own company record", companiesSeen.length === 1 && companiesSeen[0].id === A.companyId);
-  // Refusals must come from the database's security rules (42501), not any error.
-  check(
-    "scope A cannot WRITE a row into company B (refused by the database)",
-    await deniedByDatabase(() =>
-      withTenant(A.companyId, () =>
-        db().insert(tables.projects).values({ companyId: B.companyId, title: "planted in B", createdBy: A.member.id })
-      )
-    )
-  );
-  check(
-    "customer scope cannot read Company Intel at all (refused by the database)",
-    await deniedByDatabase(() => withTenant(A.companyId, () => db().select().from(tables.intelCompanies).limit(1)))
-  );
   let unscopedBlocked = false;
   try {
     await db().select().from(tables.projects).limit(1);
@@ -246,6 +233,45 @@ async function main() {
   check("A's balance counts only A's grants", (await retry(() => withTenant(A.companyId, () => creditBalance(A.companyId)))) === 1);
   const ledgerA = await retry(() => withTenant(A.companyId, () => db().select().from(tables.creditLedger)));
   check("A's ledger shows no row of B's", ledgerA.length === 1 && ledgerA.every((r) => r.companyId === A.companyId));
+  // Two simultaneous "open role" attempts with ONE credit left: exactly one wins.
+  const attempt = () =>
+    retry(() =>
+      withTenant(A.companyId, async () => {
+        await lockCompanyCredits(A.companyId);
+        if ((await creditBalance(A.companyId)) < 1) return false;
+        await db().insert(tables.creditLedger).values({ companyId: A.companyId, kind: "spend", delta: -1, createdBy: A.member.id });
+        return true;
+      })
+    );
+  const results = await Promise.all([attempt(), attempt()]);
+  check("two simultaneous opens on 1 credit: exactly one succeeds", results.filter(Boolean).length === 1);
+  check("…and the balance ends at 0, never below", (await retry(() => withTenant(A.companyId, () => creditBalance(A.companyId)))) === 0);
+
+  // Admin corrections: never below zero, always logged, invisible to customers.
+  const tooMuch = await adjustCredits({ companyId: A.companyId, delta: -1, reason: "test: overdraw", adminUserId: A.admin.id });
+  check("an admin correction cannot take the balance below zero", !tooMuch.ok);
+  const plus = await adjustCredits({ companyId: A.companyId, delta: 2, reason: "test: contract amended", adminUserId: A.admin.id });
+  check("an admin correction adds a signed entry", plus.ok && plus.balance === 2);
+  const logged = await d.select().from(tables.adminAudit).where(eq(tables.adminAudit.companyId, A.companyId));
+  check("every correction is in the admin activity log", logged.some((r) => r.action === "credits.adjust"));
+
+  // Deliberate refusals run LAST: each must come from the database's security
+  // rules (42501). The throwaway PGlite socket can drop a connection after a
+  // refused query, so nothing that needs a healthy connection runs after them.
+  console.log("\n8 · Refused by the database (row-level security, grants)");
+  // Refusals must come from the database's security rules (42501), not any error.
+  check(
+    "scope A cannot WRITE a row into company B (refused by the database)",
+    await deniedByDatabase(() =>
+      withTenant(A.companyId, () =>
+        db().insert(tables.projects).values({ companyId: B.companyId, title: "planted in B", createdBy: A.member.id })
+      )
+    )
+  );
+  check(
+    "customer scope cannot read Company Intel at all (refused by the database)",
+    await deniedByDatabase(() => withTenant(A.companyId, () => db().select().from(tables.intelCompanies).limit(1)))
+  );
   check(
     "a customer cannot GRANT itself credits (refused by the database)",
     await deniedByDatabase(() =>
@@ -269,21 +295,12 @@ async function main() {
     )) &&
       (await deniedByDatabase(() => withTenant(A.companyId, () => db().delete(tables.creditLedger))))
   );
-  // Two simultaneous "open role" attempts with ONE credit left: exactly one wins.
-  const attempt = () =>
-    retry(() =>
-      withTenant(A.companyId, async () => {
-        await lockCompanyCredits(A.companyId);
-        if ((await creditBalance(A.companyId)) < 1) return false;
-        await db().insert(tables.creditLedger).values({ companyId: A.companyId, kind: "spend", delta: -1, createdBy: A.member.id });
-        return true;
-      })
-    );
-  const results = await Promise.all([attempt(), attempt()]);
-  check("two simultaneous opens on 1 credit: exactly one succeeds", results.filter(Boolean).length === 1);
-  check("…and the balance ends at 0, never below", (await retry(() => withTenant(A.companyId, () => creditBalance(A.companyId)))) === 0);
+  check(
+    "customers cannot read the admin activity log (refused by the database)",
+    await deniedByDatabase(() => withTenant(A.companyId, () => db().select().from(tables.adminAudit).limit(1)))
+  );
 
-  console.log("\n8 · Every customer API route goes through the access layer");
+  console.log("\n9 · Every customer API route goes through the access layer");
   const apiRoot = path.join(process.cwd(), "src/app/api");
   const exempt: Record<string, string> = {
     "company-intel": "admin-only research tool — requireAdmin (ADR-009)",

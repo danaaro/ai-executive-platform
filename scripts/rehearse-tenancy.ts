@@ -56,16 +56,25 @@ function check(name: string, ok: boolean, detail = "") {
 
 // Asynchronous on purpose: the database server lives in THIS process, so a
 // blocking wait on the child would freeze the server the child is talking to.
-async function run(label: string, args: string[]): Promise<number> {
+async function run(label: string, args: string[], retries = 0): Promise<number> {
   const t0 = Date.now();
-  const status = await new Promise<number | null>((resolve) => {
-    const child = spawn("npx", args, {
-      cwd: ROOT,
-      env: { ...process.env, DATABASE_URL: URL },
-      stdio: "inherit",
+  const once = () =>
+    new Promise<number | null>((resolve) => {
+      const child = spawn("npx", args, {
+        cwd: ROOT,
+        env: { ...process.env, DATABASE_URL: URL },
+        stdio: "inherit",
+      });
+      child.on("close", resolve);
     });
-    child.on("close", resolve);
-  });
+  let status = await once();
+  // The throwaway PGlite socket sometimes drops a connection after refused
+  // queries (real Postgres does not). Tests — never the switch scripts — get
+  // one retry; a retry is reported so a real flake can't hide.
+  for (let i = 0; status !== 0 && i < retries; i++) {
+    console.log(`  · ${label}: retrying once (PGlite connection hiccup)`);
+    status = await once();
+  }
   const secs = (Date.now() - t0) / 1000;
   check(`${label} (${secs.toFixed(1)}s)`, status === 0, status === 0 ? "" : `exit ${status}`);
   return secs;
@@ -119,8 +128,9 @@ async function main() {
     const t3 = await run("secure:tenancy --apply", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
     // ADR-011: credits ledger, then the policies again (they include the ledger's).
     const t4 = await run("migrate:credits --apply", ["tsx", "scripts/migrate-credits.ts", "--apply"]);
-    const t5 = await run("secure:tenancy --apply (with ledger)", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
-    console.log(`  · database work takes ${(t1 + t2 + t3 + t4 + t5).toFixed(1)}s in total`);
+    const t6 = await run("migrate:admin-audit --apply", ["tsx", "scripts/migrate-admin-audit.ts", "--apply"]);
+    const t5 = await run("secure:tenancy --apply (with ledger + audit)", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
+    console.log(`  · database work takes ${(t1 + t2 + t3 + t4 + t5 + t6).toFixed(1)}s in total`);
 
     console.log("\n4 · Result");
     const count = async (t: string) => (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM "${t}"`)).rows[0].n;
@@ -152,12 +162,14 @@ async function main() {
 
     await run("re-run of secure:tenancy (idempotent)", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
 
-    console.log("\n5 · Isolation test (as app_user, row-level security on)");
-    await run("test:tenancy", ["tsx", "scripts/test-tenant-isolation.ts"]);
+    // Voice tests first: the isolation test deliberately triggers refused
+    // queries, which can leave the PGlite socket unable to take new connections.
+    console.log("\n5 · Voice durability and continuity on the new structure");
+    await run("test:voice-durability", ["tsx", "scripts/test-voice-durability.ts"], 1);
+    await run("test:voice", ["tsx", "scripts/test-voice-continuity.ts"], 1);
 
-    console.log("\n6 · Voice durability and continuity on the new structure");
-    await run("test:voice-durability", ["tsx", "scripts/test-voice-durability.ts"]);
-    await run("test:voice", ["tsx", "scripts/test-voice-continuity.ts"]);
+    console.log("\n6 · Isolation test (as app_user, row-level security on)");
+    await run("test:tenancy", ["tsx", "scripts/test-tenant-isolation.ts"], 1);
   } finally {
     await server.stop();
     await pg.close();

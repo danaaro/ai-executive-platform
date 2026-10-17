@@ -86,6 +86,21 @@ export async function companyLedger(companyId: string) {
     .orderBy(desc(l.createdAt));
 }
 
+/** Records an admin action (guardrails.md: "log every admin action"). */
+export async function logAdminAction(opts: {
+  adminUserId: string;
+  action: string;
+  companyId?: string | null;
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  await adminDb().insert(tables.adminAudit).values({
+    adminUserId: opts.adminUserId,
+    action: opts.action,
+    companyId: opts.companyId ?? null,
+    details: opts.details ?? null,
+  });
+}
+
 /** Adds credits against a contract. Admin only — the only way credits appear. */
 export async function grantCredits(opts: {
   companyId: string;
@@ -106,4 +121,82 @@ export async function grantCredits(opts: {
     note: opts.note,
     createdBy: opts.adminUserId,
   });
+  await logAdminAction({
+    adminUserId: opts.adminUserId,
+    action: "credits.grant",
+    companyId: opts.companyId,
+    details: { credits: opts.credits, contractRef: opts.contractRef, priceAmount: opts.priceAmount, priceCurrency: opts.priceCurrency },
+  });
+}
+
+/**
+ * Corrects a company's balance up or down (ADR-011 `adjustment`). History is
+ * never edited — a correction is a new, signed entry with a required reason.
+ * A reduction can never take the balance below zero. Admin only.
+ */
+export async function adjustCredits(opts: {
+  companyId: string;
+  delta: number;
+  reason: string;
+  adminUserId: string;
+}): Promise<{ ok: true; balance: number } | { ok: false; error: string }> {
+  return adminDb().transaction(async (tx) => {
+    // Same per-company lock as a customer's spend, so the two never race.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${"credits:" + opts.companyId}, 0))`);
+    const [row] = await tx
+      .select({ balance: sql<number>`coalesce(sum(${tables.creditLedger.delta}), 0)::int` })
+      .from(tables.creditLedger)
+      .where(eq(tables.creditLedger.companyId, opts.companyId));
+    const balance = row?.balance ?? 0;
+    if (balance + opts.delta < 0) {
+      return { ok: false as const, error: `Only ${balance} credit${balance === 1 ? "" : "s"} available — the balance cannot go below zero.` };
+    }
+    await tx.insert(tables.creditLedger).values({
+      companyId: opts.companyId,
+      kind: "adjustment",
+      delta: opts.delta,
+      note: opts.reason,
+      createdBy: opts.adminUserId,
+    });
+    await tx.insert(tables.adminAudit).values({
+      adminUserId: opts.adminUserId,
+      action: "credits.adjust",
+      companyId: opts.companyId,
+      details: { delta: opts.delta, reason: opts.reason, balanceBefore: balance },
+    });
+    return { ok: true as const, balance: balance + opts.delta };
+  });
+}
+
+/** A company's record and roles, for the admin company page. Admin only. */
+export async function companyForAdmin(companyId: string) {
+  const [company] = await adminDb()
+    .select({
+      id: tables.companies.id,
+      name: tables.companies.name,
+      clerkOrgId: tables.companies.clerkOrgId,
+      intelCompanyId: tables.companies.intelCompanyId,
+      createdAt: tables.companies.createdAt,
+    })
+    .from(tables.companies)
+    .where(eq(tables.companies.id, companyId))
+    .limit(1);
+  if (!company) return null;
+  const roles = await adminDb()
+    .select({
+      id: tables.projects.id,
+      title: tables.projects.title,
+      status: tables.projects.status,
+      salaryMin: tables.projects.salaryMin,
+      salaryMax: tables.projects.salaryMax,
+      salaryCurrency: tables.projects.salaryCurrency,
+      hiringManagerEmail: tables.projects.hiringManagerEmail,
+      createdBy: tables.projects.createdBy,
+      createdAt: tables.projects.createdAt,
+      updatedAt: tables.projects.updatedAt,
+    })
+    .from(tables.projects)
+    .where(eq(tables.projects.companyId, companyId))
+    .orderBy(desc(tables.projects.createdAt));
+  return { company, roles };
 }

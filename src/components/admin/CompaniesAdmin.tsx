@@ -1,21 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { relativeTime } from "@/lib/utils";
 
 /**
- * Companies & credits (ADR-011, admins only). Each customer company with its
- * balance; pick one to add credits against a signed contract and to see every
- * grant and spend. Credits appear only through this screen.
+ * Companies & credits (ADR-011, admins only). The list of customer companies
+ * with their balances; each opens the admin company page, where credits are
+ * added (against a contract) or corrected, and history and roles are shown.
+ * Credits appear only through these screens.
  */
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SGD", "ILS", "AED", "HKD"] as const;
 
-type Company = { id: string; name: string; clerkOrgId: string; balance: number; granted: number; spent: number };
-type Entry = {
+export type Company = { id: string; name: string; clerkOrgId: string; balance: number; granted: number; spent: number };
+export type Entry = {
   id: string;
   kind: "grant" | "spend" | "adjustment";
   delta: number;
@@ -30,8 +33,6 @@ type Entry = {
 
 export function CompaniesAdmin() {
   const [companies, setCompanies] = useState<Company[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [ledger, setLedger] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,27 +41,9 @@ export function CompaniesAdmin() {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? "Could not load companies");
         setCompanies(d.companies);
-        if (d.companies.length) setSelected((s) => s ?? d.companies[0].id);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Could not load companies"));
   }, []);
-
-  const loadLedger = useCallback((id: string) => {
-    setLedger(null);
-    fetch(`/api/admin/companies/${id}/ledger`)
-      .then(async (r) => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error ?? "Could not load the history");
-        setLedger(d.ledger);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Could not load the history"));
-  }, []);
-
-  useEffect(() => {
-    if (selected) loadLedger(selected);
-  }, [selected, loadLedger]);
-
-  const company = companies?.find((c) => c.id === selected) ?? null;
 
   return (
     <>
@@ -69,8 +52,8 @@ export function CompaniesAdmin() {
         <p className="label-mono mb-3">Admin</p>
         <h1 className="font-display text-4xl font-normal text-ink">Companies &amp; credits</h1>
         <p className="mt-3 max-w-2xl text-muted">
-          Credits are added here when a customer&apos;s contract is signed. Each role a customer
-          opens spends one credit.
+          Open a company to add or correct its credits, see its history and its roles. Credits are
+          added when a customer&apos;s contract is signed; each role a customer opens spends one.
         </p>
 
         {error && (
@@ -79,87 +62,138 @@ export function CompaniesAdmin() {
           </Alert>
         )}
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-[320px_1fr]">
-          <div className="space-y-3">
-            {companies === null
-              ? [0, 1].map((i) => (
-                  <div key={i} className="card-surface p-5">
-                    <Skeleton className="h-5 w-1/2" />
-                  </div>
-                ))
-              : companies.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setSelected(c.id)}
-                    className={`card-surface block w-full p-5 text-left transition hover:border-accent/50 ${
-                      c.id === selected ? "border-accent" : ""
-                    }`}
-                  >
-                    <h3 className="font-display text-xl font-normal text-ink">{c.name}</h3>
-                    <p className="mt-2 font-mono text-xs text-muted">
-                      {c.balance} available · {c.granted} granted · {c.spent} spent
+        <div className="mt-10 space-y-3">
+          {companies === null
+            ? [0, 1].map((i) => (
+                <div key={i} className="card-surface p-5">
+                  <Skeleton className="h-5 w-1/3" />
+                </div>
+              ))
+            : companies.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/internal/companies/${c.id}`}
+                  className="card-surface flex items-center gap-6 p-5 transition hover:border-accent/50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-display text-xl font-normal text-ink">{c.name}</h3>
+                    <p className="mt-1 font-mono text-xs text-muted">
+                      {c.granted} added · {c.spent} spent
                     </p>
-                  </button>
-                ))}
-          </div>
-
-          {company && (
-            <div className="space-y-6">
-              <GrantForm
-                company={company}
-                onGranted={(list) => {
-                  setCompanies(list);
-                  loadLedger(company.id);
-                }}
-              />
-              <section className="card-surface p-6">
-                <p className="label-mono mb-4">History · {company.name}</p>
-                {ledger === null ? (
-                  <Skeleton className="h-4 w-2/3" />
-                ) : ledger.length === 0 ? (
-                  <p className="text-sm text-muted">No credits yet.</p>
-                ) : (
-                  <ul className="divide-y divide-line">
-                    {ledger.map((e) => (
-                      <li key={e.id} className="flex items-start gap-4 py-3 text-sm">
-                        <span
-                          className={`w-12 shrink-0 font-mono ${e.delta > 0 ? "text-success" : "text-ink"}`}
-                        >
-                          {e.delta > 0 ? `+${e.delta}` : e.delta}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-ink">
-                            {e.kind === "spend"
-                              ? `Role opened: ${e.projectTitle ?? e.note ?? "—"}`
-                              : e.kind === "grant"
-                                ? `Contract ${e.contractRef ?? "—"}`
-                                : `Adjustment${e.note ? `: ${e.note}` : ""}`}
-                          </p>
-                          <p className="mt-0.5 text-xs text-faint">
-                            {e.kind === "grant" && e.priceAmount !== null && (
-                              <>
-                                {e.priceAmount.toLocaleString()} {e.priceCurrency} ·{" "}
-                              </>
-                            )}
-                            {e.kind === "grant" && e.note && <>{e.note} · </>}
-                            {e.createdBy} · {relativeTime(e.createdAt)}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </div>
-          )}
+                  </div>
+                  <p className="font-display text-2xl text-ink">
+                    {c.balance} <span className="text-sm text-muted">available</span>
+                  </p>
+                  <ArrowUpRight className="size-4 text-faint" />
+                </Link>
+              ))}
         </div>
       </main>
     </>
   );
 }
 
-function GrantForm({ company, onGranted }: { company: Company; onGranted: (list: Company[]) => void }) {
+export function LedgerList({ ledger }: { ledger: Entry[] | null }) {
+  if (ledger === null) return <Skeleton className="h-4 w-2/3" />;
+  if (ledger.length === 0) return <p className="text-sm text-muted">No credits yet.</p>;
+  return (
+    <ul className="divide-y divide-line">
+      {ledger.map((e) => (
+        <li key={e.id} className="flex items-start gap-4 py-3 text-sm">
+          <span className={`w-12 shrink-0 font-mono ${e.delta > 0 ? "text-success" : "text-ink"}`}>
+            {e.delta > 0 ? `+${e.delta}` : e.delta}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-ink">
+              {e.kind === "spend"
+                ? `Role opened: ${e.projectTitle ?? e.note ?? "—"}`
+                : e.kind === "grant"
+                  ? `Contract ${e.contractRef ?? "—"}`
+                  : `Correction: ${e.note ?? "—"}`}
+            </p>
+            <p className="mt-0.5 text-xs text-faint">
+              {e.kind === "grant" && e.priceAmount !== null && (
+                <>
+                  {e.priceAmount.toLocaleString()} {e.priceCurrency} ·{" "}
+                </>
+              )}
+              {e.kind === "grant" && e.note && <>{e.note} · </>}
+              {e.createdBy} · {relativeTime(e.createdAt)}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function AdjustForm({ company, onDone }: { company: Company; onDone: () => void }) {
+  const [delta, setDelta] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: "danger" | "info"; text: string } | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/admin/companies/${company.id}/adjust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delta: Number(delta), reason }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Could not correct the balance");
+      setMessage({ tone: "info", text: `Balance corrected — now ${d.balance} available.` });
+      setDelta("");
+      setReason("");
+      onDone();
+    } catch (err) {
+      setMessage({ tone: "danger", text: err instanceof Error ? err.message : "Could not correct the balance" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const n = Number(delta);
+  const valid = Number.isInteger(n) && n !== 0 && reason.trim().length > 0;
+
+  return (
+    <form onSubmit={submit} className="card-surface p-6">
+      <p className="label-mono">Correct balance</p>
+      <p className="mt-2 text-sm text-muted">
+        History is never edited: a correction is a new entry. Use a negative number to remove
+        credits (e.g. -2). The balance cannot go below zero.
+      </p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-[160px_1fr]">
+        <label className="block space-y-2">
+          <span className="label-mono">
+            Credits (+/−) <span className="text-accent" aria-hidden>*</span>
+          </span>
+          <input className="field" type="number" value={delta} onChange={(e) => setDelta(e.target.value)} placeholder="-2" required />
+        </label>
+        <label className="block space-y-2">
+          <span className="label-mono">
+            Reason <span className="text-accent" aria-hidden>*</span>
+          </span>
+          <input className="field" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Contract amended to 3 roles" required maxLength={1000} />
+        </label>
+      </div>
+      {message && (
+        <Alert tone={message.tone === "danger" ? "danger" : undefined} className="mt-4">
+          {message.text}
+        </Alert>
+      )}
+      <p className="mt-4 text-xs text-faint">* Required</p>
+      <button className="btn btn-ghost mt-3" disabled={busy || !valid}>
+        {busy ? "Saving…" : "Save correction"}
+      </button>
+    </form>
+  );
+}
+
+export function GrantForm({ company, onGranted }: { company: Company; onGranted: (list: Company[]) => void }) {
   const [credits, setCredits] = useState("1");
   const [contractRef, setContractRef] = useState("");
   const [priceAmount, setPriceAmount] = useState("");

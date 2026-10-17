@@ -111,7 +111,11 @@ async function main() {
         WITH CHECK (company_id = public.app_company() AND kind = 'spend' AND delta = -1)`);
     }
 
-    console.log("6. Company Intel stays out of reach of app_user");
+    console.log("6. Admin activity log stays out of reach of app_user");
+    const audit = await tx`select 1 from pg_tables where schemaname = 'public' and tablename = 'admin_audit'`;
+    if (audit.length) await run(`REVOKE ALL ON admin_audit FROM app_user`);
+
+    console.log("7. Company Intel stays out of reach of app_user");
     for (const t of ["intel_companies", "intel_company_inputs", "intel_company_research", "intel_company_outputs"]) {
       await run(`REVOKE ALL ON "${t}" FROM app_user`);
     }
