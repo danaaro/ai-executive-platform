@@ -210,11 +210,11 @@ function GrantForm({ company, onGranted }: { company: Company; onGranted: (list:
       </div>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="block space-y-2">
-          <span className="label-mono">Credits</span>
+          <span className="label-mono">Credits <span className="text-accent" aria-hidden>*</span></span>
           <input className="field" type="number" min={1} max={1000} value={credits} onChange={(e) => setCredits(e.target.value)} required />
         </label>
         <label className="block space-y-2">
-          <span className="label-mono">Contract / invoice reference</span>
+          <span className="label-mono">Contract / invoice reference <span className="text-accent" aria-hidden>*</span></span>
           <input className="field" value={contractRef} onChange={(e) => setContractRef(e.target.value)} placeholder="e.g. SPP-2026-014" required maxLength={200} />
         </label>
         <label className="block space-y-2">
@@ -238,7 +238,8 @@ function GrantForm({ company, onGranted }: { company: Company; onGranted: (list:
           {message.text}
         </Alert>
       )}
-      <button className="btn btn-gold mt-5" disabled={busy || !contractRef.trim()}>
+      <p className="mt-4 text-xs text-faint">* Required</p>
+      <button className="btn btn-gold mt-3" disabled={busy || !contractRef.trim()}>
         {busy ? "Adding…" : "Add credits"}
       </button>
     </form>

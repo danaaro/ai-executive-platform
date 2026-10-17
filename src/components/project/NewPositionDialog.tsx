@@ -139,7 +139,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
 
         <div className="mt-5 flex flex-col gap-5">
           <label className="block space-y-2">
-            <span className="label-mono">Role title</span>
+            <span className="label-mono">Role title <span className="text-accent" aria-hidden>*</span></span>
             <input
               className="field"
               value={title}
@@ -151,7 +151,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
           </label>
 
           <div className="space-y-2">
-            <span className="label-mono">Annual base salary range</span>
+            <span className="label-mono">Annual base salary range <span className="text-accent" aria-hidden>*</span></span>
             <div className="flex gap-2">
               <input
                 className="field"
@@ -196,7 +196,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
           </div>
 
           <div className="space-y-2">
-            <span className="label-mono">Hiring manager (approves the job description)</span>
+            <span className="label-mono">Hiring manager (approves the job description) <span className="text-accent" aria-hidden>*</span></span>
             <div className="flex flex-wrap gap-4 text-sm text-ink">
               <label className="flex items-center gap-2">
                 <input type="radio" checked={hmSelf} onChange={() => setHmSelf(true)} className="accent-[var(--accent)]" />
@@ -208,13 +208,17 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
               </label>
             </div>
             {!hmSelf && (
-              <input
-                className="field"
-                type="email"
-                value={hmEmail}
-                onChange={(e) => setHmEmail(e.target.value)}
-                placeholder="hiring.manager@company.com"
-              />
+              <label className="block space-y-2">
+                <span className="label-mono">Hiring manager email <span className="text-accent" aria-hidden>*</span></span>
+                <input
+                  className="field"
+                  type="email"
+                  value={hmEmail}
+                  onChange={(e) => setHmEmail(e.target.value)}
+                  placeholder="hiring.manager@company.com"
+                  required
+                />
+              </label>
             )}
           </div>
 
@@ -266,6 +270,8 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
               </ul>
             )}
           </div>
+
+          <p className="text-xs text-faint">* Required</p>
 
           {error && <Alert tone="danger">{error}</Alert>}
         </div>
