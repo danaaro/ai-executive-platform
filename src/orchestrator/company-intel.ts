@@ -3,7 +3,7 @@ import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, desc, eq, inArray, max } from "drizzle-orm";
 import { adminDb, tables } from "@/db";
-import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import { getAnthropicClient, DEFAULT_MODEL, logCacheUsage } from "@/shared/anthropic-client";
 import { findPersonaPhotos, photoUsage } from "@/orchestrator/persona-photos";
 import { findCompanyLogo, guessWebsite } from "@/orchestrator/company-logo";
 import { readCompanySite } from "@/orchestrator/company-site";
@@ -221,6 +221,9 @@ export async function runToCompletion(opts: {
       max_tokens: opts.maxTokens,
       system: [{ type: "text", text: opts.system, ...(opts.cache === false ? {} : { cache_control: { type: "ephemeral" } }) }],
       messages,
+      // On pause_turn the next round resends everything gathered so far —
+      // the automatic breakpoint lets it read that from cache.
+      ...(opts.cache === false ? {} : { cache_control: { type: "ephemeral" as const } }),
       ...(opts.tools ? { tools: opts.tools } : {}),
       ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
     });
@@ -239,6 +242,7 @@ export async function runToCompletion(opts: {
     }
 
     const msg = await stream.finalMessage();
+    logCacheUsage(`company-intel/round${round}`, msg.usage);
     content.push(...msg.content);
     usage.inputTokens += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0);
     usage.outputTokens += msg.usage.output_tokens;

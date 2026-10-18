@@ -3,7 +3,12 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { asc, and, eq, lt, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt, voiceChannelNote } from "@/orchestrator/job-description-orchestrator";
-import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import {
+  getAnthropicClient,
+  DEFAULT_MODEL,
+  INTERVIEW_CACHE,
+  logCacheUsage,
+} from "@/shared/anthropic-client";
 import { extractVoiceGrant } from "@/shared/voice-grant";
 import { INTAKE_START } from "@/shared/intake-openers";
 import {
@@ -26,7 +31,7 @@ function buildVoiceSystemBlocks(context = "") {
     {
       type: "text" as const,
       text: buildJobDescriptionSystemPrompt(),
-      cache_control: { type: "ephemeral" as const },
+      cache_control: INTERVIEW_CACHE,
     },
     { type: "text" as const, text: voiceChannelNote() + (context ? `\n\n---\n\n${context}` : "") },
   ];
@@ -346,7 +351,9 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         thinking: { type: "disabled" },
         system: buildVoiceSystemBlocks(context),
         messages: anthropicMessages,
+        cache_control: INTERVIEW_CACHE,
       });
+      logCacheUsage("voice", response.usage);
       const text = response.content.find((b) => b.type === "text");
       const raw = text && text.type === "text" ? text.text : "";
       // Strip the bookkeeping block before ElevenLabs sees it — on this
@@ -408,11 +415,14 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
             thinking: { type: "disabled" },
             system: buildVoiceSystemBlocks(context),
             messages: anthropicMessages,
+            // Caches the conversation so far, not just the system prompt.
+            cache_control: INTERVIEW_CACHE,
             stream: true,
           });
           for await (const event of anthropicStream) {
             if (event.type === "message_start") {
               const u = event.message.usage;
+              logCacheUsage("voice", u);
               cachedTokens = u.cache_read_input_tokens ?? 0;
               // Total prompt = uncached + cache-write + cache-read tokens.
               inputTokens =

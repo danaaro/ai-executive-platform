@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import {
+  getAnthropicClient,
+  DEFAULT_MODEL,
+  INTERVIEW_CACHE,
+  logCacheUsage,
+} from "@/shared/anthropic-client";
 
 /**
  * Loads the Job Description agent's declarative definition from
@@ -113,18 +118,23 @@ export async function streamJobDescriptionTurn(
         {
           type: "text",
           text: buildJobDescriptionSystemPrompt(),
-          cache_control: { type: "ephemeral" },
+          cache_control: INTERVIEW_CACHE,
         },
         ...(opts.context ? [{ type: "text" as const, text: opts.context }] : []),
       ],
       messages,
+      // Automatic breakpoint on the last message: caches the role context and
+      // conversation so far, so each turn pays full price only for what's new.
+      cache_control: INTERVIEW_CACHE,
       stream: true,
     });
 
     let text = "";
     let truncated = false;
     for await (const event of stream) {
-      if (
+      if (event.type === "message_start") {
+        logCacheUsage("job-description", event.message.usage);
+      } else if (
         event.type === "content_block_delta" &&
         event.delta.type === "text_delta" &&
         event.delta.text
@@ -163,15 +173,20 @@ export async function runJobDescriptionTurn(
       // cache_control: the ~6K-token agent definition is identical every turn
       // (and shared with the voice channel, which appends its note as a
       // separate block AFTER this breakpoint) — cached, it costs ~0.1x and
-      // cuts time-to-first-token. 5-min TTL refreshes on each use.
+      // cuts time-to-first-token. 1-hour TTL (INTERVIEW_CACHE), refreshed on
+      // each use; the request-level marker also caches the conversation.
       system: [
         {
           type: "text",
           text: buildJobDescriptionSystemPrompt(),
-          cache_control: { type: "ephemeral" },
+          cache_control: INTERVIEW_CACHE,
         },
       ],
       messages,
+      cache_control: INTERVIEW_CACHE,
+    }).then((res) => {
+      logCacheUsage("job-description", res.usage);
+      return res;
     });
 
   let response = await doTurn(true);

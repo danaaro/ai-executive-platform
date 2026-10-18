@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import {
+  getAnthropicClient,
+  DEFAULT_MODEL,
+  INTERVIEW_CACHE,
+  logCacheUsage,
+} from "@/shared/anthropic-client";
 
 /**
  * Generic agent runtime (per ADR-001: products are declarative, one shared
@@ -218,17 +223,22 @@ export async function streamAgentTurn(
         {
           type: "text",
           text: buildAgentSystemPrompt(slug),
-          cache_control: { type: "ephemeral" },
+          cache_control: INTERVIEW_CACHE,
         },
       ],
       messages,
+      // Automatic breakpoint on the last message: caches the conversation so
+      // far, so each turn pays full price only for what's new.
+      cache_control: INTERVIEW_CACHE,
       stream: true,
     });
 
     let text = "";
     let truncated = false;
     for await (const event of stream) {
-      if (
+      if (event.type === "message_start") {
+        logCacheUsage(`agent/${slug}`, event.message.usage);
+      } else if (
         event.type === "content_block_delta" &&
         event.delta.type === "text_delta" &&
         event.delta.text
@@ -279,10 +289,14 @@ export async function runAgentTurn(
         {
           type: "text",
           text: buildAgentSystemPrompt(slug),
-          cache_control: { type: "ephemeral" },
+          cache_control: INTERVIEW_CACHE,
         },
       ],
       messages,
+      cache_control: INTERVIEW_CACHE,
+    }).then((res) => {
+      logCacheUsage(`agent/${slug}`, res.usage);
+      return res;
     });
 
   let response = await doTurn(true);

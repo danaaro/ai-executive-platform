@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { requireUser, dbEnabled, getConversationAccess } from "@/shared/current-user";
-import { getAnthropicClient } from "@/shared/anthropic-client";
+import { getAnthropicClient, logCacheUsage } from "@/shared/anthropic-client";
 import { mergeCoverage, type SectionStatus } from "@/shared/coverage";
 import { hasIntakeAnswers, sectionRollup } from "@/shared/intake-answers";
 
@@ -104,19 +104,27 @@ async function scoreCoverage(
     text: `${m.role === "user" ? "HIRING MANAGER" : "AGENT"}: ${m.content}`,
   }));
   let budget = MAX_CHARS - rendered.reduce((n, r) => n + (r.isUser ? r.text.length : 0), 0);
-  const convo = rendered
-    .map((r) => {
-      if (r.isUser) return r.text;
-      if (budget <= 0) return "AGENT: […]";
-      if (r.text.length <= budget) {
-        budget -= r.text.length;
-        return r.text;
-      }
-      const clipped = r.text.slice(0, Math.max(0, budget));
-      budget = 0;
-      return `${clipped} […]`;
-    })
-    .join("\n\n");
+  const convo = rendered.map((r) => {
+    if (r.isUser) return r.text;
+    if (budget <= 0) return "AGENT: […]";
+    if (r.text.length <= budget) {
+      budget -= r.text.length;
+      return r.text;
+    }
+    const clipped = r.text.slice(0, Math.max(0, budget));
+    budget = 0;
+    return `${clipped} […]`;
+  });
+
+  // One text block per message, not one joined string: the meter re-reads the
+  // whole conversation each time it runs, and prompt caching only matches at
+  // block boundaries. With the automatic breakpoint below, the next run reads
+  // everything up to the previous last message from cache. (Haiku 4.5 caches
+  // only past ~4K tokens, so short conversations stay uncached — no cost.)
+  const content = [
+    { type: "text" as const, text: `Questionnaire sections:\n${sectionList}\n\nConversation:` },
+    ...convo.map((text) => ({ type: "text" as const, text: `\n\n${text}` })),
+  ];
 
   const res = await getAnthropicClient().messages.create({
     model: METER_MODEL,
@@ -125,10 +133,10 @@ async function scoreCoverage(
       "You audit a hiring-intake conversation against a questionnaire. For each numbered section, decide whether the hiring manager's side of the conversation (including any pasted/uploaded documents) provides its information: " +
       '"covered" (substantially answered), "partial" (some real information, clear gaps), or "missing" (nothing substantive). Being asked a question does not count — only answers do. ' +
       'Reply with JSON only: {"sections":[{"id":<number>,"status":"covered"|"partial"|"missing"}]} with exactly one entry per section.',
-    messages: [
-      { role: "user", content: `Questionnaire sections:\n${sectionList}\n\nConversation:\n${convo}` },
-    ],
+    messages: [{ role: "user", content }],
+    cache_control: { type: "ephemeral" },
   });
+  logCacheUsage("coverage", res.usage);
   const text = res.content.find((b) => b.type === "text");
   const raw = text && text.type === "text" ? text.text : "{}";
   const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? "{}") as {

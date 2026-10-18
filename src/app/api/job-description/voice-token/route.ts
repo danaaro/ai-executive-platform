@@ -3,7 +3,7 @@ import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt, voiceOpeningLine } from "@/orchestrator/job-description-orchestrator";
-import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
+import { getAnthropicClient, DEFAULT_MODEL, INTERVIEW_CACHE } from "@/shared/anthropic-client";
 import {
   requireUser,
   dbEnabled,
@@ -31,7 +31,8 @@ function prewarmPromptCache() {
         {
           type: "text",
           text: buildJobDescriptionSystemPrompt(),
-          cache_control: { type: "ephemeral" },
+          // Same TTL as the real turns, so they read the entry this writes.
+          cache_control: INTERVIEW_CACHE,
         },
       ],
       messages: [{ role: "user", content: "warmup" }],
