@@ -114,7 +114,7 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
           </Alert>
         )}
 
-        <div className="space-y-3">
+        <div id="roles" className="scroll-mt-24 space-y-3">
           {roles === null ? (
             [0, 1].map((i) => (
               <div key={i} className="card-surface p-5">

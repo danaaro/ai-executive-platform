@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 
 /**
@@ -18,6 +19,9 @@ export function AppHeader({
   // Customers never see the link; the pages/APIs also check server-side.
   const { user } = useUser();
   const isAdmin = user?.publicMetadata?.role === "admin";
+  // Inside a customer company in admin, "Roles" means THAT company's roles,
+  // not the admin's own company (Dana 2026-10-19).
+  const adminCompany = usePathname().match(/^\/internal\/companies\/([0-9a-f-]{36})/i)?.[1] ?? null;
 
   return (
     <header className="no-print sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
@@ -40,10 +44,10 @@ export function AppHeader({
           {children}
           {isAdmin && (
             <Link
-              href="/projects"
+              href={adminCompany ? `/internal/companies/${adminCompany}#roles` : "/projects"}
               className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
             >
-              Our roles
+              {adminCompany ? "Roles" : "Our roles"}
             </Link>
           )}
           {isAdmin && (
