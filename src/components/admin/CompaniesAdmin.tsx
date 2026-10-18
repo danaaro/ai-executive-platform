@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { relativeTime } from "@/lib/utils";
+import { NewCompanyForm } from "./NewCompanyForm";
 
 /**
  * Companies & credits (ADR-011, admins only). The list of customer companies
@@ -34,6 +35,7 @@ export type Entry = {
 export function CompaniesAdmin() {
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/companies")
@@ -49,12 +51,23 @@ export function CompaniesAdmin() {
     <>
       <AppHeader />
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <p className="label-mono mb-3">Admin</p>
-        <h1 className="font-display text-4xl font-normal text-ink">Companies &amp; credits</h1>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="label-mono mb-3">Admin</p>
+            <h1 className="font-display text-4xl font-normal text-ink">Companies &amp; credits</h1>
+          </div>
+          {!adding && (
+            <button className="btn btn-ghost" onClick={() => setAdding(true)}>
+              <Plus className="size-4" /> Add company
+            </button>
+          )}
+        </div>
         <p className="mt-3 max-w-2xl text-muted">
           Open a company to add or correct its credits, see its history and its roles. Credits are
           added when a customer&apos;s contract is signed; each role a customer opens spends one.
         </p>
+
+        {adding && <NewCompanyForm onCancel={() => setAdding(false)} />}
 
         {error && (
           <Alert tone="danger" className="mt-6">
@@ -69,7 +82,9 @@ export function CompaniesAdmin() {
                   <Skeleton className="h-5 w-1/3" />
                 </div>
               ))
-            : companies.map((c) => (
+            : companies.length === 0
+              ? <p className="text-muted">No companies yet.</p>
+              : companies.map((c) => (
                 <Link
                   key={c.id}
                   href={`/internal/companies/${c.id}`}

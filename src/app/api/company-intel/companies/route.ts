@@ -11,6 +11,7 @@ export async function GET() {
 
   const rows = await adminDb()
     .select({
+      id: tables.intelCompanies.id,
       slug: tables.intelCompanies.slug,
       name: tables.intelCompanies.name,
       logoUrl: tables.intelCompanies.logoUrl,

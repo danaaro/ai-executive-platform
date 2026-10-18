@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
@@ -34,6 +35,7 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
   const [credits, setCredits] = useState<Company | null>(null);
   const [ledger, setLedger] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inviteFailed = useSearchParams().get("invite") === "failed";
 
   const load = useCallback(async (opts: { withCompany: boolean }) => {
     try {
@@ -93,11 +95,19 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
           </Alert>
         )}
 
+        {inviteFailed && (
+          <Alert tone="danger" className="mt-6">
+            The company was created, but the first user&apos;s invitation could not be sent. Invite them again under People.
+          </Alert>
+        )}
+
         <div className="mt-10">
           {credits && <CreditsForm company={credits} onDone={() => void load({ withCompany: false })} />}
         </div>
 
         <IntelAndDocuments companyId={companyId} />
+
+        <People companyId={companyId} />
 
         <section className="card-surface mt-6 p-6">
           <p className="label-mono mb-4">Roles</p>
@@ -253,5 +263,99 @@ function IntelAndDocuments({ companyId }: { companyId: string }) {
         )}
       </section>
     </div>
+  );
+}
+
+type Person = { email: string; name: string | null; status: "member" | "invited"; since: string };
+
+/**
+ * The company's people: members of its Clerk Organization and pending
+ * invitations. An admin can invite someone here (e.g. the first user).
+ */
+function People({ companyId }: { companyId: string }) {
+  const [people, setPeople] = useState<Person[] | null>(null);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: "danger" | "info"; text: string } | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/admin/companies/${companyId}/users`)
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Could not load the people");
+        setPeople(d.people);
+      })
+      .catch((e) => {
+        setPeople([]);
+        setMessage({ tone: "danger", text: e instanceof Error ? e.message : "Could not load the people" });
+      });
+  }, [companyId]);
+
+  async function invite(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      const r = await fetch(`/api/admin/companies/${companyId}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Could not send the invitation");
+      setPeople(d.people);
+      setMessage({ tone: "info", text: d.result === "already" ? `${email} is already invited or a member.` : `Invitation sent to ${email}.` });
+      setEmail("");
+    } catch (err) {
+      setMessage({ tone: "danger", text: err instanceof Error ? err.message : "Could not send the invitation" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card-surface mt-6 p-6">
+      <p className="label-mono mb-4">People</p>
+      {people === null ? (
+        <Skeleton className="h-4 w-1/2" />
+      ) : people.length === 0 ? (
+        <p className="text-sm text-muted">No one yet. Invite the customer&apos;s first user below.</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {people.map((p) => (
+            <li key={`${p.status}:${p.email}`} className="flex items-baseline gap-4 py-2 text-sm">
+              <span className="min-w-0 flex-1 truncate text-ink">
+                {p.name ? `${p.name} · ` : ""}
+                {p.email}
+              </span>
+              <span className="text-xs text-faint">{relativeTime(p.since)}</span>
+              <span className={`label-mono w-20 text-right ${p.status === "invited" ? "text-muted" : ""}`}>
+                {p.status === "invited" ? "Invited" : "Member"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={invite} className="mt-5 flex flex-wrap gap-2">
+        <input
+          className="field flex-1"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="name@customer.com"
+          aria-label="Email to invite"
+          maxLength={254}
+          required
+        />
+        <button className="btn btn-gold" disabled={busy || !email.trim()}>
+          {busy ? "Sending…" : "Invite"}
+        </button>
+      </form>
+      {message && (
+        <Alert tone={message.tone === "danger" ? "danger" : undefined} className="mt-4">
+          {message.text}
+        </Alert>
+      )}
+    </section>
   );
 }

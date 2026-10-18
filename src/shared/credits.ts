@@ -1,4 +1,5 @@
 import { desc, eq, sql } from "drizzle-orm";
+import { clerkClient } from "@clerk/nextjs/server";
 import { adminDb, db, tables } from "@/db";
 
 /**
@@ -230,4 +231,125 @@ export async function companyForAdmin(companyId: string) {
     .where(eq(tables.projects.companyId, companyId))
     .orderBy(desc(tables.projects.createdAt));
   return { company, roles };
+}
+
+/**
+ * Creates a customer company (Stage A, Dana 2026-10-18): a Clerk Organization
+ * with no members — the admin is deliberately NOT added, or their own session
+ * would belong to two organizations — plus our `companies` row, the optional
+ * Company Intel attachment and the opening credit grant, in one transaction.
+ * If the database step fails the new organization is deleted again, so a
+ * half-made company never exists. Admin only.
+ */
+export async function createCompany(opts: {
+  name: string;
+  intelCompanyId: string | null;
+  credits: number;
+  reference: string | null;
+  priceAmount: number | null;
+  priceCurrency: Currency | null;
+  note: string | null;
+  adminUserId: string;
+}): Promise<{ ok: true; companyId: string } | { ok: false; error: string; status: number }> {
+  const [dupe] = await adminDb()
+    .select({ id: tables.companies.id })
+    .from(tables.companies)
+    .where(sql`lower(${tables.companies.name}) = lower(${opts.name})`)
+    .limit(1);
+  if (dupe) return { ok: false, error: `A company called "${opts.name}" already exists.`, status: 409 };
+  if (opts.intelCompanyId) {
+    const [exists] = await adminDb()
+      .select({ id: tables.intelCompanies.id })
+      .from(tables.intelCompanies)
+      .where(eq(tables.intelCompanies.id, opts.intelCompanyId))
+      .limit(1);
+    if (!exists) return { ok: false, error: "That researched company no longer exists.", status: 404 };
+  }
+
+  const clerk = await clerkClient();
+  const org = await clerk.organizations.createOrganization({ name: opts.name });
+  try {
+    const companyId = await adminDb().transaction(async (tx) => {
+      const [row] = await tx
+        .insert(tables.companies)
+        .values({ clerkOrgId: org.id, name: opts.name, intelCompanyId: opts.intelCompanyId })
+        .returning({ id: tables.companies.id });
+      if (opts.credits > 0) {
+        await tx.insert(tables.creditLedger).values({
+          companyId: row.id,
+          kind: "grant",
+          delta: opts.credits,
+          priceAmount: opts.priceAmount,
+          priceCurrency: opts.priceAmount !== null ? opts.priceCurrency : null,
+          contractRef: opts.reference,
+          note: opts.note,
+          createdBy: opts.adminUserId,
+        });
+      }
+      await tx.insert(tables.adminAudit).values({
+        adminUserId: opts.adminUserId,
+        action: "company.create",
+        companyId: row.id,
+        details: {
+          name: opts.name,
+          clerkOrgId: org.id,
+          intelCompanyId: opts.intelCompanyId,
+          credits: opts.credits,
+          reference: opts.reference,
+          priceAmount: opts.priceAmount,
+          priceCurrency: opts.priceAmount !== null ? opts.priceCurrency : null,
+        },
+      });
+      return row.id;
+    });
+    return { ok: true, companyId };
+  } catch (err) {
+    await clerk.organizations.deleteOrganization(org.id).catch(() => null);
+    throw err;
+  }
+}
+
+export type CompanyPerson = { email: string; name: string | null; status: "member" | "invited"; since: string };
+
+/** Who is in a company: Clerk members plus pending invitations. Admin only. */
+export async function companyPeople(clerkOrgId: string): Promise<CompanyPerson[]> {
+  const clerk = await clerkClient();
+  const [members, invites] = await Promise.all([
+    clerk.organizations.getOrganizationMembershipList({ organizationId: clerkOrgId, limit: 100 }),
+    clerk.organizations.getOrganizationInvitationList({ organizationId: clerkOrgId, status: ["pending"], limit: 100 }),
+  ]);
+  return [
+    ...members.data.map((m) => ({
+      email: m.publicUserData?.identifier ?? "—",
+      name: [m.publicUserData?.firstName, m.publicUserData?.lastName].filter(Boolean).join(" ") || null,
+      status: "member" as const,
+      since: new Date(m.createdAt).toISOString(),
+    })),
+    ...invites.data.map((i) => ({
+      email: i.emailAddress,
+      name: null,
+      status: "invited" as const,
+      since: new Date(i.createdAt).toISOString(),
+    })),
+  ];
+}
+
+/**
+ * An admin invites someone into a customer company. No inviter is named: the
+ * admin is not a member of the organization (see createCompany).
+ */
+export async function adminInviteToCompany(clerkOrgId: string, email: string): Promise<"invited" | "already"> {
+  const clerk = await clerkClient();
+  try {
+    await clerk.organizations.createOrganizationInvitation({
+      organizationId: clerkOrgId,
+      emailAddress: email,
+      role: "org:member",
+    });
+    return "invited";
+  } catch (err) {
+    const codes = ((err as { errors?: { code?: string }[] })?.errors ?? []).map((e) => e.code ?? "");
+    if (codes.some((c) => /already|duplicate/.test(c))) return "already";
+    throw err;
+  }
 }
