@@ -4,6 +4,7 @@ One line per decision: date, what was decided, why, and where it lives. Newest f
 
 | Date | Decision | Why | File |
 |---|---|---|---|
+| 2026-10-19 | Admin company page shows the company's roles only, as in the Lovable mockup; credits, Company Intel, documents, people and credit history move to a separate Account page. | Dana: follow the Lovable screen layouts; under a company, Roles must mean only roles. | src/components/admin/CompanyAdminDetail.tsx, src/app/internal/companies/[id]/account |
 | 2026-10-19 | Intake meter (fallback scorer, used when a conversation has no structured answers) moves from Haiku 4.5 to Haiku 5.5 at effort low. | ~6x cheaper per call; on 3 real transcripts Opus 5.5 sided with Haiku 5.5 on 11 of 13 disputed sections. | src/app/api/conversations/[id]/coverage/route.ts |
 | 2026-10-19 | Company Intel research keeps web search/fetch in direct mode (dynamic filtering off), now one switch with the measurement next to it. | A/B on Nebius: filtering cost 2–3x more ($1.68 vs $0.51), ran up to 20 min (past the 300s limit), hit both search caps, and once returned a summary instead of the file. | src/orchestrator/company-intel.ts (RESEARCH_DYNAMIC_FILTERING) |
 | 2026-10-19 | Company Intel runs record cache reads/writes and costs are priced with them. | Old figures priced cached input at full rate and read ~40% high (measured: $0.37–0.51 actual vs $0.54–0.90 shown). | src/shared/ai-cost.ts, src/orchestrator/company-intel.ts |

@@ -143,7 +143,7 @@ export function NewPositionDialog({
           <p className={`font-mono text-xs ${noCredits ? "text-warn" : "text-muted"}`}>
             {noCredits
               ? forCompany
-                ? "No credits left — update the balance below"
+                ? "No credits left — add them under Account"
                 : "No role credits left — contact us to add more"
               : `${credits} role credit${credits === 1 ? "" : "s"} available`}
           </p>

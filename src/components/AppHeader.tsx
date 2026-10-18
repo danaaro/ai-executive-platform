@@ -44,7 +44,7 @@ export function AppHeader({
           {children}
           {isAdmin && (
             <Link
-              href={adminCompany ? `/internal/companies/${adminCompany}#roles` : "/projects"}
+              href={adminCompany ? `/internal/companies/${adminCompany}` : "/projects"}
               className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
             >
               {adminCompany ? "Roles" : "Our roles"}
