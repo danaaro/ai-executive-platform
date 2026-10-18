@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
@@ -35,7 +34,6 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
   const [credits, setCredits] = useState<Company | null>(null);
   const [ledger, setLedger] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const inviteFailed = useSearchParams().get("invite") === "failed";
 
   const load = useCallback(async (opts: { withCompany: boolean }) => {
     try {
@@ -92,12 +90,6 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
         {error && (
           <Alert tone="danger" className="mt-6">
             {error}
-          </Alert>
-        )}
-
-        {inviteFailed && (
-          <Alert tone="danger" className="mt-6">
-            The company was created, but the first user&apos;s invitation could not be sent. Invite them again under People.
           </Alert>
         )}
 

@@ -44,9 +44,11 @@ export type CompanyCredits = {
   balance: number;
   granted: number;
   spent: number;
+  roles: number;
+  intelAttached: boolean;
 };
 
-/** Every customer company with its balance. Admin only. */
+/** Every customer company with its balance and role count. Admin only. */
 export async function allCompanyCredits(): Promise<CompanyCredits[]> {
   const l = tables.creditLedger;
   return adminDb()
@@ -57,6 +59,8 @@ export async function allCompanyCredits(): Promise<CompanyCredits[]> {
       balance: sql<number>`coalesce(sum(${l.delta}), 0)::int`,
       granted: sql<number>`coalesce(sum(case when ${l.delta} > 0 then ${l.delta} end), 0)::int`,
       spent: sql<number>`coalesce(-sum(case when ${l.delta} < 0 then ${l.delta} end), 0)::int`,
+      roles: sql<number>`(select count(*)::int from projects p where p.company_id = "companies"."id")`,
+      intelAttached: sql<boolean>`("companies"."intel_company_id" is not null)`,
     })
     .from(tables.companies)
     .leftJoin(l, eq(l.companyId, tables.companies.id))

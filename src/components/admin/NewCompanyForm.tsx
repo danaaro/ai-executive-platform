@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 
 /**
  * New customer company (Stage A, admins only). One submit creates the company
  * (its Clerk Organization), attaches the hidden Company Intel, records the
  * opening credits against the contract and invites the first user — then
- * opens the company page, where all of it can be changed later.
+ * returns to the companies overview with the new company highlighted.
  */
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SGD", "ILS", "AED", "HKD"] as const;
@@ -23,8 +22,9 @@ function Req() {
   );
 }
 
-export function NewCompanyForm({ onCancel }: { onCancel: () => void }) {
-  const router = useRouter();
+export type Created = { companyId: string; name: string; invite: "invited" | "already" | "failed" | null };
+
+export function NewCompanyForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: (c: Created) => void }) {
   const [intel, setIntel] = useState<Intel[] | null>(null);
   const [name, setName] = useState("");
   const [intelCompanyId, setIntelCompanyId] = useState("");
@@ -77,8 +77,7 @@ export function NewCompanyForm({ onCancel }: { onCancel: () => void }) {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error ?? "Could not create the company");
-      const q = d.invite === "failed" ? "?invite=failed" : "";
-      router.push(`/internal/companies/${d.companyId}${q}`);
+      onCreated({ companyId: d.companyId, name: name.trim().replace(/\s+/g, " "), invite: d.invite });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create the company");
       setBusy(false);
@@ -86,7 +85,7 @@ export function NewCompanyForm({ onCancel }: { onCancel: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} className="card-surface mt-8 p-6">
+    <form onSubmit={submit} className="card-surface mb-8 p-6">
       <p className="label-mono">New company</p>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Plus } from "lucide-react";
+import { ArrowUpRight, Building2, Plus } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { relativeTime } from "@/lib/utils";
-import { NewCompanyForm } from "./NewCompanyForm";
+import { NewCompanyForm, type Created } from "./NewCompanyForm";
 
 /**
  * Companies & credits (ADR-011, admins only). The list of customer companies
@@ -18,7 +18,16 @@ import { NewCompanyForm } from "./NewCompanyForm";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SGD", "ILS", "AED", "HKD"] as const;
 
-export type Company = { id: string; name: string; clerkOrgId: string; balance: number; granted: number; spent: number };
+export type Company = {
+  id: string;
+  name: string;
+  clerkOrgId: string;
+  balance: number;
+  granted: number;
+  spent: number;
+  roles: number;
+  intelAttached: boolean;
+};
 export type Entry = {
   id: string;
   kind: "grant" | "spend" | "adjustment";
@@ -36,8 +45,9 @@ export function CompaniesAdmin() {
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [created, setCreated] = useState<Created | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch("/api/admin/companies")
       .then(async (r) => {
         const d = await r.json();
@@ -47,62 +57,100 @@ export function CompaniesAdmin() {
       .catch((e) => setError(e instanceof Error ? e.message : "Could not load companies"));
   }, []);
 
+  useEffect(load, [load]);
+
+  // After saving: back to the overview, the new company confirmed and highlighted.
+  function onCreated(c: Created) {
+    setAdding(false);
+    setCreated(c);
+    load();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+      <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="label-mono mb-3">Admin</p>
-            <h1 className="font-display text-4xl font-normal text-ink">Companies &amp; credits</h1>
+            <p className="label-mono mb-3">Clients</p>
+            <h1 className="font-display text-4xl font-normal text-ink">Companies</h1>
           </div>
           {!adding && (
-            <button className="btn btn-ghost" onClick={() => setAdding(true)}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => {
+                setCreated(null);
+                setAdding(true);
+              }}
+            >
               <Plus className="size-4" /> Add company
             </button>
           )}
         </div>
-        <p className="mt-3 max-w-2xl text-muted">
-          Open a company to add or correct its credits, see its history and its roles. Credits are
-          added when a customer&apos;s contract is signed; each role a customer opens spends one.
-        </p>
 
-        {adding && <NewCompanyForm onCancel={() => setAdding(false)} />}
+        {adding && <NewCompanyForm onCancel={() => setAdding(false)} onCreated={onCreated} />}
+
+        {created && (
+          <Alert tone={created.invite === "failed" ? "danger" : undefined} className="mb-6">
+            {created.name} is created.{" "}
+            {created.invite === "failed"
+              ? "The first user's invitation could not be sent; open the company and invite them under People."
+              : created.invite
+                ? "The first user's invitation is on its way."
+                : "Open it to add people, credits or Company Intel."}
+          </Alert>
+        )}
 
         {error && (
-          <Alert tone="danger" className="mt-6">
+          <Alert tone="danger" className="mb-6">
             {error}
           </Alert>
         )}
 
-        <div className="mt-10 space-y-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {companies === null
-            ? [0, 1].map((i) => (
-                <div key={i} className="card-surface p-5">
-                  <Skeleton className="h-5 w-1/3" />
+            ? [0, 1, 2].map((i) => (
+                <div key={i} className="card-surface p-6">
+                  <Skeleton className="h-11 w-11" />
+                  <Skeleton className="mt-6 h-6 w-2/3" />
+                  <Skeleton className="mt-6 h-3 w-1/3" />
                 </div>
               ))
-            : companies.length === 0
-              ? <p className="text-muted">No companies yet.</p>
-              : companies.map((c) => (
+            : companies.map((c) => (
                 <Link
                   key={c.id}
                   href={`/internal/companies/${c.id}`}
-                  className="card-surface flex items-center gap-6 p-5 transition hover:border-accent/50"
+                  className={`card-surface group p-6 transition hover:border-accent/50 ${
+                    created?.companyId === c.id ? "border-accent ring-1 ring-accent/40" : ""
+                  }`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-display text-xl font-normal text-ink">{c.name}</h3>
-                    <p className="mt-1 font-mono text-xs text-muted">
-                      {c.granted} added · {c.spent} spent
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent-wash text-accent">
+                      <Building2 className="size-5" />
+                    </div>
+                    {created?.companyId === c.id ? (
+                      <span className="label-mono text-accent">New</span>
+                    ) : (
+                      <ArrowUpRight className="size-4 text-faint transition group-hover:text-accent" />
+                    )}
+                  </div>
+                  <h3 className="mt-6 truncate font-display text-2xl font-normal text-ink">{c.name}</h3>
+                  <p className="mt-1 text-sm text-muted">
+                    {c.balance} credit{c.balance === 1 ? "" : "s"} available · {c.spent} spent
+                  </p>
+                  <div className="mt-6 flex items-center justify-between">
+                    <p className="label-mono">
+                      {c.roles} {c.roles === 1 ? "role" : "roles"}
+                    </p>
+                    <p className={`label-mono ${c.intelAttached ? "text-success" : "text-faint"}`}>
+                      {c.intelAttached ? "Intel attached" : "No Intel"}
                     </p>
                   </div>
-                  <p className="font-display text-2xl text-ink">
-                    {c.balance} <span className="text-sm text-muted">available</span>
-                  </p>
-                  <ArrowUpRight className="size-4 text-faint" />
                 </Link>
               ))}
         </div>
+        {companies?.length === 0 && !adding && <p className="text-muted">No companies yet.</p>}
       </main>
     </>
   );
