@@ -324,6 +324,11 @@ You are running as a server-side API call, not inside Claude Code. Map the instr
  * each search result and fetched page before reading it, instead of loading
  * every result in full and re-reading all of them at each search step.
  * `allowed_callers: ["direct"]` switches it off.
+ *
+ * Kept OFF — measured 2026-10-18 on Nebius (03 + 05): filtering cost 2–3x
+ * more ($1.68 vs $0.51), hit both max_uses caps, took up to 20 min (past the
+ * 300s limit), and once "wrote" the file inside its sandbox and returned only
+ * a summary. Re-test before switching on.
  */
 const RESEARCH_DYNAMIC_FILTERING = false;
 

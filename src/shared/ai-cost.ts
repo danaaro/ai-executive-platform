@@ -2,15 +2,17 @@
  * Approximate AI cost of Company Intel runs (2026-09-26).
  *
  * Anthropic LIST prices, per million tokens, as of 2026-09. Update this table
- * if pricing changes; every cost shown in the app flows from here. Input is
- * priced at the full rate (cache reads are cheaper), so figures lean slightly
- * high — deliberately: this is a budgeting signal, not an invoice.
+ * if pricing changes; every cost shown in the app flows from here. Since
+ * 2026-10-18 runs record their cache reads/writes and are priced with them
+ * (reads ~0.1x, 5-minute writes 1.25x); older rows have no split and are
+ * priced at the full input rate, so their figures read ~40% high.
  */
-const PRICES: Record<string, { input: number; output: number }> = {
-  "claude-sonnet-5": { input: 2, output: 10 },
-  "claude-sonnet-5-5": { input: 2, output: 10 },
-  "claude-opus-5-5": { input: 4, output: 20 },
+const PRICES: Record<string, { input: number; output: number; cacheRead: number }> = {
+  "claude-sonnet-5": { input: 2, output: 10, cacheRead: 0.2 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
+  "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2 },
 };
+const CACHE_WRITE_MULTIPLIER = 1.25;
 const WEB_SEARCH_USD = 0.01; // $10 per 1,000 searches; web fetch is not metered
 
 /** The usage shape every Company Intel step records. */
@@ -21,12 +23,19 @@ export type RunUsage = {
   webSearches?: number;
   webFetches?: number;
   ms?: number;
+  /** Part of inputTokens served from / written to the prompt cache. */
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 };
 
 export function usageCost(u: RunUsage | null | undefined): number {
   if (!u || typeof u.inputTokens !== "number") return 0;
   const p = PRICES[u.model] ?? PRICES["claude-sonnet-5"];
-  return (u.inputTokens * p.input + u.outputTokens * p.output) / 1e6 + (u.webSearches ?? 0) * WEB_SEARCH_USD;
+  const read = u.cacheReadTokens ?? 0;
+  const write = u.cacheWriteTokens ?? 0;
+  const uncached = u.inputTokens - read - write;
+  const input = uncached * p.input + write * p.input * CACHE_WRITE_MULTIPLIER + read * p.cacheRead;
+  return (input + u.outputTokens * p.output) / 1e6 + (u.webSearches ?? 0) * WEB_SEARCH_USD;
 }
 
 export function formatUsd(n: number): string {
