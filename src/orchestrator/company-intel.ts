@@ -179,6 +179,9 @@ type Usage = {
   webFetches: number;
   model: string;
   ms: number;
+  /** Part of inputTokens read from / written to the prompt cache (2026-10-18; absent on older rows). */
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 };
 
 type Progress = (line: string) => void;
@@ -210,6 +213,8 @@ export async function runToCompletion(opts: {
     webFetches: 0,
     model: opts.model,
     ms: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
   };
   const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content: opts.user }];
   const content: Anthropic.Messages.ContentBlock[] = [];
@@ -245,6 +250,8 @@ export async function runToCompletion(opts: {
     logCacheUsage(`company-intel/round${round}`, msg.usage);
     content.push(...msg.content);
     usage.inputTokens += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0);
+    usage.cacheReadTokens! += msg.usage.cache_read_input_tokens ?? 0;
+    usage.cacheWriteTokens! += msg.usage.cache_creation_input_tokens ?? 0;
     usage.outputTokens += msg.usage.output_tokens;
     usage.webSearches += msg.usage.server_tool_use?.web_search_requests ?? 0;
     usage.webFetches += msg.usage.server_tool_use?.web_fetch_requests ?? 0;
@@ -312,11 +319,61 @@ You are running as a server-side API call, not inside Claude Code. Map the instr
 - **Writing the output file:** you cannot write files. Your FINAL reply must be ONLY the completed research file in Markdown, starting with its \`---\` frontmatter line. Put no text before or after it. The platform saves it.
 - Work efficiently. Prefer a few well-chosen searches and fetches of primary sources over many shallow ones.`;
 
+/**
+ * Dynamic filtering (2026-10-18): with it on, the model runs code that trims
+ * each search result and fetched page before reading it, instead of loading
+ * every result in full and re-reading all of them at each search step.
+ * `allowed_callers: ["direct"]` switches it off.
+ */
+const RESEARCH_DYNAMIC_FILTERING = false;
+
+function researchTools(filtering: boolean): Anthropic.Messages.ToolUnion[] {
+  const caller = filtering ? {} : { allowed_callers: ["direct" as const] };
+  return [
+    { type: "web_search_20260318", name: "web_search", max_uses: 15, ...caller },
+    { type: "web_fetch_20260318", name: "web_fetch", max_uses: 10, max_content_tokens: 12000, ...caller },
+  ];
+}
+
 export async function runResearchModule(opts: {
   companyId: string;
   module: ModuleId;
   userId: string;
   onProgress?: Progress;
+}) {
+  const d = adminDb();
+  const { company, date, shelf, md, usage } = await draftResearchModule(opts);
+  const sources = Number(frontmatterField(md, "sources_count"));
+
+  const [row] = await d
+    .insert(tables.intelCompanyResearch)
+    .values({
+      intelCompanyId: company.id,
+      module: opts.module,
+      content: md,
+      researchedOn: date,
+      shelfLifeDays: shelf,
+      coverage: frontmatterField(md, "coverage"),
+      sourcesCount: Number.isFinite(sources) ? sources : null,
+      usage,
+      briefVersion: briefVersion(opts.module),
+      createdBy: opts.userId,
+    })
+    .returning();
+  await d
+    .update(tables.intelCompanies)
+    .set({ updatedAt: new Date() })
+    .where(eq(tables.intelCompanies.id, company.id));
+  await ensureCompanyLogo(company.id).catch((err) => console.warn("[company-intel] logo lookup failed:", err));
+  return row;
+}
+
+/** Researches one module and returns the file without saving it (also used by cost tests). */
+export async function draftResearchModule(opts: {
+  companyId: string;
+  module: ModuleId;
+  onProgress?: Progress;
+  dynamicFiltering?: boolean;
 }) {
   const d = adminDb();
   const [company] = await d
@@ -373,21 +430,7 @@ export async function runResearchModule(opts: {
     system,
     user,
     maxTokens: 16000,
-    tools: [
-      {
-        type: "web_search_20260318",
-        name: "web_search",
-        max_uses: 15,
-        allowed_callers: ["direct"],
-      },
-      {
-        type: "web_fetch_20260318",
-        name: "web_fetch",
-        max_uses: 10,
-        max_content_tokens: 12000,
-        allowed_callers: ["direct"],
-      },
-    ],
+    tools: researchTools(opts.dynamicFiltering ?? RESEARCH_DYNAMIC_FILTERING),
     onProgress: opts.onProgress,
   });
 
@@ -395,30 +438,7 @@ export async function runResearchModule(opts: {
   if (!text.trim()) {
     throw new Error(`Module ${opts.module} returned no content (stop: ${stopReason ?? "unknown"})`);
   }
-  const md = fromFrontmatter(text);
-  const sources = Number(frontmatterField(md, "sources_count"));
-
-  const [row] = await d
-    .insert(tables.intelCompanyResearch)
-    .values({
-      intelCompanyId: company.id,
-      module: opts.module,
-      content: md,
-      researchedOn: date,
-      shelfLifeDays: shelf,
-      coverage: frontmatterField(md, "coverage"),
-      sourcesCount: Number.isFinite(sources) ? sources : null,
-      usage,
-      briefVersion: briefVersion(opts.module),
-      createdBy: opts.userId,
-    })
-    .returning();
-  await d
-    .update(tables.intelCompanies)
-    .set({ updatedAt: new Date() })
-    .where(eq(tables.intelCompanies.id, company.id));
-  await ensureCompanyLogo(company.id).catch((err) => console.warn("[company-intel] logo lookup failed:", err));
-  return row;
+  return { company, date, shelf, md: fromFrontmatter(text), usage };
 }
 
 /* -------------------------------------------------------------------------

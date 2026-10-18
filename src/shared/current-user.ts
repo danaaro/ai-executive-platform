@@ -1,5 +1,6 @@
 import { errorSummary } from "@/shared/safe-log";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { headers } from "next/headers";
 import { and, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
 import { db, adminDb, withTenant, tables } from "@/db";
 
@@ -157,6 +158,23 @@ export async function companyClerkOrgId(companyId: string): Promise<string | nul
 }
 
 /**
+ * Where an invitation link lands: our own sign-up page on the host serving
+ * this request (app, preview or localhost). Without it Clerk sends people to
+ * its hosted account pages instead of Exec10X (Dana 2026-10-18).
+ */
+export async function inviteRedirectUrl(): Promise<string | undefined> {
+  try {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    if (!host) return undefined;
+    const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+    return `${proto}://${host}/sign-up`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Invites an email address into the company's Clerk Organization, so a person
  * added to a role can actually reach it once they sign in (ADR-010: access
  * requires being in the company). Already a member or already invited counts
@@ -176,6 +194,7 @@ export async function inviteToCompany(
       emailAddress: email,
       role: "org:member",
       inviterUserId,
+      redirectUrl: await inviteRedirectUrl(),
     });
     return "invited";
   } catch (err) {

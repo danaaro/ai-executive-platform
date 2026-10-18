@@ -46,8 +46,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Add a valid email address." }, { status: 400 });
   }
   try {
-    const result = await adminInviteToCompany(clerkOrgId, email);
-    await logAdminAction({ adminUserId: gate.user.id, action: "company.invite", companyId: id, details: { email } });
+    const resend = body.resend === true;
+    const result = await adminInviteToCompany(clerkOrgId, email, { resend });
+    await logAdminAction({
+      adminUserId: gate.user.id,
+      action: resend ? "company.invite.resend" : "company.invite",
+      companyId: id,
+      details: { email },
+    });
     return NextResponse.json({ result, people: await companyPeople(clerkOrgId) });
   } catch {
     return NextResponse.json({ error: "Clerk could not send the invitation. Try again." }, { status: 502 });

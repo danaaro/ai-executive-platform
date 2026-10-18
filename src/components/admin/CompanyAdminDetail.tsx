@@ -282,7 +282,7 @@ function IntelAndDocuments({ companyId }: { companyId: string }) {
   );
 }
 
-type Person = { email: string; name: string | null; status: "member" | "invited"; since: string };
+type Person = { email: string; name: string | null; status: "member" | "invited"; since: string; link: string | null };
 
 /**
  * The company's people: members of its Clerk Organization and pending
@@ -307,25 +307,45 @@ function People({ companyId }: { companyId: string }) {
       });
   }, [companyId]);
 
-  async function invite(e: React.FormEvent) {
-    e.preventDefault();
+  async function send(to: string, resend: boolean) {
     setBusy(true);
     setMessage(null);
     try {
       const r = await fetch(`/api/admin/companies/${companyId}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: to, resend }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Could not send the invitation");
       setPeople(d.people);
-      setMessage({ tone: "info", text: d.result === "already" ? `${email} is already invited or a member.` : `Invitation sent to ${email}.` });
-      setEmail("");
+      setMessage({
+        tone: "info",
+        text:
+          d.result === "already"
+            ? `${to} is already a member or invited — use Resend or Copy link on their row.`
+            : `Invitation ${resend ? "re-sent" : "sent"} to ${to}. If it doesn't arrive, use Copy link and send it yourself.`,
+      });
+      if (!resend) setEmail("");
     } catch (err) {
       setMessage({ tone: "danger", text: err instanceof Error ? err.message : "Could not send the invitation" });
     } finally {
       setBusy(false);
+    }
+  }
+
+  function invite(e: React.FormEvent) {
+    e.preventDefault();
+    void send(email.trim().toLowerCase(), false);
+  }
+
+  async function copy(p: Person) {
+    if (!p.link) return;
+    try {
+      await navigator.clipboard.writeText(p.link);
+      setMessage({ tone: "info", text: `Invite link for ${p.email} copied — paste it into your own email or WhatsApp.` });
+    } catch {
+      window.prompt("Copy the invite link:", p.link);
     }
   }
 
@@ -344,6 +364,23 @@ function People({ companyId }: { companyId: string }) {
                 {p.name ? `${p.name} · ` : ""}
                 {p.email}
               </span>
+              {p.status === "invited" && (
+                <span className="flex gap-3 text-xs">
+                  {p.link && (
+                    <button type="button" className="text-accent hover:underline" onClick={() => void copy(p)}>
+                      Copy link
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-accent hover:underline disabled:opacity-50"
+                    onClick={() => void send(p.email, true)}
+                    disabled={busy}
+                  >
+                    Resend
+                  </button>
+                </span>
+              )}
               <span className="text-xs text-faint">{relativeTime(p.since)}</span>
               <span className={`label-mono w-20 text-right ${p.status === "invited" ? "text-muted" : ""}`}>
                 {p.status === "invited" ? "Invited" : "Member"}

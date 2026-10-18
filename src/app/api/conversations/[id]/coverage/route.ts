@@ -21,7 +21,10 @@ export const maxDuration = 60;
  * every turn (voice included) now persists.
  */
 
-const METER_MODEL = "claude-haiku-4-5";
+// Haiku 5.5 (2026-10-18): a tenth of Haiku 4.5's price, and caches prompts
+// from 512 tokens. It thinks by default; effort "low" keeps this a quick
+// classification and leaves max_tokens for the JSON.
+const METER_MODEL = "claude-haiku-5-5";
 
 
 type Section = { id: number; name: string; questionCount: number };
@@ -119,8 +122,7 @@ async function scoreCoverage(
   // One text block per message, not one joined string: the meter re-reads the
   // whole conversation each time it runs, and prompt caching only matches at
   // block boundaries. With the automatic breakpoint below, the next run reads
-  // everything up to the previous last message from cache. (Haiku 4.5 caches
-  // only past ~4K tokens, so short conversations stay uncached — no cost.)
+  // everything up to the previous last message from cache.
   const content = [
     { type: "text" as const, text: `Questionnaire sections:\n${sectionList}\n\nConversation:` },
     ...convo.map((text) => ({ type: "text" as const, text: `\n\n${text}` })),
@@ -128,7 +130,8 @@ async function scoreCoverage(
 
   const res = await getAnthropicClient().messages.create({
     model: METER_MODEL,
-    max_tokens: 1500,
+    max_tokens: 4000,
+    output_config: { effort: "low" },
     system:
       "You audit a hiring-intake conversation against a questionnaire. For each numbered section, decide whether the hiring manager's side of the conversation (including any pasted/uploaded documents) provides its information: " +
       '"covered" (substantially answered), "partial" (some real information, clear gaps), or "missing" (nothing substantive). Being asked a question does not count — only answers do. ' +

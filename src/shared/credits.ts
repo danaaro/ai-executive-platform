@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 import { adminDb, db, tables } from "@/db";
+import { inviteRedirectUrl } from "@/shared/current-user";
 
 /**
  * Role credits (ADR-011). Balance = sum of the company's ledger deltas.
@@ -327,7 +328,14 @@ export async function createCompany(opts: {
   }
 }
 
-export type CompanyPerson = { email: string; name: string | null; status: "member" | "invited"; since: string };
+export type CompanyPerson = {
+  email: string;
+  name: string | null;
+  status: "member" | "invited";
+  since: string;
+  /** Invited only: the accept link, so an admin can send it themselves. */
+  link: string | null;
+};
 
 /** Who is in a company: Clerk members plus pending invitations. Admin only. */
 export async function companyPeople(clerkOrgId: string): Promise<CompanyPerson[]> {
@@ -342,27 +350,49 @@ export async function companyPeople(clerkOrgId: string): Promise<CompanyPerson[]
       name: [m.publicUserData?.firstName, m.publicUserData?.lastName].filter(Boolean).join(" ") || null,
       status: "member" as const,
       since: new Date(m.createdAt).toISOString(),
+      link: null,
     })),
     ...invites.data.map((i) => ({
       email: i.emailAddress,
       name: null,
       status: "invited" as const,
       since: new Date(i.createdAt).toISOString(),
+      link: i.url ?? null,
     })),
   ];
 }
 
 /**
  * An admin invites someone into a customer company. No inviter is named: the
- * admin is not a member of the organization (see createCompany).
+ * admin is not a member of the organization (see createCompany). `resend`
+ * revokes a pending invitation for the same email first, so the person gets a
+ * fresh email and a fresh link (Dana 2026-10-18: invitation emails can be
+ * filtered; older links pointed at Clerk's hosted pages).
  */
-export async function adminInviteToCompany(clerkOrgId: string, email: string): Promise<"invited" | "already"> {
+export async function adminInviteToCompany(
+  clerkOrgId: string,
+  email: string,
+  opts: { resend?: boolean } = {}
+): Promise<"invited" | "already"> {
   const clerk = await clerkClient();
+  if (opts.resend) {
+    const pending = await clerk.organizations.getOrganizationInvitationList({
+      organizationId: clerkOrgId,
+      status: ["pending"],
+      limit: 100,
+    });
+    await Promise.all(
+      pending.data
+        .filter((i) => i.emailAddress.toLowerCase() === email)
+        .map((i) => clerk.organizations.revokeOrganizationInvitation({ organizationId: clerkOrgId, invitationId: i.id }))
+    );
+  }
   try {
     await clerk.organizations.createOrganizationInvitation({
       organizationId: clerkOrgId,
       emailAddress: email,
       role: "org:member",
+      redirectUrl: await inviteRedirectUrl(),
     });
     return "invited";
   } catch (err) {
