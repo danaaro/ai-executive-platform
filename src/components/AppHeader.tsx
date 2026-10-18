@@ -22,7 +22,7 @@ export function AppHeader({
   return (
     <header className="no-print sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
-        <Link href="/projects" className="flex items-baseline gap-2">
+        <Link href={isAdmin ? "/internal/companies" : "/projects"} className="flex items-baseline gap-2">
           <span className="font-display text-2xl font-normal text-ink">Exec10X</span>
           <span className="label-mono hidden sm:inline">Executive Search</span>
         </Link>
@@ -38,6 +38,14 @@ export function AppHeader({
 
         <div className="ml-auto flex items-center gap-3">
           {children}
+          {isAdmin && (
+            <Link
+              href="/projects"
+              className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
+            >
+              Our roles
+            </Link>
+          )}
           {isAdmin && (
             <Link
               href="/internal/companies"

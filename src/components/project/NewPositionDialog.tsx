@@ -16,8 +16,18 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
  * salary range; names the hiring manager who will approve the job
  * description; optionally invites colleagues. The button is disabled with no
  * credits left — and the server refuses regardless.
+ *
+ * `forCompany` = an admin opening a role for a customer company: the hiring
+ * manager must be someone at the customer, and the role opens in the admin
+ * view afterwards.
  */
-export function NewPositionDialog({ credits }: { credits: number | null }) {
+export function NewPositionDialog({
+  credits,
+  forCompany,
+}: {
+  credits: number | null;
+  forCompany?: { id: string; name: string; onCreated: (projectId: string) => void };
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -25,7 +35,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
   const [salaryMax, setSalaryMax] = useState("");
   const [currency, setCurrency] = useState<string>("EUR");
   const [showSalary, setShowSalary] = useState(false);
-  const [hmSelf, setHmSelf] = useState(true);
+  const [hmSelf, setHmSelf] = useState(!forCompany);
   const [hmEmail, setHmEmail] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"editor" | "viewer">("editor");
@@ -41,7 +51,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
     setSalaryMax("");
     setCurrency("EUR");
     setShowSalary(false);
-    setHmSelf(true);
+    setHmSelf(!forCompany);
     setHmEmail("");
     setEmail("");
     setInvites([]);
@@ -83,7 +93,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/projects", {
+      const res = await fetch(forCompany ? `/api/admin/companies/${forCompany.id}/roles` : "/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -98,7 +108,14 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not open the role");
-      router.push(`/projects/${data.project.id}/start`);
+      if (forCompany) {
+        setOpen(false);
+        reset();
+        setBusy(false);
+        forCompany.onCreated(data.project.id);
+      } else {
+        router.push(`/projects/${data.project.id}/start`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not open the role");
       setBusy(false);
@@ -125,7 +142,9 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
         {credits !== null && (
           <p className={`font-mono text-xs ${noCredits ? "text-warn" : "text-muted"}`}>
             {noCredits
-              ? "No role credits left — contact us to add more"
+              ? forCompany
+                ? "No credits left — update the balance below"
+                : "No role credits left — contact us to add more"
               : `${credits} role credit${credits === 1 ? "" : "s"} available`}
           </p>
         )}
@@ -134,7 +153,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogTitle className="font-display text-2xl font-normal">Open a new role</DialogTitle>
         <DialogDescription className="mt-1 text-muted">
-          Opening a role uses 1 credit. The title and salary range are locked once the role is open.
+          {forCompany ? `For ${forCompany.name}. ` : ""}Opening a role uses 1 credit. The title and salary range are locked once the role is open.
         </DialogDescription>
 
         <div className="mt-5 flex flex-col gap-5">
@@ -197,6 +216,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
 
           <div className="space-y-2">
             <span className="label-mono">Hiring manager (approves the job description) <span className="text-accent" aria-hidden>*</span></span>
+            {!forCompany && (
             <div className="flex flex-wrap gap-4 text-sm text-ink">
               <label className="flex items-center gap-2">
                 <input type="radio" checked={hmSelf} onChange={() => setHmSelf(true)} className="accent-[var(--accent)]" />
@@ -207,6 +227,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
                 Someone else
               </label>
             </div>
+            )}
             {!hmSelf && (
               <label className="block space-y-2">
                 <span className="label-mono">Hiring manager email <span className="text-accent" aria-hidden>*</span></span>
@@ -215,7 +236,7 @@ export function NewPositionDialog({ credits }: { credits: number | null }) {
                   type="email"
                   value={hmEmail}
                   onChange={(e) => setHmEmail(e.target.value)}
-                  placeholder="hiring.manager@company.com"
+                  placeholder={forCompany ? "hiring.manager@customer.com" : "hiring.manager@company.com"}
                   required
                 />
               </label>

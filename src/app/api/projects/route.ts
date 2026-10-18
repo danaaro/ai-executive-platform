@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { requireUser, dbEnabled, getUserNames, inviteToCompany } from "@/shared/current-user";
+import { openRole } from "@/shared/open-role";
 import { deriveStages, PHASE_1_STAGES } from "@/orchestrator/stages";
-import { creditBalance, isCurrency, lockCompanyCredits } from "@/shared/credits";
+import { creditBalance } from "@/shared/credits";
 
 /**
  * Home (#4b) — "Your hiring positions", split into what you own and what was
@@ -152,14 +153,10 @@ export const GET = tenantRoute(async function GET(_req: NextRequest) {
   });
 });
 
-const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const MAX_SALARY = 100_000_000;
-
 /**
  * Open a role (ADR-011): spends one role credit and locks the title and salary
- * range, in ONE transaction (tenantRoute). A per-company lock stops two
- * simultaneous requests from spending the same last credit; the database's own
- * policy only lets a customer insert a −1 spend for their own company.
+ * range, in ONE transaction (tenantRoute). The rules live in openRole(), shared
+ * with the admin path that opens a role for a customer company.
  */
 export const POST = tenantRoute(async function POST(req: NextRequest) {
   if (!dbEnabled()) {
@@ -170,134 +167,19 @@ export const POST = tenantRoute(async function POST(req: NextRequest) {
   }
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const companyId = user.companyId;
-  if (!companyId) {
+  if (!user.companyId) {
     return NextResponse.json(
       { error: "Your account is not linked to a company yet." },
       { status: 403 }
     );
   }
-
-  const body = await req.json().catch(() => ({}));
-  const title = String(body.title ?? "").trim();
-  if (!title || title.length > 120) {
-    return NextResponse.json({ error: "Give the role a title (up to 120 characters)." }, { status: 400 });
-  }
-  const salaryMin = Number(body.salaryMin);
-  const salaryMax = Number(body.salaryMax);
-  if (
-    !Number.isInteger(salaryMin) ||
-    !Number.isInteger(salaryMax) ||
-    salaryMin <= 0 ||
-    salaryMax < salaryMin ||
-    salaryMax > MAX_SALARY
-  ) {
-    return NextResponse.json(
-      { error: "Enter the annual base salary range as whole numbers, minimum first." },
-      { status: 400 }
-    );
-  }
-  if (!isCurrency(body.salaryCurrency)) {
-    return NextResponse.json({ error: "Choose the salary currency." }, { status: 400 });
-  }
-  const salaryCurrency = body.salaryCurrency;
-  const showSalaryOnJd = body.showSalaryOnJd === true;
-
-  // The hiring manager approves the job description (enforced in JD v3):
-  // the person opening the role, or a colleague by email.
-  const self = (user.email ?? "").toLowerCase();
-  const hmEmailRaw = body.hiringManagerEmail == null ? "" : String(body.hiringManagerEmail).trim().toLowerCase();
-  const hmIsSelf = !hmEmailRaw || hmEmailRaw === self;
-  if (!hmIsSelf && !EMAIL.test(hmEmailRaw)) {
-    return NextResponse.json({ error: "Enter a valid email for the hiring manager." }, { status: 400 });
-  }
-
-  // Collaborators invited at creation (#4c). Invites are by email and may
-  // precede the account — they bind to a Clerk id on first sign-in
-  // (ADR-008 §2).
-  const invites: { email: string; role: "editor" | "viewer" }[] = Array.isArray(body.invites)
-    ? body.invites
-        .slice(0, 20)
-        .map((i: { email?: unknown; role?: unknown }) => ({
-          email: String(i?.email ?? "")
-            .trim()
-            .toLowerCase(),
-          role: i?.role === "editor" ? ("editor" as const) : ("viewer" as const),
-        }))
-        .filter((i: { email: string }) => EMAIL.test(i.email) && i.email !== self)
-    : [];
-  // The hiring manager always gets editor access to the role.
-  if (!hmIsSelf && !invites.some((i) => i.email === hmEmailRaw)) {
-    invites.push({ email: hmEmailRaw, role: "editor" });
-  }
-
-  const d = db();
-  await lockCompanyCredits(companyId);
-  const balance = await creditBalance(companyId);
-  if (balance < 1) {
-    return NextResponse.json(
-      { error: "No role credits left — contact us to add more.", credits: balance },
-      { status: 402 }
-    );
-  }
-
-  let hiringManagerUserId: string | null = hmIsSelf ? user.id : null;
-  if (!hmIsSelf) {
-    // Already a user of this company? (Row-level security: own company only.)
-    const [existing] = await d
-      .select({ id: tables.users.id })
-      .from(tables.users)
-      .where(eq(tables.users.email, hmEmailRaw))
-      .limit(1);
-    hiringManagerUserId = existing?.id ?? null;
-  }
-
-  const [row] = await d
-    .insert(tables.projects)
-    .values({
-      companyId,
-      title,
-      createdBy: user.id,
-      salaryMin,
-      salaryMax,
-      salaryCurrency,
-      showSalaryOnJd,
-      hiringManagerUserId,
-      hiringManagerEmail: hmIsSelf ? self || null : hmEmailRaw,
-    })
-    .returning({ id: tables.projects.id, title: tables.projects.title });
-
-  await d.insert(tables.creditLedger).values({
+  const companyId = user.companyId;
+  const r = await openRole({
     companyId,
-    kind: "spend",
-    delta: -1,
-    projectId: row.id,
-    note: title,
-    createdBy: user.id,
+    actor: { id: user.id, email: user.email },
+    body: await req.json().catch(() => ({})),
+    onBehalf: false,
+    invite: (email) => inviteToCompany(companyId, email, user.id),
   });
-
-  // The creator's owner row. getProjectAccess() also treats `createdBy` as
-  // owner, so this is belt-and-braces — but it keeps membership listings
-  // complete, which is what the sharing UI reads.
-  const memberValues = [
-    {
-      companyId,
-      projectId: row.id,
-      userId: user.id,
-      role: "owner" as const,
-      acceptedAt: new Date(),
-    },
-    ...invites.map((i) => ({
-      companyId,
-      projectId: row.id,
-      invitedEmail: i.email,
-      role: i.role,
-      invitedBy: user.id,
-    })),
-  ];
-  await d.insert(tables.projectMembers).values(memberValues).onConflictDoNothing();
-  // Invitees must be in the company to reach the role (ADR-010).
-  await Promise.all(invites.map((i) => inviteToCompany(companyId, i.email, user.id)));
-
-  return NextResponse.json({ project: row, invited: invites.length, credits: balance - 1 });
+  return NextResponse.json(r.json, { status: r.status });
 });

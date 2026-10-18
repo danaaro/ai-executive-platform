@@ -12,8 +12,8 @@ import { relativeTime } from "@/lib/utils";
 /**
  * Company home — the customer's roles, in the Exec10X mockup's layout
  * ("Organization detail", UI review 2026-10-17): company name as the title,
- * gold "Start new role", one row per role with progress and status. Roles the
- * user owns come first; roles shared with them follow.
+ * gold "Start new role", one row per role with progress and status, in one
+ * list; a role someone else opened shows who and the viewer's access.
  */
 
 type Project = {
@@ -99,22 +99,15 @@ export default function ProjectsPage() {
             </div>
           )
         ) : (
+          // One list of the company's roles (Dana 2026-10-18), newest activity
+          // first — including roles opened for the company by Exec10X.
           <div className="space-y-3">
-            {owned.map((p) => (
-              <RoleRow key={p.id} project={p} />
-            ))}
-          </div>
-        )}
-
-        {shared.length > 0 && (
-          <section className="mt-12">
-            <p className="label-mono mb-4">Shared with you</p>
-            <div className="space-y-3">
-              {shared.map((p) => (
+            {[...owned, ...shared]
+              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+              .map((p) => (
                 <RoleRow key={p.id} project={p} />
               ))}
-            </div>
-          </section>
+          </div>
         )}
       </main>
     </>
@@ -145,7 +138,7 @@ function RoleRow({ project: p }: { project: Project }) {
         <h3 className="truncate font-display text-xl font-normal text-ink">{p.title}</h3>
         <p className="mt-1 text-xs text-faint">
           Updated {relativeTime(p.updatedAt)}
-          {!p.isOwner && <> · {p.ownerName} · you are a {p.viewerRole}</>}
+          {!p.isOwner && <> · opened by {p.ownerName} · you are {p.viewerRole === "editor" || p.viewerRole === "admin" || p.viewerRole === "owner" ? "an" : "a"} {p.viewerRole}</>}
         </p>
       </div>
       <div className="hidden w-48 sm:block">

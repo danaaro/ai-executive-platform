@@ -70,7 +70,7 @@ export function CompaniesAdmin() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="label-mono mb-3">Clients</p>

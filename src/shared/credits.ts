@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 import { adminDb, db, tables } from "@/db";
 
@@ -233,8 +233,22 @@ export async function companyForAdmin(companyId: string) {
     })
     .from(tables.projects)
     .where(eq(tables.projects.companyId, companyId))
-    .orderBy(desc(tables.projects.createdAt));
-  return { company, roles };
+    .orderBy(desc(tables.projects.updatedAt));
+  // The job description's state per role, in the customer home's words.
+  const jd = roles.length
+    ? await adminDb()
+        .select({ projectId: tables.artifacts.projectId, status: tables.artifacts.status })
+        .from(tables.artifacts)
+        .where(and(eq(tables.artifacts.companyId, companyId), eq(tables.artifacts.agentSlug, "job-description")))
+    : [];
+  return {
+    company,
+    roles: roles.map((r) => {
+      const mine = jd.filter((a) => a.projectId === r.id);
+      const stage = mine.some((a) => a.status === "approved") ? "Approved" : mine.length ? "Draft ready" : "Interviewing";
+      return { ...r, stage };
+    }),
+  };
 }
 
 /**

@@ -54,18 +54,22 @@ export function AdminRoleView({ companyId, roleId, ownCompany }: { companyId: st
 
   return (
     <>
-      <AppHeader />
+      <AppHeader
+        breadcrumb={
+          <p className="truncate text-sm text-muted">
+            <Link href="/internal/companies" className="hover:text-ink">
+              Companies
+            </Link>{" "}
+            /{" "}
+            <Link href={`/internal/companies/${companyId}`} className="hover:text-ink">
+              {r?.companyName ?? "Company"}
+            </Link>{" "}
+            / {r?.title ?? "Role"}
+          </p>
+        }
+      />
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <p className="label-mono mb-3">
-          <Link href="/internal/companies" className="hover:text-ink">
-            Companies &amp; credits
-          </Link>{" "}
-          /{" "}
-          <Link href={`/internal/companies/${companyId}`} className="hover:text-ink">
-            {r?.companyName ?? "Company"}
-          </Link>{" "}
-          / Role · read-only
-        </p>
+        <p className="label-mono mb-3">Role · read-only</p>
         {error && <Alert tone="danger">{error}</Alert>}
         {!r ? (
           !error && <Skeleton className="h-10 w-1/2" />
@@ -75,6 +79,9 @@ export function AdminRoleView({ companyId, roleId, ownCompany }: { companyId: st
               <h1 className="font-display text-4xl font-normal text-ink">{r.title}</h1>
               <div className="flex items-center gap-4">
                 <span className="label-mono">{r.status}</span>
+                <Link href={`/internal/companies/${companyId}`} className="btn btn-ghost">
+                  Back to {r.companyName}
+                </Link>
                 {ownCompany && (
                   <Link href={`/projects/${roleId}`} className="btn btn-gold">
                     Continue in the app

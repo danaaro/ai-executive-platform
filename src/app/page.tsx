@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
+import { requireUser } from "@/shared/current-user";
 
 /**
- * The board is the product's front door now (wireframe #4b). The former
- * single-page agent chat lives on at /agents — the independent assistants
- * (Interview Coach, Evaluation Report) and the Phase-2 agents have no board
- * home yet, so it is still the only way to reach them.
+ * Front door. Customers land on their company home (roles + credits); admins
+ * (Dana, Susan) land on the companies overview, where they create companies
+ * and move between them (Lovable "Organizations", Dana 2026-10-18). The former
+ * agent chat lives on at /agents.
  */
-export default function RootPage() {
-  redirect("/projects");
+export default async function RootPage() {
+  const user = await requireUser().catch(() => null);
+  redirect(user?.role === "admin" ? "/internal/companies" : "/projects");
 }

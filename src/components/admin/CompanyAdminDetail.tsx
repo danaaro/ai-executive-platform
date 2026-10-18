@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { NewPositionDialog } from "@/components/project/NewPositionDialog";
 import { ArrowUpRight } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
@@ -10,9 +12,11 @@ import { relativeTime } from "@/lib/utils";
 import { CreditsForm, LedgerList, type Company, type Entry } from "./CompaniesAdmin";
 
 /**
- * Admin company page (admins only): one credits box (update the balance),
- * full credit history, and the company's roles — each opens a read-only
- * admin view. Every visit is written to the admin activity log.
+ * Admin company page (admins only), in the Lovable "Organization detail"
+ * layout: company name, "Start new role" (opens a role for the customer,
+ * spending one of its credits) and the roles — each opens the admin role
+ * view. Below: credits, Company Intel and documents, people, credit history.
+ * Every visit is written to the admin activity log.
  */
 
 type Role = {
@@ -26,6 +30,13 @@ type Role = {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  stage: "Interviewing" | "Draft ready" | "Approved";
+};
+
+const stageClass: Record<Role["stage"], string> = {
+  Interviewing: "text-accent",
+  "Draft ready": "text-ink",
+  Approved: "text-success",
 };
 
 export function CompanyAdminDetail({ companyId }: { companyId: string }) {
@@ -34,6 +45,7 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
   const [credits, setCredits] = useState<Company | null>(null);
   const [ledger, setLedger] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const load = useCallback(async (opts: { withCompany: boolean }) => {
     try {
@@ -65,75 +77,87 @@ export function CompanyAdminDetail({ companyId }: { companyId: string }) {
 
   return (
     <>
-      <AppHeader />
+      <AppHeader
+        breadcrumb={
+          <p className="truncate text-sm text-muted">
+            <Link href="/internal/companies" className="hover:text-ink">
+              Companies
+            </Link>{" "}
+            / {info?.name ?? "…"}
+          </p>
+        }
+      />
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <p className="label-mono mb-3">
-          <Link href="/internal/companies" className="hover:text-ink">
-            Companies &amp; credits
-          </Link>{" "}
-          / Company
-        </p>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <h1 className="font-display text-4xl font-normal text-ink">{info?.name ?? "…"}</h1>
-          {credits && (
-            <p className="font-display text-3xl text-ink">
-              {credits.balance} <span className="text-base text-muted">credits available</span>
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="label-mono mb-3">
+              {roles ? `${roles.length} ${roles.length === 1 ? "role" : "roles"}` : "Roles"}
+              {credits && <> · {credits.granted} credits added · {credits.spent} spent</>}
             </p>
+            <h1 className="font-display text-4xl font-normal text-ink">{info?.name ?? "…"}</h1>
+          </div>
+          {info && credits && (
+            <NewPositionDialog
+              credits={credits.balance}
+              forCompany={{
+                id: companyId,
+                name: info.name,
+                onCreated: (pid) => router.push(`/internal/companies/${companyId}/roles/${pid}`),
+              }}
+            />
           )}
         </div>
-        {credits && (
-          <p className="mt-2 font-mono text-xs text-muted">
-            {credits.granted} added · {credits.spent} spent
-          </p>
-        )}
 
         {error && (
-          <Alert tone="danger" className="mt-6">
+          <Alert tone="danger" className="mb-6">
             {error}
           </Alert>
         )}
 
-        <div className="mt-10">
-          {credits && <CreditsForm company={credits} onDone={() => void load({ withCompany: false })} />}
+        <div className="space-y-3">
+          {roles === null ? (
+            [0, 1].map((i) => (
+              <div key={i} className="card-surface p-5">
+                <Skeleton className="h-5 w-1/3" />
+              </div>
+            ))
+          ) : roles.length === 0 ? (
+            <div className="card-surface border-dashed px-6 py-12 text-center text-muted">
+              No roles yet. Use <span className="text-ink">Start new role</span> to open the first one for{" "}
+              {info?.name}, or let the customer open it themselves.
+            </div>
+          ) : (
+            roles.map((r) => (
+              <Link
+                key={r.id}
+                href={`/internal/companies/${companyId}/roles/${r.id}`}
+                className="card-surface flex flex-wrap items-center gap-x-6 gap-y-2 p-5 transition hover:border-accent/50"
+              >
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-display text-xl font-normal text-ink">{r.title}</h3>
+                  <p className="mt-1 text-xs text-faint">
+                    Updated {relativeTime(r.updatedAt)} · opened by {r.createdBy}
+                    {r.hiringManagerEmail && <> · HM {r.hiringManagerEmail}</>}
+                  </p>
+                </div>
+                <span className="hidden font-mono text-xs text-muted sm:inline">
+                  {r.salaryMin !== null && r.salaryMax !== null
+                    ? `${r.salaryMin.toLocaleString()}–${r.salaryMax.toLocaleString()} ${r.salaryCurrency ?? ""}`
+                    : "no salary range"}
+                </span>
+                <span className={`label-mono w-28 text-right ${stageClass[r.stage]}`}>{r.stage}</span>
+                <ArrowUpRight className="size-4 text-faint" />
+              </Link>
+            ))
+          )}
         </div>
+
+        <p className="label-mono mt-14 mb-4">Account</p>
+        {credits && <CreditsForm company={credits} onDone={() => void load({ withCompany: true })} />}
 
         <IntelAndDocuments companyId={companyId} />
 
         <People companyId={companyId} />
-
-        <section className="card-surface mt-6 p-6">
-          <p className="label-mono mb-4">Roles</p>
-          {roles === null ? (
-            <Skeleton className="h-4 w-1/2" />
-          ) : roles.length === 0 ? (
-            <p className="text-sm text-muted">No roles opened yet.</p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {roles.map((r) => (
-                <li key={r.id}>
-                  <Link
-                    href={`/internal/companies/${companyId}/roles/${r.id}`}
-                    className="group flex flex-wrap items-baseline gap-x-6 gap-y-1 py-3 text-sm"
-                  >
-                  <span className="min-w-0 flex-1 font-display text-lg text-ink group-hover:text-accent">
-                    {r.title} <ArrowUpRight className="inline size-4 text-faint group-hover:text-accent" />
-                  </span>
-                  <span className="font-mono text-xs text-muted">
-                    {r.salaryMin !== null && r.salaryMax !== null
-                      ? `${r.salaryMin.toLocaleString()}–${r.salaryMax.toLocaleString()} ${r.salaryCurrency ?? ""}`
-                      : "no salary range"}
-                  </span>
-                  <span className="text-xs text-faint">
-                    opened by {r.createdBy} · {relativeTime(r.createdAt)}
-                    {r.hiringManagerEmail && <> · HM {r.hiringManagerEmail}</>}
-                  </span>
-                  <span className="label-mono w-20 text-right">{r.status}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
 
         <section className="card-surface mt-6 p-6">
           <p className="label-mono mb-4">Credit history</p>
