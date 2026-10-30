@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { parseJson, readAgentStream } from "@/lib/api";
+import { extractText } from "@/lib/extract-text";
 
 /**
  * The intake engine behind a stage drawer — all four input methods (#3a)
@@ -387,10 +388,9 @@ export function useIntakeSession({
     setUploading(true);
     setError(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/upload-parse", { method: "POST", body: form });
-      const data = await parseJson<{ name: string; text: string; truncated: boolean }>(res);
+      // Parsed in the browser: pdf-parse on Vercel dies with "DOMMatrix is not
+      // defined" (no @napi-rs/canvas in the function bundle), so every PDF failed.
+      const data = await extractText(file);
       const note = data.truncated ? " (truncated — document was very long)" : "";
       // The `[Uploaded document: …]` framing is what the JD prompt's v1.1
       // document-ingest behaviour looks for. Do not reword it.

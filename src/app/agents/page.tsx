@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
 import { parseJson, readAgentStream } from "@/lib/api";
+import { extractText } from "@/lib/extract-text";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -320,11 +321,7 @@ function JobDescriptionAgent() {
     setUploading(true);
     setError(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/upload-parse", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      const data = await extractText(file);
       const note = data.truncated ? " (truncated — document was very long)" : "";
       const docMessage = `[Uploaded document: ${data.name}${note}]\n\n${data.text}`;
       await sendTurn([...messages, { role: "user", content: docMessage }]);
@@ -481,6 +478,11 @@ function JobDescriptionAgent() {
     voiceStarting ||
     conversation.status === "connecting" ||
     conversation.status === "connected";
+
+  // Keep the cursor in the composer: on load, after each reply, on agent switch.
+  useEffect(() => {
+    if (!loading && !dictating && !voiceLive) taRef.current?.focus();
+  }, [loading, dictating, voiceLive, agent]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

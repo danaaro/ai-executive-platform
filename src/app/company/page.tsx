@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { relativeTime } from "@/lib/utils";
+import { extractText } from "@/lib/extract-text";
 
 /**
  * Company documents (D9) — the customer's reusable hiring material: values,
@@ -43,11 +44,9 @@ export default function CompanyDocumentsPage() {
     setError(null);
     try {
       for (const file of Array.from(files)) {
-        const form = new FormData();
-        form.append("file", file);
-        const parsed = await fetch("/api/upload-parse", { method: "POST", body: form });
-        const p = await parsed.json();
-        if (!parsed.ok) throw new Error(`${file.name}: ${p.error ?? "could not read the file"}`);
+        const p = await extractText(file).catch((e: unknown) => {
+          throw new Error(`${file.name}: ${e instanceof Error ? e.message : "could not read the file"}`);
+        });
         const saved = await fetch("/api/company/documents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
