@@ -1,3 +1,4 @@
+import { MODELS, THINKING_OFF } from "@/shared/models";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -76,16 +77,32 @@ export function buildJobDescriptionSystemPrompt(): string {
     questionBank,
     "\n\n---\n\n# Runtime note\n\n" +
       "You are running as a chat API. You cannot read or write files — the guardrails, " +
-      "instructions, and questionnaire above are already loaded for you. Deliver the final " +
-      "job description directly in your chat reply as clean Markdown, clearly marked as the " +
-      "final version, followed by the Intake & Coverage Record as a JSON code block. " +
-      "Do not claim you wrote files; the platform saves artifacts when the user chooses to.",
+      "instructions, and questionnaire above are already loaded for you. You never write the " +
+      "job description: the platform's writer produces it from your [INTAKE ANSWERS] record " +
+      "when the user clicks \"Generate job description\". Do not claim you wrote files.",
   ].join("");
 
   return cachedSystemPrompt;
 }
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+let cachedTurnReminder: string | null = null;
+/**
+ * Appends the per-turn [INTAKE ANSWERS] reminder (a prompt file) to the newest
+ * hiring-manager message. The stored history never contains the agent's own
+ * blocks, so without it the model copies that pattern and stops recording
+ * after the first turn — the meter froze at 18% in test:e2e-jd (2026-10-30).
+ * Only the model sees it; nothing here is stored or shown.
+ */
+export function withTurnReminder<M extends ChatMessage>(messages: M[]): M[] {
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== "user") return messages;
+  if (cachedTurnReminder === null) {
+    cachedTurnReminder = stripFrontmatter(readProductFile("prompts/01-job-description-turn-reminder.md")).trim();
+  }
+  return [...messages.slice(0, -1), { ...last, content: `${last.content}\n\n${cachedTurnReminder}` }];
+}
 
 /**
  * Streaming variant — see the long note on `streamAgentTurn`. The JD agent is
@@ -111,9 +128,9 @@ export async function streamJobDescriptionTurn(
 ): Promise<string> {
   const runStream = async (thinking: boolean) => {
     const stream = await getAnthropicClient().messages.create({
-      model: DEFAULT_MODEL,
+      model: MODELS.INTERVIEW,
       max_tokens: 16384,
-      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      ...(thinking ? {} : { thinking: THINKING_OFF }),
       system: [
         {
           type: "text",
@@ -122,7 +139,7 @@ export async function streamJobDescriptionTurn(
         },
         ...(opts.context ? [{ type: "text" as const, text: opts.context }] : []),
       ],
-      messages,
+      messages: withTurnReminder(messages),
       // Automatic breakpoint on the last message: caches the role context and
       // conversation so far, so each turn pays full price only for what's new.
       cache_control: INTERVIEW_CACHE,
@@ -167,9 +184,9 @@ export async function runJobDescriptionTurn(
   // full deliverable still truncated at 8192.
   const doTurn = (thinking: boolean) =>
     getAnthropicClient().messages.create({
-      model: DEFAULT_MODEL,
+      model: MODELS.INTERVIEW,
       max_tokens: 16384,
-      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      ...(thinking ? {} : { thinking: THINKING_OFF }),
       // cache_control: the ~6K-token agent definition is identical every turn
       // (and shared with the voice channel, which appends its note as a
       // separate block AFTER this breakpoint) — cached, it costs ~0.1x and
@@ -182,7 +199,7 @@ export async function runJobDescriptionTurn(
           cache_control: INTERVIEW_CACHE,
         },
       ],
-      messages,
+      messages: withTurnReminder(messages),
       cache_control: INTERVIEW_CACHE,
     }).then((res) => {
       logCacheUsage("job-description", res.usage);
@@ -204,4 +221,96 @@ export async function runJobDescriptionTurn(
     if (retryText.trim()) text = retryText;
   }
   return text;
+}
+
+/* ------------------------------------------------------------------------ */
+/* JD writer (PRD v4 §3.2): a separate call with its own prompt and model.  */
+/* ------------------------------------------------------------------------ */
+
+let cachedWriterPrompt: string | null = null;
+
+/** Platform guardrails + the writer prompt (Susan's template). Never the interview rules. */
+export function buildJdWriterSystemPrompt(): string {
+  if (cachedWriterPrompt) return cachedWriterPrompt;
+  cachedWriterPrompt = [
+    readPlatformFile("prompts/system/guardrails.md"),
+    "\n\n",
+    stripFrontmatter(readProductFile("prompts/01a-jd-writer.md")),
+  ].join("");
+  return cachedWriterPrompt;
+}
+
+type BankQuestion = { text: string; tag: string };
+let bankIndex: Map<string, BankQuestion> | null = null;
+
+/** Question ID → question text + its section's tag, read from the bank itself. */
+export function questionBankIndex(): Map<string, BankQuestion> {
+  if (bankIndex) return bankIndex;
+  const index = new Map<string, BankQuestion>();
+  let tag = "public";
+  for (const line of readProductFile("docs/job-description-question-bank.md").split("\n")) {
+    const heading = /^## \d+\. .*`\[(\w+)\]`/.exec(line);
+    if (heading) {
+      tag = heading[1];
+      continue;
+    }
+    const row = /^\|\s*(\d+\.\d+)\s*\|\s*(.+?)\s*\|\s*$/.exec(line);
+    if (row) index.set(row[1], { text: row[2], tag });
+  }
+  bankIndex = index;
+  return index;
+}
+
+/**
+ * Writes (or revises) the Exec10X role description. Streams, because a
+ * 900-word document with thinking takes well over a minute.
+ */
+export async function streamJobDescriptionDraft(
+  input: { context: string; answers: string; transcript: string; request: string },
+  onDelta: (text: string) => void,
+  onReset?: () => void
+): Promise<string> {
+  const user = [
+    input.context || "# 1. Role facts\n(none supplied)",
+    "",
+    "# 4. Recorded answers",
+    input.answers || "(none recorded)",
+    "",
+    "# 5. Briefing transcript",
+    input.transcript || "(empty)",
+    "",
+    "# 6. Request",
+    input.request,
+  ].join("\n");
+
+  const run = async (model: string) => {
+    const stream = await getAnthropicClient().messages.create({
+      model,
+      max_tokens: 32000,
+      output_config: { effort: "high" },
+      system: [{ type: "text", text: buildJdWriterSystemPrompt(), cache_control: INTERVIEW_CACHE }],
+      messages: [{ role: "user", content: user }],
+      stream: true,
+    });
+    let text = "";
+    let stop: string | null = null;
+    for await (const event of stream) {
+      if (event.type === "message_start") logCacheUsage("jd-writer", event.message.usage);
+      else if (event.type === "content_block_delta" && event.delta.type === "text_delta" && event.delta.text) {
+        text += event.delta.text;
+        onDelta(event.delta.text);
+      } else if (event.type === "message_delta") stop = event.delta.stop_reason ?? stop;
+    }
+    return { text, stop };
+  };
+
+  const first = await run(MODELS.JD_WRITER);
+  // A refusal or an empty reply should never leave the hiring manager without a draft.
+  if (first.stop === "refusal" || !first.text.trim()) {
+    console.warn(`[jd-writer] ${first.stop ?? "empty"} on ${MODELS.JD_WRITER} — retrying on ${MODELS.INTERVIEW}`);
+    onReset?.();
+    const retry = await run(MODELS.INTERVIEW);
+    return retry.text;
+  }
+  return first.text;
 }

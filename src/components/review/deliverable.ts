@@ -1,4 +1,5 @@
 import type { Message } from "@/components/intake/use-intake-session";
+import { cleanDeliverable } from "@/shared/clean-deliverable";
 
 /**
  * Finds the agent's actual DELIVERABLE in a thread.
@@ -89,7 +90,7 @@ export function findDeliverable(messages: Message[]): Deliverable | null {
     const m = messages[i];
     if (m.role !== "assistant") continue;
     if (looksLikeDocument(m.content)) {
-      return { content: m.content, index: i, isLatest: i === lastAssistantIndex };
+      return { content: cleanDeliverable(m.content), index: i, isLatest: i === lastAssistantIndex };
     }
   }
   return null;

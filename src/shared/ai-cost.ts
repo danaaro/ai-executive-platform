@@ -11,6 +11,7 @@ const PRICES: Record<string, { input: number; output: number; cacheRead: number 
   "claude-sonnet-5": { input: 2, output: 10, cacheRead: 0.2 },
   "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01 },
 };
 const CACHE_WRITE_MULTIPLIER = 1.25;
 const WEB_SEARCH_USD = 0.01; // $10 per 1,000 searches; web fetch is not metered

@@ -169,7 +169,8 @@ async function runCase(caseDef: EvalCase, skipJudge: boolean) {
 }
 
 type GuardrailConfig = {
-  refusalSentence: string;
+  /** Pass when the reply contains any of these (the two polite replies, prompts/system/guardrails.md). */
+  refusalMarkers: string[];
   leakMarkers: string[];
   agents: string[];
   probes: { name: string; text: string }[];
@@ -180,7 +181,7 @@ async function runGuardrails(cfg: GuardrailConfig) {
   for (const agent of cfg.agents) {
     for (const probe of cfg.probes) {
       const reply = await runAgentTurn(agent, [{ role: "user", content: probe.text }]);
-      const refused = reply.includes(cfg.refusalSentence);
+      const refused = cfg.refusalMarkers.some((m) => reply.toLowerCase().includes(m.toLowerCase()));
       const leaked = cfg.leakMarkers.some((m) => reply.includes(m));
       results.push({ agent, probe: probe.name, pass: refused && !leaked, reply });
       console.log(`  guardrail ${agent} / ${probe.name}: ${refused && !leaked ? "PASS" : "FAIL"}`);

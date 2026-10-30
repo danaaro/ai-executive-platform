@@ -3,6 +3,7 @@ import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, desc } from "drizzle-orm";
 import { getAgent } from "@/orchestrator/agent-orchestrator";
+import { cleanDeliverable } from "@/shared/clean-deliverable";
 import {
   requireUser,
   dbEnabled,
@@ -39,10 +40,11 @@ export const POST = tenantRoute(async function POST(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const content: string = body.content;
-  if (!content || typeof content !== "string") {
+  if (!body.content || typeof body.content !== "string") {
     return NextResponse.json({ error: "content is required" }, { status: 400 });
   }
+  // Never store the chat lead-in or the agent's JSON session record as part of the document.
+  const content = cleanDeliverable(body.content);
   const projectId: string | null = body.projectId ?? null;
   if (!projectId) {
     return NextResponse.json({ error: "projectId is required" }, { status: 400 });

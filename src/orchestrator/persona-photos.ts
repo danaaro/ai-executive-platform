@@ -1,10 +1,11 @@
+import { MODELS } from "@/shared/models";
 import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicClient, DEFAULT_MODEL } from "@/shared/anthropic-client";
 import type { PersonaPhoto } from "@/shared/company-report";
 import type { RunUsage } from "@/shared/ai-cost";
 
 /** Accumulated by proposePages so the photo step's cost is recorded too. */
-export const photoUsage = (): RunUsage => ({ model: DEFAULT_MODEL, inputTokens: 0, outputTokens: 0, webSearches: 0, ms: 0 });
+export const photoUsage = (): RunUsage => ({ model: MODELS.INTEL_PHOTOS, inputTokens: 0, outputTokens: 0, webSearches: 0, ms: 0 });
 
 /**
  * Persona photos (2026-09-26) — precision over recall.
@@ -220,7 +221,7 @@ async function proposePages(opts: {
 
   for (let round = 0; round < 4; round++) {
     const msg = await getAnthropicClient().messages.create({
-      model: DEFAULT_MODEL,
+      model: MODELS.INTEL_PHOTOS,
       max_tokens: 4000,
       messages,
       tools: [
@@ -404,7 +405,7 @@ async function nativeNames(personas: Persona[], htmls: string[], usage?: RunUsag
     },
   };
   const msg = await getAnthropicClient().messages.create({
-    model: DEFAULT_MODEL,
+    model: MODELS.INTEL_PHOTOS,
     max_tokens: 1500,
     tools: [tool],
     messages: [

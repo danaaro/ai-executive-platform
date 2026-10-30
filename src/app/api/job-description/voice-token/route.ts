@@ -1,3 +1,4 @@
+import { MODELS } from "@/shared/models";
 import { validateChatMessages } from "@/shared/chat-limits";
 import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +26,7 @@ import { adminDb, db, withTenant, tables } from "@/db";
 function prewarmPromptCache() {
   getAnthropicClient()
     .messages.create({
-      model: DEFAULT_MODEL,
+      model: MODELS.INTERVIEW,
       max_tokens: 0,
       system: [
         {

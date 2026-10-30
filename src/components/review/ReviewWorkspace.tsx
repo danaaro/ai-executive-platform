@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { MarkdownLite } from "./MarkdownLite";
+import { cleanDeliverable } from "@/shared/clean-deliverable";
 import { pendingTurnKey } from "@/components/intake/InterviewWorkspace";
 import { relativeTime } from "@/lib/utils";
 import type { ProjectDetail } from "@/components/board/stage-types";
@@ -141,7 +142,7 @@ export function ReviewWorkspace({
           )}
           <div className="mt-8 text-[15px]">
             {artifact ? (
-              <MarkdownLite text={artifact.content} />
+              <MarkdownLite text={cleanDeliverable(artifact.content)} />
             ) : error ? null : (
               <div className="space-y-3">
                 <Skeleton className="h-5 w-2/3" />
@@ -201,14 +202,21 @@ export function ReviewWorkspace({
 
           <div className="card-surface p-6">
             <p className="label-mono mb-3">Download</p>
-            <button className="btn btn-ghost w-full" disabled>
-              <FileDown className="size-4" /> Word document
-            </button>
-            <button className="btn btn-ghost mt-2 w-full" disabled>
-              <FileDown className="size-4" /> PDF
-            </button>
+            {/* Dana 2026-10-29: downloads open at 80% readiness, i.e. as soon as a job description exists, not on approval. */}
+            {artifact ? (
+              <>
+                <a className="btn btn-ghost w-full" href={`/api/artifacts/${artifactId}/download?format=docx`} download>
+                  <FileDown className="size-4" /> Word document
+                </a>
+                <a className="btn btn-ghost mt-2 w-full" href={`/api/artifacts/${artifactId}/download?format=pdf`} download>
+                  <FileDown className="size-4" /> PDF
+                </a>
+              </>
+            ) : (
+              <Skeleton className="h-20 w-full" />
+            )}
             <p className="mt-3 text-xs text-faint">
-              {approved ? "Branded downloads are coming next." : "Available once the job description is approved."}
+              This version{artifact ? ` (v${artifact.version}, ${approved ? "approved" : "draft"})` : ""}, with the Role ID in the footer.
             </p>
           </div>
 
@@ -217,6 +225,7 @@ export function ReviewWorkspace({
               <p className="label-mono mb-3">Ask the agent</p>
               <textarea
                 className="field min-h-24 resize-none"
+                autoFocus
                 placeholder="e.g. Make the opportunity sharper and shorten the mandate"
                 value={revise}
                 onChange={(e) => setRevise(e.target.value)}

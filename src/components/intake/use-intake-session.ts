@@ -500,6 +500,15 @@ export function useIntakeSession({
     setVoiceStarting(false);
   }
 
+  // Re-read the meter whenever the thread settles, whichever path changed it
+  // (reply, hydration, recovery). A single timer set inside one path was lost
+  // when the first reply re-hydrated the thread, and the meter then sat at 0%
+  // for the whole session (test:e2e-jd, 2026-10-30). Live voice keeps its own
+  // throttled refresh (noteVoiceTurn).
+  useEffect(() => {
+    if (!loading && !hydrating && !voiceLive && conversationId) refreshCoverage(300);
+  }, [messages.length, conversationId, loading, hydrating, voiceLive, refreshCoverage]);
+
   const voiceStatusLabel =
     conversation.status === "connected"
       ? conversation.isSpeaking

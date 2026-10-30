@@ -42,7 +42,8 @@ function stripDanglingFence(text: string): string {
 }
 
 const STATUSES = ["answered", "inferred", "unknown", "not_yet_decided", "skipped"] as const;
-const SOURCES = ["document", "voice", "dictation", "typed"] as const;
+/** `context` = credited from the confidential company context (always `inferred`, never shown as an answer). */
+const SOURCES = ["document", "context", "voice", "dictation", "typed"] as const;
 
 export type IntakeStatus = (typeof STATUSES)[number];
 export type IntakeSource = (typeof SOURCES)[number];
@@ -102,7 +103,9 @@ export function splitIntakeBlock(text: string): {
     const sectionId = sectionOf(questionId);
     if (!sectionId) continue;
     const status = r.status as IntakeStatus;
-    const source = r.source as IntakeSource;
+    // A missing source is not a reason to lose the answer: "typed" is what the
+    // platform corrects to the real channel anyway (seen dropping whole turns).
+    const source = (r.source ?? "typed") as IntakeSource;
     if (!STATUSES.includes(status) || !SOURCES.includes(source)) continue;
     // Last mention of a question in one block wins, same as across turns.
     if (seen.has(questionId)) {
@@ -207,7 +210,7 @@ async function recordInScope(
     sectionId: a.sectionId,
     answer: a.answer,
     status: a.status,
-    source: a.source === "document" ? a.source : channel === "voice" ? "voice" : a.source,
+    source: a.source === "document" || a.source === "context" ? a.source : channel === "voice" ? "voice" : a.source,
     sourceRef: null,
     updatedAt: now,
   }));

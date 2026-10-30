@@ -1,3 +1,4 @@
+import { MODELS, THINKING_OFF } from "@/shared/models";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -216,9 +217,9 @@ export async function streamAgentTurn(
 
   const runStream = async (thinking: boolean) => {
     const stream = await getAnthropicClient().messages.create({
-      model: DEFAULT_MODEL,
+      model: MODELS.STEP_AGENTS,
       max_tokens: agent.maxTokens ?? 8192,
-      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      ...(thinking ? {} : { thinking: THINKING_OFF }),
       system: [
         {
           type: "text",
@@ -282,9 +283,9 @@ export async function runAgentTurn(
   // an empty or truncated reply (found by evals 2026-07-19).
   const doTurn = (thinking: boolean) =>
     getAnthropicClient().messages.create({
-      model: DEFAULT_MODEL,
+      model: MODELS.STEP_AGENTS,
       max_tokens: agent.maxTokens ?? 8192,
-      ...(thinking ? {} : { thinking: { type: "disabled" as const } }),
+      ...(thinking ? {} : { thinking: THINKING_OFF }),
       system: [
         {
           type: "text",

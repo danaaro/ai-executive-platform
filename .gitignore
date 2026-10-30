@@ -18,6 +18,7 @@ __pycache__/
 .venv/
 .next/
 .next-qa/
+.next-e2e/
 next-env.d.ts
 *.tsbuildinfo
 
@@ -37,3 +38,6 @@ generated/*
 
 # Personal Claude Code settings (permissions, local hooks)
 .claude/settings.local.json
+
+# Copied from node_modules by scripts/copy-pdfjs.mjs before dev/build
+public/vendor/pdfjs/

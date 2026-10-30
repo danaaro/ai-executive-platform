@@ -45,12 +45,15 @@ export async function extractText(file: File): Promise<Extracted> {
   return { name: file.name, text: truncated ? text.slice(0, MAX_CHARS) : text, truncated };
 }
 
+// pdf.js is served as static files (scripts/copy-pdfjs.mjs), never bundled:
+// webpack cannot package pdfjs-dist v5 — the bundled copy threw "Object.defineProperty
+// called on non-object" at import, so every PDF failed (caught by test:e2e-jd).
+const PDFJS = "/vendor/pdfjs/pdf.min.mjs";
+const PDFJS_WORKER = "/vendor/pdfjs/pdf.worker.min.mjs";
+
 async function pdfText(file: File): Promise<string> {
-  const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.min.mjs",
-    import.meta.url
-  ).toString();
+  const pdfjs = (await import(/* webpackIgnore: true */ PDFJS)) as typeof import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
 
   let doc;
   try {

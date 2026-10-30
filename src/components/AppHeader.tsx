@@ -66,6 +66,14 @@ export function AppHeader({
               Company Intel
             </Link>
           )}
+          {isAdmin && (
+            <Link
+              href="/internal/flags"
+              className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
+            >
+              Flagged
+            </Link>
+          )}
           <Link
             href="/artifacts"
             className="text-[13px] font-medium text-muted transition-colors hover:text-ink"

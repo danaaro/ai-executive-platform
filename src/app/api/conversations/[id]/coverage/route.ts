@@ -1,3 +1,4 @@
+import { MODELS } from "@/shared/models";
 import { errorSummary } from "@/shared/safe-log";
 import { tenantRoute } from "@/shared/tenant-route";
 import fs from "node:fs";
@@ -24,7 +25,7 @@ export const maxDuration = 60;
 // Haiku 5.5 (2026-10-18): a tenth of Haiku 4.5's price, and caches prompts
 // from 512 tokens. It thinks by default; effort "low" keeps this a quick
 // classification and leaves max_tokens for the JSON.
-const METER_MODEL = "claude-haiku-5-5";
+const METER_MODEL = MODELS.METER;
 
 
 type Section = { id: number; name: string; questionCount: number };

@@ -1,8 +1,10 @@
+import { recordSecurityFlags } from "@/shared/security-flags";
+import { MODELS, THINKING_OFF } from "@/shared/models";
 import { errorSummary } from "@/shared/safe-log";
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { asc, and, eq, lt, max } from "drizzle-orm";
-import { buildJobDescriptionSystemPrompt, voiceChannelNote } from "@/orchestrator/job-description-orchestrator";
+import { buildJobDescriptionSystemPrompt, voiceChannelNote, withTurnReminder } from "@/orchestrator/job-description-orchestrator";
 import {
   getAnthropicClient,
   DEFAULT_MODEL,
@@ -195,6 +197,23 @@ type Turn = { role: "user" | "assistant"; content: string };
  * turns and unshifts an intake-start sentinel, so its indices would drift from
  * what ElevenLabs sends on the next callback and seq allocation would skew.
  */
+/** Logs an off-topic / IP-probe / injection attempt on a spoken turn (shared/security-flags.ts). */
+async function flagVoiceTurn(conversationId: string, messages: OpenAIMessage[], reply: string) {
+  const turns = historyTurns(messages);
+  const lastUser = [...turns].reverse().find((t) => t.role === "user")?.content ?? "";
+  if (!lastUser) return;
+  await recordSecurityFlags({
+    companyId: await trustedConversationCompanyId(conversationId),
+    projectId: await trustedConversationProjectId(conversationId),
+    conversationId,
+    userId: null,
+    agentSlug: "job-description",
+    channel: "voice",
+    userText: lastUser,
+    replyText: reply,
+  });
+}
+
 export function historyTurns(messages: OpenAIMessage[]): Turn[] {
   const turns: Turn[] = [];
   for (const m of messages) {
@@ -334,7 +353,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
     loadVoicePrefix(body),
     voiceRoleContext(grant?.conversationId ?? null),
   ]);
-  const anthropicMessages = toAnthropicMessages(body.messages ?? [], prefix);
+  const anthropicMessages = withTurnReminder(toAnthropicMessages(body.messages ?? [], prefix));
   const id = `chatcmpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const created = Math.floor(Date.now() / 1000);
   const maxTokens = Math.min(Number(body.max_tokens) || 2048, 8192);
@@ -346,9 +365,9 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
   try {
     if (body.stream === false) {
       const response = await getAnthropicClient().messages.create({
-        model: DEFAULT_MODEL,
+        model: MODELS.INTERVIEW,
         max_tokens: maxTokens,
-        thinking: { type: "disabled" },
+        thinking: THINKING_OFF,
         system: buildVoiceSystemBlocks(context),
         messages: anthropicMessages,
         cache_control: INTERVIEW_CACHE,
@@ -368,6 +387,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
           "voice",
           await trustedConversationCompanyId(grant.conversationId)
         );
+        await flagVoiceTurn(grant.conversationId, body.messages ?? [], reply);
       }
       return NextResponse.json({
         id,
@@ -406,13 +426,13 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
         const filter = createIntakeBlockFilter();
         try {
           const anthropicStream = await getAnthropicClient().messages.create({
-            model: DEFAULT_MODEL,
+            model: MODELS.INTERVIEW,
             max_tokens: maxTokens,
             // Voice is latency-critical: claude-sonnet-5 runs adaptive thinking
             // by default, and its (discarded) deliberation delays the first
             // audible sentence past ElevenLabs' per-attempt cutoff. Disabled
             // here; the text channel keeps the default for quality.
-            thinking: { type: "disabled" },
+            thinking: THINKING_OFF,
             system: buildVoiceSystemBlocks(context),
             messages: anthropicMessages,
             // Caches the conversation so far, not just the system prompt.
@@ -468,6 +488,7 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
           "voice",
           await trustedConversationCompanyId(grant.conversationId)
         );
+          await flagVoiceTurn(grant.conversationId, body.messages ?? [], visibleText);
         }
 
         emit(chunk(id, created, requestedModel, {}, "stop"));

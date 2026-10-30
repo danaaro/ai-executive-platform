@@ -44,8 +44,20 @@ function label(name: "facts" | "documents" | "research", fill: Record<string, st
   return (labels[name] ?? "").replace(/\{(\w+)\}/g, (_, k: string) => fill[k] ?? "");
 }
 
-export async function roleContextBlock(projectId: string): Promise<string> {
-  const hit = cache.get(projectId);
+/**
+ * Plain headings for the JD writer (prompts/01a-jd-writer.md). The interview's
+ * labels carry conversation rules ("never mention the research"); the writer's
+ * rules for the same data live in its own prompt.
+ */
+const WRITER_LABELS: Record<"facts" | "documents" | "research", string> = {
+  facts: "# 1. Role facts",
+  documents: "# 2. Company documents (the customer's own material)",
+  research: "# 3. Company context analysis (confidential: inform, never expose)",
+};
+
+export async function roleContextBlock(projectId: string, mode: "interview" | "writer" = "interview"): Promise<string> {
+  const key = `${mode}:${projectId}`;
+  const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.text;
 
   const db = adminDb();
@@ -93,8 +105,10 @@ export async function roleContextBlock(projectId: string): Promise<string> {
       : Promise.resolve([] as { content: string }[]),
   ]);
 
+  const heading = (name: "facts" | "documents" | "research", fill: Record<string, string>) =>
+    mode === "writer" ? WRITER_LABELS[name] : label(name, fill);
   const lines: string[] = [];
-  lines.push(label("facts", { company: role.companyName, title: role.title }));
+  lines.push(heading("facts", { company: role.companyName, title: role.title }));
   lines.push("");
   lines.push(`- Company: ${role.companyName}`);
   lines.push(`- Role title (locked): ${role.title}`);
@@ -115,7 +129,7 @@ export async function roleContextBlock(projectId: string): Promise<string> {
   ].filter(Boolean) as string[];
   if (profile.length || docs.length) {
     lines.push("");
-    lines.push(label("documents", {}));
+    lines.push(heading("documents", {}));
     for (const p of profile) {
       const chunk = p.slice(0, budget);
       budget -= chunk.length;
@@ -131,17 +145,20 @@ export async function roleContextBlock(projectId: string): Promise<string> {
 
   if (intel[0]?.content) {
     lines.push("");
-    lines.push(label("research", { research_subject: role.intelName ?? "the company" }));
+    lines.push(heading("research", { research_subject: role.intelName ?? "the company" }));
     lines.push("", intel[0].content.slice(0, INTEL_MAX_CHARS));
   }
 
   const text = lines.join("\n");
-  cache.set(projectId, { text, at: Date.now() });
+  cache.set(key, { text, at: Date.now() });
   return text;
 }
 
 /** Forget a project's cached context (e.g. after company documents change). */
 export function forgetRoleContext(projectId?: string) {
-  if (projectId) cache.delete(projectId);
+  if (projectId) {
+    cache.delete(`interview:${projectId}`);
+    cache.delete(`writer:${projectId}`);
+  }
   else cache.clear();
 }

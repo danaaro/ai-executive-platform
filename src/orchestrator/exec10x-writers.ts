@@ -1,3 +1,4 @@
+import { MODELS } from "@/shared/models";
 /**
  * Company Intelligence v3 writers (ADR-009 §18).
  *
@@ -37,7 +38,7 @@ const MAX_TOKENS = 32000;
  * Sonnet 5.5 (Dana, 2026-10-10): Opus 5.5 wrote at ~43 tokens/s on the first live
  * run, so its writers took 400–840s — far past the 300s function limit.
  */
-const COCKPIT_MODEL = "claude-sonnet-5-5";
+const COCKPIT_MODEL = MODELS.INTEL_WRITER;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** Susan's "D Mon YYYY" (ICU's en-GB writes "Sept", so not toLocaleDateString). */

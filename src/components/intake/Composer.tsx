@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Mic, Paperclip, Send, Phone, PhoneOff, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -40,6 +40,13 @@ export function Composer({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Keep the cursor in the box: on mount, and every time it re-enables after a
+  // reply, an upload or dictation (a disabled textarea drops focus).
+  const typeable = !disabled && !voiceLive && !dictating;
+  useEffect(() => {
+    if (typeable) taRef.current?.focus();
+  }, [typeable]);
 
   function autosize() {
     const ta = taRef.current;

@@ -1,3 +1,4 @@
+import { MODELS } from "@/shared/models";
 import fs from "node:fs";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -38,8 +39,8 @@ export const stripFrontmatter = (md: string) => md.replace(/^---\n[\s\S]*?\n---\
 /** Inputs whose filename starts with this are the platform's read of the official website. */
 const SITE_INPUT_PREFIX = "company-website-";
 
-const RESEARCH_MODEL = DEFAULT_MODEL; // claude-sonnet-5 — high-volume research
-export const SYNTHESIS_MODEL = "claude-opus-5-5"; // judgment lives here (package ADR #10)
+const RESEARCH_MODEL = MODELS.INTEL_RESEARCH; // see src/shared/models.ts
+export const SYNTHESIS_MODEL = MODELS.INTEL_SYNTHESIS; // judgment lives here (package ADR #10)
 
 /* -------------------------------------------------------------------------
  * Modules and the cache rule

@@ -83,6 +83,8 @@ export function MarkdownLite({ text }: { text: string }) {
       list.items.push((bullet ?? numbered)![1]);
     } else {
       flushList();
+      // Stacked "**Company:** …" header lines are separate lines, not one paragraph.
+      if (/^\*\*[^*]+:\*\*/.test(line.trim())) flushPara();
       para.push(line.trim());
     }
   }

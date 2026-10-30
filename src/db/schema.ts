@@ -175,6 +175,30 @@ export const adminAudit = pgTable(
 );
 
 /**
+ * Security flags (CLAUDE.md security rules; docs/guardrails.md "Monitoring"):
+ * one row each time a user tries to take an agent off-topic, probes how it
+ * works, or attempts a prompt injection. Written by the agent routes, read on
+ * /internal/flags. Admin (owner) connection only; customers have no access.
+ * Holds a short excerpt of what the user typed — never the agent's prompt.
+ */
+export const securityFlags = pgTable(
+  "security_flags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").references(() => companies.id),
+    projectId: uuid("project_id"),
+    conversationId: uuid("conversation_id"),
+    userId: text("user_id"),
+    agentSlug: text("agent_slug").notNull(),
+    channel: text("channel", { enum: ["text", "voice"] }).notNull(),
+    kind: text("kind", { enum: ["ip_probe", "off_topic", "injection"] }).notNull(),
+    excerpt: text("excerpt").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("security_flags_created_idx").on(t.createdAt)]
+);
+
+/**
  * Per-project membership — the authorization unit (ADR-008 §1-4).
  *
  * `userId` is null for a pending invite: collaborators are invited by email
@@ -325,7 +349,7 @@ export const intakeAnswers = pgTable(
     }).notNull(),
     /** Which intake method actually captured it — this is the provenance. */
     source: text("source", {
-      enum: ["document", "voice", "dictation", "typed"],
+      enum: ["document", "context", "voice", "dictation", "typed"],
     }).notNull(),
     /** File name for a document sweep, message id otherwise. */
     sourceRef: text("source_ref"),
