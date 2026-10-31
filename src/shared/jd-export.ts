@@ -1,28 +1,45 @@
+import fs from "node:fs";
+import path from "node:path";
 import {
   AlignmentType,
   BorderStyle,
   Document,
   Footer,
   Header,
+  ImageRun,
   LevelFormat,
   Packer,
   PageNumber,
   Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  TabStopType,
   TextRun,
+  WidthType,
 } from "docx";
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 
 /**
  * Branded Word + PDF export of a job description (PRD v4 §13, customer
  * journey "Outputs"): locked role title and company on the document, Role ID
  * in the footer of every page, for every version from the first draft.
  *
+ * The look follows Susan's reference briefing (products/interview-intelligence/
+ * examples/COREX_Head_of_Georgia_Briefing.docx, 2026-10-31): Susan Pike &
+ * Partners logo top left and the client's name top right over a grey rule,
+ * Georgia navy headings with a gold underline, Calibri body, gold dash
+ * bullets, a "role at a glance" table for the header fields, and quiet
+ * company · role · page footer.
+ *
  * Both libraries are pure JavaScript on purpose. pdf-parse's native canvas
  * dependency is what broke PDF upload on Vercel ("DOMMatrix is not defined");
- * nothing here may need a native module or a font file on disk.
+ * nothing here may need a native module. The logo PNG is the one file read
+ * from disk, and it is in outputFileTracingIncludes (next.config.mjs).
  *
  * Input is the same Markdown subset MarkdownLite renders: #/##/### headings,
- * bullets, numbered lists, **bold**, *italic*, horizontal rules, paragraphs.
+ * bullets, numbered lists, **bold**, *italic*, > quotes, horizontal rules,
+ * paragraphs.
  */
 
 export type ExportMeta = {
@@ -45,8 +62,27 @@ export function exportFilename(meta: ExportMeta, ext: "docx" | "pdf"): string {
 
 function footerText(meta: ExportMeta): string {
   const state = meta.status === "approved" ? "Approved" : "Draft";
-  return `Exec10X · ${meta.company} · ${meta.title} · Role ID ${meta.roleId} · v${meta.version} ${state}`;
+  return `${meta.company}  ·  ${meta.title}  ·  Confidential  ·  Role ID ${meta.roleId}  ·  v${meta.version} ${state}`;
 }
+
+function kicker(meta: ExportMeta): string {
+  return meta.status === "approved" ? "JOB DESCRIPTION · CONFIDENTIAL" : "JOB DESCRIPTION · DRAFT";
+}
+
+const LOGO_PATH = path.join(process.cwd(), "src/shared/assets/spp-logo.png");
+let logoCache: Buffer | null | undefined;
+/** Susan Pike & Partners logo (600×303). Missing file → text fallback, never a failed download. */
+function logo(): Buffer | null {
+  if (logoCache === undefined) {
+    try {
+      logoCache = fs.readFileSync(LOGO_PATH);
+    } catch {
+      logoCache = null;
+    }
+  }
+  return logoCache;
+}
+const LOGO_RATIO = 303 / 600;
 
 /* ---------------- Markdown → blocks ---------------------------------------- */
 
@@ -54,6 +90,8 @@ type Run = { text: string; bold?: boolean; italic?: boolean };
 type Block =
   | { kind: "heading"; level: 1 | 2 | 3; runs: Run[] }
   | { kind: "para"; runs: Run[] }
+  | { kind: "quote"; runs: Run[] }
+  | { kind: "fields"; rows: { label: string; value: string }[] }
   | { kind: "item"; ordered: boolean; n: number; list: number; runs: Run[] }
   | { kind: "rule" };
 
@@ -75,22 +113,35 @@ function inlineRuns(s: string): Run[] {
 export function parseBlocks(markdown: string): Block[] {
   const blocks: Block[] = [];
   let para: string[] = [];
+  let quote: string[] = [];
   let n = 0;
   let list = 0;
   let listOrdered: boolean | null = null;
+  // "**Company:** …" lines before the first section are the role's header
+  // fields; they become the at-a-glance table, as in the reference briefing.
+  let inHeader = true;
   const flush = () => {
     if (para.length) blocks.push({ kind: "para", runs: inlineRuns(para.join(" ")) });
+    if (quote.length) blocks.push({ kind: "quote", runs: inlineRuns(quote.join(" ")) });
     para = [];
+    quote = [];
   };
   const endList = () => {
     n = 0;
     listOrdered = null;
   };
-  for (const raw of markdown.replace(/\r\n/g, "\n").split("\n")) {
+  const field = (label: string, value: string) => {
+    const last = blocks[blocks.length - 1];
+    if (last?.kind === "fields") last.rows.push({ label, value });
+    else blocks.push({ kind: "fields", rows: [{ label, value }] });
+  };
+  for (const raw of markdown.replace(/\r\n/g, "\n").replace(/<!--[\s\S]*?-->/g, "").split("\n")) {
     const line = raw.trimEnd();
     const h = /^(#{1,3})\s+(.*)$/.exec(line);
     const bullet = /^\s*[-*•]\s+(.*)$/.exec(line);
     const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+    const q = /^\s*>\s?(.*)$/.exec(line);
+    const f = inHeader ? /^\*\*([^*]+?):\*\*\s*(.*)$/.exec(line.trim()) : null;
     if (!line.trim()) {
       flush();
       endList();
@@ -101,8 +152,17 @@ export function parseBlocks(markdown: string): Block[] {
     } else if (h) {
       flush();
       endList();
+      if (h[1].length > 1) inHeader = false;
       // "# **Title**" — headings are styled anyway, the bold markers are noise.
       blocks.push({ kind: "heading", level: h[1].length as 1 | 2 | 3, runs: [{ text: h[2].replace(/\*\*/g, "") }] });
+    } else if (f) {
+      flush();
+      endList();
+      field(f[1].trim(), f[2].replace(/\*\*/g, "").trim());
+    } else if (q) {
+      if (para.length) flush();
+      endList();
+      if (q[1].trim()) quote.push(q[1].trim());
     } else if (bullet || numbered) {
       flush();
       const ordered = Boolean(numbered);
@@ -113,10 +173,9 @@ export function parseBlocks(markdown: string): Block[] {
       }
       blocks.push({ kind: "item", ordered, n: ++n, list, runs: inlineRuns((bullet ?? numbered)![1]) });
     } else {
+      if (quote.length) flush();
       endList();
-      // The template's header is stacked "**Company:** …" lines with no blank
-      // line between them; each is its own line, not one run-on paragraph.
-      if (/^\*\*[^*]+:\*\*/.test(line.trim())) flush();
+      inHeader = false;
       para.push(line.trim());
     }
   }
@@ -135,84 +194,160 @@ function dropLeadingTitle(blocks: Block[], title: string): Block[] {
   return blocks;
 }
 
+/** "## 1. The Opportunity" → "The Opportunity": the briefing look has no section numbers. */
+const headingText = (b: { runs: Run[] }) => b.runs[0].text.replace(/^\d+[.)]\s+/, "");
+
 /* ---------------- Word ----------------------------------------------------- */
 
-const INK = "14201C";
-const MUTED = "47554F";
-const ACCENT = "8A5D19";
-const LINE = "CDD5D0";
+// Reference briefing palette.
+const NAVY = "0D1B3B";
+const BODY = "3D3D3D";
+const GREY = "6B6B6B";
+const GOLD = "BA9A5A";
+const RULE = "D4D4D4";
+const CONTENT_W = 9638; // A4 less 1134 twip margins
+
+const NONE = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
 
 export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Buffer> {
-  const runs = (rs: Run[], color = MUTED) =>
-    rs.map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic, color: r.bold ? INK : color }));
+  const runs = (rs: Run[], color = BODY, size = 22, boldColor = color) =>
+    rs.map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic, color: r.bold ? boldColor : color, size }));
 
-  const body: Paragraph[] = [
+  const body: (Paragraph | Table)[] = [
     new Paragraph({
-      children: [new TextRun({ text: "JOB DESCRIPTION", color: ACCENT, size: 18, bold: true, characterSpacing: 40 })],
-      spacing: { after: 120 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: meta.title, font: "Georgia", size: 48, color: INK })],
+      children: [new TextRun({ text: kicker(meta), color: GREY, size: 18, bold: true })],
       spacing: { after: 80 },
     }),
     new Paragraph({
-      children: [new TextRun({ text: meta.company, color: MUTED, size: 22 })],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: ACCENT, space: 8 } },
-      spacing: { after: 320 },
+      children: [new TextRun({ text: meta.title, font: "Georgia", size: 60, color: NAVY })],
+      spacing: { after: 60 },
     }),
+    new Paragraph({ spacing: { after: 280 } }),
   ];
+
+  const glance = (rows: { label: string; value: string }[]) =>
+    new Table({
+      width: { size: CONTENT_W, type: WidthType.DXA },
+      columnWidths: [2600, CONTENT_W - 2600],
+      borders: { top: NONE, bottom: NONE, left: NONE, right: NONE, insideHorizontal: NONE, insideVertical: NONE },
+      rows: rows.map(
+        (r) =>
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({
+                width: { size: 2600, type: WidthType.DXA },
+                borders: { top: { style: BorderStyle.SINGLE, size: 4, color: RULE }, bottom: { style: BorderStyle.SINGLE, size: 4, color: RULE }, left: NONE, right: NONE },
+                margins: { top: 120, bottom: 120, left: 0, right: 160 },
+                children: [new Paragraph({ children: [new TextRun({ text: r.label.toUpperCase(), bold: true, color: GREY, size: 18 })] })],
+              }),
+              new TableCell({
+                width: { size: CONTENT_W - 2600, type: WidthType.DXA },
+                borders: { top: { style: BorderStyle.SINGLE, size: 4, color: RULE }, bottom: { style: BorderStyle.SINGLE, size: 4, color: RULE }, left: NONE, right: NONE },
+                margins: { top: 110, bottom: 110, left: 200, right: 160 },
+                children: [new Paragraph({ children: runs(inlineRuns(r.value), NAVY, 21) })],
+              }),
+            ],
+          })
+      ),
+    });
 
   for (const b of dropLeadingTitle(parseBlocks(markdown), meta.title)) {
     if (b.kind === "rule") {
-      body.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: LINE, space: 4 } } }));
+      // Sections already carry the gold rule; a second line adds nothing.
+      continue;
+    } else if (b.kind === "fields") {
+      body.push(glance(b.rows), new Paragraph({ spacing: { after: 80 } }));
     } else if (b.kind === "heading") {
-      const size = b.level === 1 ? 36 : b.level === 2 ? 28 : 23;
-      body.push(
-        new Paragraph({
-          children: [new TextRun({ text: b.runs[0].text, font: "Georgia", size, color: INK })],
-          spacing: { before: b.level === 3 ? 200 : 360, after: 120 },
-          keepNext: true,
-        })
-      );
+      if (b.level === 3) {
+        body.push(
+          new Paragraph({
+            children: [new TextRun({ text: headingText(b), font: "Georgia", size: 24, color: NAVY })],
+            spacing: { before: 280, after: 100 },
+            keepNext: true,
+          })
+        );
+      } else {
+        body.push(
+          new Paragraph({
+            children: [new TextRun({ text: headingText(b), font: "Georgia", size: 32, color: NAVY })],
+            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: GOLD, space: 8 } },
+            spacing: { before: 360, after: 140 },
+            keepNext: true,
+          })
+        );
+      }
     } else if (b.kind === "item") {
       body.push(
         new Paragraph({
           children: runs(b.runs),
           // A fresh instance per list, so each numbered list restarts at 1.
           numbering: { reference: b.ordered ? "jd-numbers" : "jd-bullets", level: 0, instance: b.list },
-          spacing: { after: 80 },
+          spacing: { after: 80, line: 300 },
+        })
+      );
+    } else if (b.kind === "quote") {
+      body.push(
+        new Paragraph({
+          children: runs(b.runs, BODY, 22, NAVY),
+          border: { left: { style: BorderStyle.SINGLE, size: 12, color: GOLD, space: 10 } },
+          indent: { left: 200 },
+          spacing: { before: 120, after: 160, line: 300 },
         })
       );
     } else {
-      body.push(new Paragraph({ children: runs(b.runs), spacing: { after: 160 } }));
+      body.push(new Paragraph({ children: runs(b.runs, BODY, 22, NAVY), spacing: { after: 140, line: 300 } }));
     }
   }
 
+  const png = logo();
+  const headerLeft = png
+    ? new ImageRun({ type: "png", data: png, transformation: { width: 104, height: Math.round(104 * LOGO_RATIO) }, altText: { name: "Susan Pike & Partners", description: "Susan Pike & Partners logo", title: "Susan Pike & Partners" } })
+    : new TextRun({ text: "SUSAN PIKE & PARTNERS", bold: true, color: NAVY, size: 18 });
+
   const doc = new Document({
-    creator: "Exec10X",
+    creator: "Susan Pike & Partners",
     title: `${meta.title} — Job description`,
-    styles: { default: { document: { run: { font: "Calibri", size: 21, color: MUTED } } } },
+    styles: { default: { document: { run: { font: "Calibri", size: 22, color: BODY } } } },
     numbering: {
       config: [
         {
           reference: "jd-bullets",
-          levels: [{ level: 0, format: LevelFormat.BULLET, text: "–", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 360, hanging: 240 } } } }],
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: "–",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 440, hanging: 300 } }, run: { bold: true, color: GOLD } },
+            },
+          ],
         },
         {
           reference: "jd-numbers",
-          levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 360, hanging: 300 } } } }],
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 440, hanging: 360 } }, run: { font: "Georgia", bold: true, color: GOLD } },
+            },
+          ],
         },
       ],
     },
     sections: [
       {
-        properties: { page: { margin: { top: 1300, bottom: 1300, left: 1300, right: 1300 } } },
+        properties: { page: { margin: { top: 1700, bottom: 1200, left: 1134, right: 1134, header: 560, footer: 560 } } },
         headers: {
           default: new Header({
             children: [
               new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [new TextRun({ text: "EXEC10X", bold: true, color: ACCENT, size: 16, characterSpacing: 60 })],
+                tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
+                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: RULE, space: 8 } },
+                spacing: { after: 160 },
+                children: [headerLeft, new TextRun({ text: `\t${meta.company}`, font: "Georgia", size: 24, color: NAVY })],
               }),
             ],
           }),
@@ -221,12 +356,10 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
           default: new Footer({
             children: [
               new Paragraph({
-                border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINE, space: 6 } },
+                tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
                 children: [
-                  new TextRun({ text: `${footerText(meta)} · Page `, color: MUTED, size: 15 }),
-                  new TextRun({ children: [PageNumber.CURRENT], color: MUTED, size: 15 }),
-                  new TextRun({ text: " of ", color: MUTED, size: 15 }),
-                  new TextRun({ children: [PageNumber.TOTAL_PAGES], color: MUTED, size: 15 }),
+                  new TextRun({ text: `${footerText(meta)}\t`, color: GREY, size: 16 }),
+                  new TextRun({ children: [PageNumber.CURRENT], color: GREY, size: 16 }),
                 ],
               }),
             ],
@@ -246,15 +379,19 @@ const hex = (h: string) => rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.sli
 export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${meta.title} — Job description`);
-  pdf.setAuthor("Exec10X");
+  pdf.setAuthor("Susan Pike & Partners");
   pdf.setCreator("Exec10X");
 
+  // Helvetica stands in for Calibri, Times for Georgia (standard fonts only).
   const fonts = {
     body: await pdf.embedFont(StandardFonts.Helvetica),
     bold: await pdf.embedFont(StandardFonts.HelveticaBold),
     italic: await pdf.embedFont(StandardFonts.HelveticaOblique),
     display: await pdf.embedFont(StandardFonts.TimesRoman),
   };
+  const png = logo();
+  const logoImg: PDFImage | null = png ? await pdf.embedPng(png) : null;
+
   // Standard fonts carry WinAnsi only. Anything outside it (Hebrew, ₪, emoji)
   // would throw mid-render — fold accents, replace the rest.
   const charset = new Set(fonts.body.getCharacterSet());
@@ -268,20 +405,22 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
       })
       .join("");
 
+  // A4 with the reference briefing's margins (1134 / 1700 / 1200 twips).
   const W = 595.28;
   const H = 841.89;
-  const M = 64;
+  const M = 56.7;
+  const TOP = 85;
+  const BOTTOM = 60;
   const maxW = W - 2 * M;
-  const bottom = M + 28; // room for the footer
   let page: PDFPage = pdf.addPage([W, H]);
-  let y = H - M;
+  let y = H - TOP;
 
   const newPage = () => {
     page = pdf.addPage([W, H]);
-    y = H - M;
+    y = H - TOP;
   };
   const ensure = (h: number) => {
-    if (y - h < bottom) newPage();
+    if (y - h < BOTTOM) newPage();
   };
 
   type Word = { text: string; font: PDFFont; color: ReturnType<typeof rgb> };
@@ -292,18 +431,20 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
   const drawnWidth = (font: PDFFont, s: string, size: number) =>
     Array.from(s).reduce((n, c) => n + font.widthOfTextAtSize(c, size), 0);
 
-  /** Wraps styled runs into lines and draws them; returns nothing, moves y. */
-  function drawRuns(rs: Run[], size: number, indent = 0, lead = 1.45, color = hex(MUTED)) {
+  /** Wraps styled runs into lines and draws them; moves y. Returns the lines drawn. */
+  function drawRuns(rs: Run[], size: number, opts: { indent?: number; width?: number; lead?: number; color?: string; bold?: string } = {}) {
+    const { indent = 0, lead = 1.45, color = BODY } = opts;
     const words: Word[] = [];
     for (const r of rs) {
       for (const part of safe(r.text).split(/(\s+)/)) {
-        if (part) words.push({ text: part, font: fontFor(r), color: r.bold ? hex(INK) : color });
+        if (part) words.push({ text: part, font: fontFor(r), color: hex(r.bold ? opts.bold ?? color : color) });
       }
     }
     const lineH = size * lead;
-    const width = maxW - indent;
+    const width = opts.width ?? maxW - indent;
     let line: Word[] = [];
     let lineW = 0;
+    let count = 0;
     const emit = () => {
       while (line.length && /^\s+$/.test(line[line.length - 1].text)) line.pop();
       if (!line.length) return;
@@ -316,6 +457,7 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
       y -= lineH;
       line = [];
       lineW = 0;
+      count++;
     };
     for (const w of words) {
       const ww = drawnWidth(w.font, w.text, size);
@@ -331,6 +473,7 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
       lineW += ww;
     }
     emit();
+    return count;
   }
 
   /** Display font, wrapped by hand (headings are short). */
@@ -338,7 +481,7 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
     let line = "";
     const put = (t: string) => {
       ensure(size * 1.3);
-      page.drawText(t, { x: M, y: y - size, size, font: fonts.display, color: hex(INK) });
+      page.drawText(t, { x: M, y: y - size, size, font: fonts.display, color: hex(NAVY) });
       y -= size * 1.3;
     };
     for (const w of safe(raw).split(" ")) {
@@ -349,53 +492,90 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
       } else line = next;
     }
     if (line) put(line);
-    y -= 4;
+  }
+
+  function drawGlance(rows: { label: string; value: string }[]) {
+    const labelW = 130;
+    for (const r of rows) {
+      ensure(30);
+      page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: hex(RULE) });
+      const top = y;
+      y -= 6;
+      page.drawText(safe(r.label.toUpperCase()), { x: M, y: y - 10.5 + 1, size: 8.5, font: fonts.bold, color: hex(GREY) });
+      drawRuns(inlineRuns(r.value), 10.5, { indent: labelW + 10, lead: 1.35, color: NAVY });
+      y -= 5;
+      if (top - y < 22) y = top - 22;
+    }
+    page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: hex(RULE) });
+    y -= 14;
   }
 
   // Title block
-  page.drawText("JOB DESCRIPTION", { x: M, y: y - 9, size: 9, font: fonts.bold, color: hex(ACCENT) });
-  y -= 24;
-  drawHeading(meta.title, 26);
-  drawRuns([{ text: meta.company }], 11, 0, 1.4);
-  y -= 6;
-  page.drawLine({ start: { x: M, y }, end: { x: M + 60, y }, thickness: 1.5, color: hex(ACCENT) });
-  y -= 22;
+  page.drawText(kicker(meta), { x: M, y: y - 9, size: 9, font: fonts.bold, color: hex(GREY) });
+  y -= 20;
+  drawHeading(meta.title, 30);
+  y -= 16;
 
   for (const b of dropLeadingTitle(parseBlocks(markdown), meta.title)) {
-    if (b.kind === "rule") {
-      ensure(14);
-      page.drawLine({ start: { x: M, y: y - 6 }, end: { x: W - M, y: y - 6 }, thickness: 0.5, color: hex(LINE) });
-      y -= 14;
+    if (b.kind === "rule") continue;
+    if (b.kind === "fields") {
+      drawGlance(b.rows);
     } else if (b.kind === "heading") {
-      const size = b.level === 1 ? 20 : b.level === 2 ? 15 : 12;
-      y -= b.level === 3 ? 6 : 12;
-      ensure(size * 1.3 + 30); // keep a heading with its first lines
-      drawHeading(b.runs[0].text, size);
-    } else if (b.kind === "item") {
-      ensure(10.5 * 1.45);
-      if (b.ordered) {
-        page.drawText(`${b.n}.`, { x: M + 2, y: y - 10.5, size: 10.5, font: fonts.body, color: hex(ACCENT) });
+      if (b.level === 3) {
+        y -= 12;
+        ensure(12 * 1.3 + 30);
+        drawHeading(headingText(b), 12);
+        y -= 2;
       } else {
-        page.drawLine({ start: { x: M + 2, y: y - 7 }, end: { x: M + 9, y: y - 7 }, thickness: 1, color: hex(ACCENT) });
+        y -= 16;
+        ensure(16 * 1.3 + 40); // keep a heading with its first lines
+        drawHeading(headingText(b), 16);
+        page.drawLine({ start: { x: M, y: y + 1 }, end: { x: W - M, y: y + 1 }, thickness: 0.75, color: hex(GOLD) });
+        y -= 9;
       }
-      drawRuns(b.runs, 10.5, 18);
+    } else if (b.kind === "item") {
+      ensure(11 * 1.45);
+      if (b.ordered) {
+        page.drawText(`${b.n}.`, { x: M + 4, y: y - 11, size: 11, font: fonts.display, color: hex(GOLD) });
+      } else {
+        page.drawText("–", { x: M + 7, y: y - 11, size: 11, font: fonts.bold, color: hex(GOLD) });
+      }
+      drawRuns(b.runs, 11, { indent: 22 });
       y -= 3;
+    } else if (b.kind === "quote") {
+      y -= 6;
+      ensure(11 * 1.45);
+      const top = y;
+      const startPage = page;
+      drawRuns(b.runs, 11, { indent: 14, bold: NAVY });
+      // The gold bar spans the quote on the page it starts on.
+      startPage.drawLine({ start: { x: M + 2, y: top }, end: { x: M + 2, y: startPage === page ? y + 3 : BOTTOM }, thickness: 1.5, color: hex(GOLD) });
+      y -= 8;
     } else {
-      drawRuns(b.runs, 10.5);
+      drawRuns(b.runs, 11, { bold: NAVY });
       y -= 7;
     }
   }
 
-  // Header mark + footer on every page, now that the page count is known.
+  // Header + footer on every page.
   const pages = pdf.getPages();
   const foot = safe(footerText(meta));
+  const company = safe(meta.company);
+  const logoW = 78;
+  const logoH = logoW * LOGO_RATIO;
   pages.forEach((p, i) => {
-    p.drawText("EXEC10X", { x: W - M - fonts.bold.widthOfTextAtSize("EXEC10X", 8), y: H - 36, size: 8, font: fonts.bold, color: hex(ACCENT) });
-    p.drawLine({ start: { x: M, y: M }, end: { x: W - M, y: M }, thickness: 0.5, color: hex(LINE) });
-    const label = `${foot} · Page ${i + 1} of ${pages.length}`;
-    let size = 7.5;
-    while (fonts.body.widthOfTextAtSize(label, size) > maxW && size > 5) size -= 0.25;
-    p.drawText(label, { x: M, y: M - 14, size, font: fonts.body, color: hex(MUTED) });
+    const top = H - 28;
+    if (logoImg) p.drawImage(logoImg, { x: M, y: top - logoH, width: logoW, height: logoH });
+    else p.drawText("SUSAN PIKE & PARTNERS", { x: M, y: top - 12, size: 9, font: fonts.bold, color: hex(NAVY) });
+    const cSize = 12;
+    p.drawText(company, { x: W - M - fonts.display.widthOfTextAtSize(company, cSize), y: top - logoH + 2, size: cSize, font: fonts.display, color: hex(NAVY) });
+    p.drawLine({ start: { x: M, y: top - logoH - 8 }, end: { x: W - M, y: top - logoH - 8 }, thickness: 0.5, color: hex(RULE) });
+
+    const num = String(i + 1);
+    let size = 8;
+    while (fonts.body.widthOfTextAtSize(foot, size) > maxW - 30 && size > 5) size -= 0.25;
+    p.drawText(foot, { x: M, y: 28, size, font: fonts.body, color: hex(GREY) });
+    p.drawText(num, { x: W - M - fonts.body.widthOfTextAtSize(num, 8), y: 28, size: 8, font: fonts.body, color: hex(GREY) });
   });
 
   return Buffer.from(await pdf.save());
