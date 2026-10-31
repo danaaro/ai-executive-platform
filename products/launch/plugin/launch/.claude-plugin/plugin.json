@@ -1,0 +1,12 @@
+{
+  "name": "launch",
+  "displayName": "Exec10X Launch",
+  "version": "0.1.0",
+  "description": "Exec10X Launch, your digital team. Trial: a communications partner that plans, researches and drafts LinkedIn posts in your own voice. It only drafts; you post.",
+  "author": {
+    "name": "Exec10X",
+    "url": "https://exec10x.ai"
+  },
+  "homepage": "https://exec10x.ai",
+  "keywords": ["executive", "linkedin", "communications", "onboarding"]
+}

@@ -2,8 +2,8 @@ import { recordSecurityFlags } from "@/shared/security-flags";
 import { MODELS, THINKING_OFF } from "@/shared/models";
 import { errorSummary } from "@/shared/safe-log";
 import { timingSafeEqual } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
-import { asc, and, eq, lt, max } from "drizzle-orm";
+import { NextRequest, NextResponse, after } from "next/server";
+import { asc, and, desc, eq, gte, lt, max } from "drizzle-orm";
 import { buildJobDescriptionSystemPrompt, voiceChannelNote, withTurnReminder } from "@/orchestrator/job-description-orchestrator";
 import {
   getAnthropicClient,
@@ -15,6 +15,7 @@ import { extractVoiceGrant } from "@/shared/voice-grant";
 import { INTAKE_START } from "@/shared/intake-openers";
 import {
   createIntakeBlockFilter,
+  INTAKE_ANSWERS_MARKER,
   recordIntakeAnswers,
   splitIntakeBlock,
 } from "@/shared/intake-answers";
@@ -179,14 +180,17 @@ export async function loadVoicePrefix(
  * every turn, so the transcript can be captured here instead, independent of
  * the client entirely. The client write is now gone; this is the sole writer.
  *
- * Seq allocation is append-only rather than index-based:
- *   persistedInSession = (max(seq) + 1) - baseSeq
- * and only `history.slice(persistedInSession)` is written, at
- * `baseSeq + persistedInSession + j`. That makes an ElevenLabs retry of the
- * same turn slice to empty (a no-op), and if ElevenLabs ever trims its own
- * history for context it appends the tail rather than overwriting earlier
- * seqs. `onConflictDoNothing()` on the unique (conversation_id, seq) index is
- * the backstop for concurrent callbacks.
+ * What gets written is decided by CONTENT, not by counting (2026-10-31).
+ * ElevenLabs calls once per user turn, so the new material in a callback is
+ * the trailing user turn(s) after its last assistant message; assistant
+ * replies are stored by this route as it generates them, never copied back
+ * from ElevenLabs' history. The old index arithmetic
+ * (`history.slice(max(seq) + 1 - baseSeq)`) drifted whenever ElevenLabs'
+ * history and ours disagreed by one entry — a split or interrupted agent
+ * message, a greeting lost to a seq race — and from then on it stored the
+ * wrong rows and silently dropped the user's spoken answers (Susan's Head of
+ * Georgia session, 2026-10-31). `onConflictDoNothing()` on the unique
+ * (conversation_id, seq) index is the backstop for concurrent callbacks.
  */
 type Turn = { role: "user" | "assistant"; content: string };
 
@@ -257,9 +261,25 @@ async function persistVoiceTurnsInScope(
     .from(tables.messages)
     .where(eq(tables.messages.conversationId, grant.conversationId));
   const nextSeq = agg.maxSeq === null ? 0 : agg.maxSeq + 1;
-  const persistedInSession = Math.max(0, nextSeq - grant.baseSeq);
+  const [lastInSession] = await d
+    .select({ role: tables.messages.role, content: tables.messages.content })
+    .from(tables.messages)
+    .where(
+      and(eq(tables.messages.conversationId, grant.conversationId), gte(tables.messages.seq, grant.baseSeq))
+    )
+    .orderBy(desc(tables.messages.seq))
+    .limit(1);
 
-  const pending = turns.slice(persistedInSession);
+  const lastAssistant = turns.map((t) => t.role).lastIndexOf("assistant");
+  const pending: Turn[] = [];
+  // The spoken greeting is ElevenLabs' first message, not a generation of
+  // ours — store it once, at the start of the session.
+  if (!lastInSession && turns[0]?.role === "assistant") pending.push(turns[0]);
+  const fresh = turns.slice(lastAssistant + 1);
+  // A retried callback re-sends the same user turn before our reply exists.
+  const isRetry =
+    lastInSession?.role === "user" && lastInSession.content === fresh[fresh.length - 1]?.content.slice(0, 20_000);
+  if (!isRetry) pending.push(...fresh);
   if (pending.length === 0) return nextSeq;
 
   await d
@@ -268,7 +288,7 @@ async function persistVoiceTurnsInScope(
       pending.map((t, j) => ({
         companyId,
         conversationId: grant.conversationId,
-        seq: grant.baseSeq + persistedInSession + j,
+        seq: nextSeq + j,
         role: t.role,
         content: t.content.slice(0, 20_000),
       }))
@@ -280,9 +300,9 @@ async function persistVoiceTurnsInScope(
     .where(eq(tables.conversations.id, grant.conversationId));
 
   console.log(
-    `[voice-llm] persisted ${pending.length} turn(s) for conversation ${grant.conversationId} from seq ${grant.baseSeq + persistedInSession}`
+    `[voice-llm] persisted ${pending.length} turn(s) for conversation ${grant.conversationId} from seq ${nextSeq}`
   );
-  return grant.baseSeq + persistedInSession + pending.length;
+  return nextSeq + pending.length;
 }
 
 /** Appends one spoken assistant reply at a known seq. Never throws. */
@@ -356,7 +376,11 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
   const anthropicMessages = withTurnReminder(toAnthropicMessages(body.messages ?? [], prefix));
   const id = `chatcmpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const created = Math.floor(Date.now() / 1000);
-  const maxTokens = Math.min(Number(body.max_tokens) || 2048, 8192);
+  // body.max_tokens is ignored: the spoken reply is short, but the
+  // [INTAKE ANSWERS] block after it can run to thousands of tokens when the
+  // briefing came from a document, and the old 2048 cap cut its JSON off
+  // mid-object, so nothing was recorded. Same ceiling as the text channel.
+  const maxTokens = 16384;
   // NOTE: body.temperature is deliberately ignored — claude-sonnet-5 rejects the param.
   // ElevenLabs' OpenAI client sends stream_options.include_usage and expects
   // a final usage chunk (empty choices) before [DONE]; omitting it fails the turn.
@@ -405,92 +429,52 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
     }
 
     const encoder = new TextEncoder();
-    // The Anthropic call happens INSIDE the stream so the first SSE bytes
-    // (the role chunk) flush to ElevenLabs immediately — their per-attempt
-    // first-byte timeout otherwise races Claude's prompt-processing time.
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        const emit = (data: unknown) => controller.enqueue(encoder.encode(sse(data)));
-        emit(chunk(id, created, requestedModel, { role: "assistant", content: "" }, null));
+    // False once the response to ElevenLabs is finished or they hung up; the
+    // generation may run on after that (see below), so every write checks it.
+    let open = true;
 
-        let inputTokens = 0;
-        let outputTokens = 0;
-        let cachedTokens = 0;
-        // What the user actually HEARS — persisted verbatim below, recovery
-        // line included, so the stored transcript matches the conversation
-        // and the agent doesn't repeat a question it already asked aloud.
-        let spoken = "";
-        // Withheld from the audio stream as it arrives: the [INTAKE ANSWERS]
-        // block is bookkeeping, and anything emitted here is spoken aloud.
-        // `spoken` keeps the raw text so the block can still be read off it.
-        const filter = createIntakeBlockFilter();
+    // The spoken reply and the [INTAKE ANSWERS] block are ONE generation, but
+    // ElevenLabs must only wait for the first. Until 2026-10-31 the response
+    // stayed open while the model wrote the block — 10+ silent seconds on a
+    // document-heavy briefing, against an agent whose cascade timeout is 4s.
+    // Every turn then failed AFTER it was spoken: the recovery line was
+    // appended to a good answer, and the block (also capped at 2048 tokens)
+    // never landed, so the meter stalled and the agent asked again and again
+    // (Susan, Head of Georgia). Now the turn ends the moment the marker
+    // arrives, and the block is finished under after(), off the call.
+    const runTurn = async (controller: ReadableStreamDefaultController<Uint8Array>) => {
+      const emit = (data: unknown) => {
+        if (!open) return;
         try {
-          const anthropicStream = await getAnthropicClient().messages.create({
-            model: MODELS.INTERVIEW,
-            max_tokens: maxTokens,
-            // Voice is latency-critical: claude-sonnet-5 runs adaptive thinking
-            // by default, and its (discarded) deliberation delays the first
-            // audible sentence past ElevenLabs' per-attempt cutoff. Disabled
-            // here; the text channel keeps the default for quality.
-            thinking: THINKING_OFF,
-            system: buildVoiceSystemBlocks(context),
-            messages: anthropicMessages,
-            // Caches the conversation so far, not just the system prompt.
-            cache_control: INTERVIEW_CACHE,
-            stream: true,
-          });
-          for await (const event of anthropicStream) {
-            if (event.type === "message_start") {
-              const u = event.message.usage;
-              logCacheUsage("voice", u);
-              cachedTokens = u.cache_read_input_tokens ?? 0;
-              // Total prompt = uncached + cache-write + cache-read tokens.
-              inputTokens =
-                u.input_tokens + (u.cache_creation_input_tokens ?? 0) + cachedTokens;
-            } else if (
-              event.type === "content_block_delta" &&
-              event.delta.type === "text_delta" &&
-              event.delta.text
-            ) {
-              spoken += event.delta.text;
-              const audible = filter.push(event.delta.text);
-              if (audible) emit(chunk(id, created, requestedModel, { content: audible }, null));
-            } else if (event.type === "message_delta") {
-              outputTokens = event.usage.output_tokens;
-            }
-          }
-        } catch (err) {
-          // Headers are already sent — fail the TURN gracefully, not the
-          // session: speak a short recovery line instead of surfacing an
-          // "LLM Cascade Error" that kills the whole conversation.
-          console.error("voice-llm upstream error:", errorSummary(err));
-          const recovery = "Sorry, I hit a brief hiccup on my side — could you say that again?";
-          spoken += recovery;
-          emit(chunk(id, created, requestedModel, { content: recovery }, null));
+          controller.enqueue(encoder.encode(sse(data)));
+        } catch {
+          open = false;
         }
+      };
+      emit(chunk(id, created, requestedModel, { role: "assistant", content: "" }, null));
 
-        // Release whatever the filter was holding back against a partial
-        // marker that never completed.
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let cachedTokens = 0;
+      // Raw model text, block included; what the user HEARS is the part
+      // before the marker (plus the recovery line, if one was spoken).
+      let spoken = "";
+      // Withheld from the audio stream as it arrives: the [INTAKE ANSWERS]
+      // block is bookkeeping, and anything emitted here is spoken aloud.
+      const filter = createIntakeBlockFilter();
+      let replyDone = false;
+
+      // Stores what was spoken, then ends the response to ElevenLabs. Stored
+      // before the response ends, so ElevenLabs' next callback — which can
+      // only come after — finds the reply already in its place.
+      const endSpokenTurn = async () => {
+        replyDone = true;
         const tail = filter.flush();
         if (tail) emit(chunk(id, created, requestedModel, { content: tail }, null));
-
-        // The reply is spoken; store it. Done here rather than on the next
-        // callback because a user who hangs up straight after hearing it
-        // would otherwise leave the last turn unrecorded. What is stored is
-        // what was SPOKEN — the bookkeeping block goes to intake_answers.
         const assistantSeq = await persisting;
         if (grant && assistantSeq !== null) {
-          const { visibleText, answers } = splitIntakeBlock(spoken);
-          await persistAssistantTurn(grant.conversationId, assistantSeq, visibleText);
-          await recordIntakeAnswers(
-          grant.conversationId,
-          answers,
-          "voice",
-          await trustedConversationCompanyId(grant.conversationId)
-        );
-          await flagVoiceTurn(grant.conversationId, body.messages ?? [], visibleText);
+          await persistAssistantTurn(grant.conversationId, assistantSeq, splitIntakeBlock(spoken).visibleText);
         }
-
         emit(chunk(id, created, requestedModel, {}, "stop"));
         if (includeUsage) {
           emit({
@@ -507,10 +491,97 @@ export async function handleVoiceLlm(req: NextRequest): Promise<Response> {
             },
           });
         }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
+        if (open) {
+          try {
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch {
+            // ElevenLabs already hung up.
+          }
+          open = false;
+        }
+      };
+
+      try {
+        const anthropicStream = await getAnthropicClient().messages.create({
+          model: MODELS.INTERVIEW,
+          max_tokens: maxTokens,
+          // Voice is latency-critical: claude-sonnet-5 runs adaptive thinking
+          // by default, and its (discarded) deliberation delays the first
+          // audible sentence past ElevenLabs' per-attempt cutoff. Disabled
+          // here; the text channel keeps the default for quality.
+          thinking: THINKING_OFF,
+          system: buildVoiceSystemBlocks(context),
+          messages: anthropicMessages,
+          // Caches the conversation so far, not just the system prompt.
+          cache_control: INTERVIEW_CACHE,
+          stream: true,
+        });
+        for await (const event of anthropicStream) {
+          if (event.type === "message_start") {
+            const u = event.message.usage;
+            logCacheUsage("voice", u);
+            cachedTokens = u.cache_read_input_tokens ?? 0;
+            // Total prompt = uncached + cache-write + cache-read tokens.
+            inputTokens =
+              u.input_tokens + (u.cache_creation_input_tokens ?? 0) + cachedTokens;
+          } else if (
+            event.type === "content_block_delta" &&
+            event.delta.type === "text_delta" &&
+            event.delta.text
+          ) {
+            spoken += event.delta.text;
+            if (replyDone) continue;
+            const audible = filter.push(event.delta.text);
+            if (audible) emit(chunk(id, created, requestedModel, { content: audible }, null));
+            if (spoken.includes(INTAKE_ANSWERS_MARKER)) await endSpokenTurn();
+          } else if (event.type === "message_delta") {
+            outputTokens = event.usage.output_tokens;
+          }
+        }
+      } catch (err) {
+        console.error("voice-llm upstream error:", errorSummary(err));
+        // Headers are already sent — fail the TURN gracefully, not the
+        // session: speak a short recovery line instead of surfacing an
+        // "LLM Cascade Error" that kills the whole conversation. Only if the
+        // reply itself failed: a failure inside the block costs bookkeeping,
+        // and the user already heard a complete answer.
+        if (!replyDone) {
+          const recovery = "Sorry, I hit a brief hiccup on my side — could you say that again?";
+          spoken += recovery;
+          emit(chunk(id, created, requestedModel, { content: recovery }, null));
+        }
+      }
+
+      // No marker (or a failed reply): the turn ends with the generation.
+      if (!replyDone) await endSpokenTurn();
+
+      if (grant) {
+        const { visibleText, answers } = splitIntakeBlock(spoken);
+        await recordIntakeAnswers(
+          grant.conversationId,
+          answers,
+          "voice",
+          await trustedConversationCompanyId(grant.conversationId)
+        );
+        await flagVoiceTurn(grant.conversationId, body.messages ?? [], visibleText);
+      }
+    };
+
+    let turn: Promise<void> = Promise.resolve();
+    const stream = new ReadableStream<Uint8Array>({
+      // The Anthropic call happens INSIDE the stream so the first SSE bytes
+      // (the role chunk) flush to ElevenLabs immediately — their per-attempt
+      // first-byte timeout otherwise races Claude's prompt-processing time.
+      start(controller) {
+        turn = runTurn(controller).catch((err) => console.error("voice-llm turn failed:", errorSummary(err)));
+      },
+      cancel() {
+        open = false;
       },
     });
+    // Keeps the function alive after the response ends, until the block is recorded.
+    after(() => turn);
 
     return new Response(stream, {
       headers: {

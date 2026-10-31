@@ -25,7 +25,7 @@ Every agent here is **industry- and company-agnostic**. The same prompt serves a
 | Strategy Advisor (`agents/strategy-advisor/`) | 🟡 v0.1 draft — ready for first manual installs |
 | Stakeholder Navigator (`agents/stakeholder-navigator/`) | next — reuses the JD interview pattern |
 | Company Decoder (`agents/company-decoder/`) | planned (core) |
-| Communications Partner (`agents/communications-partner/`) | planned (core) |
+| Communications Partner (`agents/communications-partner/`) | 🟡 trial being planned: LinkedIn posts first, delivered as a Claude plugin ("Digital Team trial"). Plan: `docs/digital-team-trial/` |
 | Extended: Chief of Staff · Team Assessor · Board & Boss Alignment · Transition Coach · Sponsor Update · Agent Builder coach | added when a client needs them — the list is open-ended |
 
 ## Layout

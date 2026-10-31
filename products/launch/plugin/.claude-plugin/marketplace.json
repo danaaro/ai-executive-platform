@@ -1,0 +1,17 @@
+{
+  "name": "exec10x",
+  "owner": {
+    "name": "Exec10X",
+    "url": "https://exec10x.ai"
+  },
+  "metadata": {
+    "description": "Exec10X plugins for executives."
+  },
+  "plugins": [
+    {
+      "name": "launch",
+      "source": "./launch",
+      "description": "Exec10X Launch, your digital team: LinkedIn posts in your own voice."
+    }
+  ]
+}

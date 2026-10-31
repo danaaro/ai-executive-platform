@@ -41,3 +41,7 @@ generated/*
 
 # Copied from node_modules by scripts/copy-pdfjs.mjs before dev/build
 public/vendor/pdfjs/
+
+# Local skill tool binaries (16 MB, machine-specific)
+.agents/skills/*/scripts/bin/
+.claude/skills/*/scripts/bin/

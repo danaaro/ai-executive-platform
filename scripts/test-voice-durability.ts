@@ -155,6 +155,26 @@ async function main() {
       after.length === 6 && after[5].content.startsWith("Sorry, I hit a brief hiccup")
     );
 
+    // --- 7b. ElevenLabs' history disagrees with ours by one entry ---------
+    // Its copy of an agent turn arrived split in two (2026-10-31, Susan's
+    // Head of Georgia call). Counting rows then skipped every later spoken
+    // answer; the new user turn must still land, and nothing else.
+    const drifted = historyTurns([
+      { role: "user", content: "It reports to the CTO." },
+      { role: "assistant", content: "Understood. Who else does it influence?" },
+      { role: "user", content: "Product, and the platform guild." },
+      { role: "assistant", content: "Thanks." },
+      { role: "assistant", content: "Sorry, I hit a brief hiccup on my side — could you say that again?" },
+      { role: "user", content: "Budget is two million." },
+    ]);
+    await persistVoiceTurns(grant, drifted);
+    after = await rows();
+    check(
+      "drifted history still stores the new spoken turn, only it",
+      after.length === 7 && after[6].role === "user" && after[6].content === "Budget is two million.",
+      `got ${after.length} rows, last: ${after[after.length - 1]?.content}`
+    );
+
     // --- 8. No verified grant → no write ----------------------------------
     // handleVoiceLlm skips persistence entirely when extractVoiceGrant returns
     // null; a forged conversation id must never reach the database.
