@@ -1,10 +1,10 @@
 import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { adminDb, db, tables } from "@/db";
+import { db, tables } from "@/db";
 import { requireUser, dbEnabled, getProjectAccess } from "@/shared/current-user";
 import { errorSummary } from "@/shared/safe-log";
-import { exportFilename, loadClientLogo, renderDocx, renderPdf, roleId, type ExportMeta } from "@/shared/jd-export";
+import { exportFilename, renderDocx, renderPdf, roleId, type ExportMeta } from "@/shared/jd-export";
 import { cleanDeliverable } from "@/shared/clean-deliverable";
 
 /**
@@ -16,8 +16,9 @@ import { cleanDeliverable } from "@/shared/clean-deliverable";
  * Access comes from the PROJECT like every artifact route (ADR-008 §6): any
  * member who can see the role may download. Title and company are read from
  * the locked role and the session's company, never from the request. The
- * client's logo comes from the Company Intel record an admin linked to the
- * company; without one the header shows the company name.
+ * header names the client the document itself names ("**Company:** COREX"),
+ * as text: no logo is looked up anywhere (2026-10-31, an Intel link put
+ * Airwallex's logo on a COREX JD).
  */
 export const GET = tenantRoute(async function GET(
   req: NextRequest,
@@ -44,7 +45,6 @@ export const GET = tenantRoute(async function GET(
       projectId: tables.artifacts.projectId,
       title: tables.projects.title,
       company: tables.companies.name,
-      companyId: tables.companies.id,
     })
     .from(tables.artifacts)
     .innerJoin(tables.projects, eq(tables.projects.id, tables.artifacts.projectId))
@@ -62,7 +62,6 @@ export const GET = tenantRoute(async function GET(
     roleId: roleId(row.projectId),
     version: row.version,
     status: row.status,
-    clientLogo: await loadClientLogo(await clientLogoUrl(row.companyId)),
   };
 
   try {
@@ -86,22 +85,3 @@ export const GET = tenantRoute(async function GET(
   }
 });
 
-/**
- * The client's logo URL, found on its own site by Company Intel. Intel tables
- * are admin-only and invisible to the tenant role, so this is a deliberate
- * adminDb() exception (ADR-010 §7): it reads one URL, for the company whose
- * artifact the caller was just authorised to download, and nothing else.
- */
-async function clientLogoUrl(companyId: string): Promise<string | null> {
-  try {
-    const [r] = await adminDb()
-      .select({ logoUrl: tables.intelCompanies.logoUrl })
-      .from(tables.companies)
-      .innerJoin(tables.intelCompanies, eq(tables.intelCompanies.id, tables.companies.intelCompanyId))
-      .where(eq(tables.companies.id, companyId))
-      .limit(1);
-    return r?.logoUrl ?? null;
-  } catch {
-    return null;
-  }
-}

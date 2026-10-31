@@ -1,6 +1,6 @@
 # exec10x Digital Team: Trial Plan v0.1
 
-> STATUS: 🟡 draft, from Dana's interview 2026-10-31. Not built yet.
+> STATUS: 🟡 v0.1 built 2026-10-31 (`products/launch/plugin/launch/`, zip in `plugin/dist/`). Next: Dana's dry run, then Susie.
 
 ## 0. Part of Exec10X Launch (decided 2026-10-31)
 
@@ -103,6 +103,8 @@ research → topic suggestions → pipeline → draft in her voice → approval 
 4. Claude in Chrome on Pro, for reading her posts and stats.
 5. Web search availability, for topic research.
 
+**Checked 2026-10-31:** all five work on Pro. Install = Customize › Plugins › upload file (GitHub repo as backup). Scheduled tasks that use local files run only while the Mac is awake and Claude is open. Excel needs Settings › Capabilities › Code execution and file creation (in INSTALL.md). Chrome on Pro may be limited to a smaller model, so pasting posts stays an option.
+
 If any of these fails, use the fallback: on-demand commands, a CSV or markdown tracker, and pasted posts.
 
 ## 9. Evals (rewritten for posts)
@@ -124,9 +126,9 @@ If any of these fails, use the fallback: on-demand commands, a CSV or markdown t
 
 ## 10. Build steps
 
-1. Dana approves this plan and decides section 0.
-2. Verify section 8 against the docs and adjust.
-3. Show the file tree, then build.
+1. ✅ Dana approves this plan and decides section 0.
+2. ✅ Verify section 8 against the docs and adjust.
+3. ✅ Build. Plugin name `launch` (commands `/launch:*`). Added `/launch:commands`, `My Commands.md` and a Commands tab in the tracker so the commands are always visible (Dana).
 4. Dry run with the persona and score the eval cases.
 5. Package and install on Dana's machine first.
 6. Install with Susie and watch the first session.

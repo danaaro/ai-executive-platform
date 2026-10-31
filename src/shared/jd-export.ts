@@ -49,53 +49,11 @@ export type ExportMeta = {
   roleId: string;
   version: number;
   status: "draft" | "approved";
-  /** The client's logo for the header's right side; the company name stands in when absent. */
+  /** Only ever a logo supplied for THIS client; none is looked up. Absent → the client's name. */
   clientLogo?: ClientLogo | null;
 };
 
 export type ClientLogo = { data: Buffer; type: "png" | "jpg"; width: number; height: number };
-
-/** Pixel size from the file header: PNG IHDR, or the JPEG start-of-frame marker. */
-function imageInfo(buf: Buffer): Omit<ClientLogo, "data"> | null {
-  if (buf.length > 24 && buf.readUInt32BE(0) === 0x89504e47) {
-    return { type: "png", width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
-  }
-  if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
-    let i = 2;
-    while (i + 9 < buf.length && buf[i] === 0xff) {
-      const marker = buf[i + 1];
-      const len = buf.readUInt16BE(i + 2);
-      if (marker >= 0xc0 && marker <= 0xc3) {
-        return { type: "jpg", height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
-      }
-      i += 2 + len;
-    }
-  }
-  return null;
-}
-
-/**
- * Fetches the client's logo for the export header. The URL is the one
- * company-logo.ts found on the company's own site (Company Intel). PNG and
- * JPEG only: SVG and ICO can't be embedded by both libraries, and Google's
- * favicon fallback is too small to print. Anything unusable → null, and the
- * header shows the company name instead; a download never fails on a logo.
- */
-export async function loadClientLogo(url: string | null | undefined): Promise<ClientLogo | null> {
-  if (!url || !/^https:\/\//i.test(url) || /google\.com\/s2\/favicons/i.test(url)) return null;
-  try {
-    const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(4000) });
-    if (!res.ok) return null;
-    const data = Buffer.from(await res.arrayBuffer());
-    if (data.length > 3_000_000) return null;
-    const info = imageInfo(data);
-    // A square icon under 64px is a favicon, not a logo.
-    if (!info || !info.width || !info.height || Math.max(info.width, info.height) < 64) return null;
-    return { data, ...info };
-  } catch {
-    return null;
-  }
-}
 
 /** Scales a logo into a box, keeping its proportions. */
 function fit(l: { width: number; height: number }, maxW: number, maxH: number) {
@@ -261,6 +219,21 @@ function dropLeadingTitle(blocks: Block[], title: string): Block[] {
   return blocks;
 }
 
+/**
+ * The client the document is for: its own "**Company:** …" field, else the
+ * account's name. A search firm's account (SusanDana) writes JDs for its
+ * clients (COREX), so the account name alone can be the wrong company.
+ */
+export function clientName(markdown: string, fallback: string): string {
+  for (const b of parseBlocks(markdown)) {
+    if (b.kind !== "fields") continue;
+    const row = b.rows.find((r) => /^company( name)?$/i.test(r.label));
+    const name = row?.value.replace(/\[[^\]]*\]/g, "").trim();
+    if (name) return name.slice(0, 120);
+  }
+  return fallback;
+}
+
 /** "## 1. The Opportunity" → "The Opportunity": the briefing look has no section numbers. */
 const headingText = (b: { runs: Run[] }) => b.runs[0].text.replace(/^\d+[.)]\s+/, "");
 
@@ -277,6 +250,7 @@ const CONTENT_W = 9638; // A4 less 1134 twip margins
 const NONE = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
 
 export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Buffer> {
+  meta = { ...meta, company: clientName(markdown, meta.company) };
   const runs = (rs: Run[], color = BODY, size = 22, boldColor = color) =>
     rs.map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic, color: r.bold ? boldColor : color, size }));
 
@@ -500,6 +474,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
 const hex = (h: string) => rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255);
 
 export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buffer> {
+  meta = { ...meta, company: clientName(markdown, meta.company) };
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${meta.title} — Job description`);
   pdf.setAuthor("Susan Pike & Partners");
