@@ -11,6 +11,7 @@ import {
   Packer,
   PageNumber,
   Paragraph,
+  Tab,
   Table,
   TableCell,
   TableRow,
@@ -48,7 +49,59 @@ export type ExportMeta = {
   roleId: string;
   version: number;
   status: "draft" | "approved";
+  /** The client's logo for the header's right side; the company name stands in when absent. */
+  clientLogo?: ClientLogo | null;
 };
+
+export type ClientLogo = { data: Buffer; type: "png" | "jpg"; width: number; height: number };
+
+/** Pixel size from the file header: PNG IHDR, or the JPEG start-of-frame marker. */
+function imageInfo(buf: Buffer): Omit<ClientLogo, "data"> | null {
+  if (buf.length > 24 && buf.readUInt32BE(0) === 0x89504e47) {
+    return { type: "png", width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < buf.length && buf[i] === 0xff) {
+      const marker = buf[i + 1];
+      const len = buf.readUInt16BE(i + 2);
+      if (marker >= 0xc0 && marker <= 0xc3) {
+        return { type: "jpg", height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+      }
+      i += 2 + len;
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetches the client's logo for the export header. The URL is the one
+ * company-logo.ts found on the company's own site (Company Intel). PNG and
+ * JPEG only: SVG and ICO can't be embedded by both libraries, and Google's
+ * favicon fallback is too small to print. Anything unusable → null, and the
+ * header shows the company name instead; a download never fails on a logo.
+ */
+export async function loadClientLogo(url: string | null | undefined): Promise<ClientLogo | null> {
+  if (!url || !/^https:\/\//i.test(url) || /google\.com\/s2\/favicons/i.test(url)) return null;
+  try {
+    const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const data = Buffer.from(await res.arrayBuffer());
+    if (data.length > 3_000_000) return null;
+    const info = imageInfo(data);
+    // A square icon under 64px is a favicon, not a logo.
+    if (!info || !info.width || !info.height || Math.max(info.width, info.height) < 64) return null;
+    return { data, ...info };
+  } catch {
+    return null;
+  }
+}
+
+/** Scales a logo into a box, keeping its proportions. */
+function fit(l: { width: number; height: number }, maxW: number, maxH: number) {
+  const k = Math.min(maxW / l.width, maxH / l.height);
+  return { width: Math.round(l.width * k), height: Math.round(l.height * k) };
+}
 
 /** Short, human-readable Role ID derived from the role's uuid. */
 export function roleId(projectId: string): string {
@@ -90,7 +143,9 @@ type Run = { text: string; bold?: boolean; italic?: boolean };
 type Block =
   | { kind: "heading"; level: 1 | 2 | 3; runs: Run[] }
   | { kind: "para"; runs: Run[] }
-  | { kind: "quote"; runs: Run[] }
+  // "> **Title**" on its own first line → a panel with that title. Before the
+  // first section it is the opening hook. Otherwise a gold-bar callout.
+  | { kind: "quote"; title: string | null; hero: boolean; runs: Run[] }
   | { kind: "fields"; rows: { label: string; value: string }[] }
   | { kind: "item"; ordered: boolean; n: number; list: number; runs: Run[] }
   | { kind: "rule" };
@@ -120,9 +175,18 @@ export function parseBlocks(markdown: string): Block[] {
   // "**Company:** …" lines before the first section are the role's header
   // fields; they become the at-a-glance table, as in the reference briefing.
   let inHeader = true;
+  let inBody = false; // after the first section heading
   const flush = () => {
     if (para.length) blocks.push({ kind: "para", runs: inlineRuns(para.join(" ")) });
-    if (quote.length) blocks.push({ kind: "quote", runs: inlineRuns(quote.join(" ")) });
+    if (quote.length) {
+      const t = /^\*\*([^*]+)\*\*$/.exec(quote[0]);
+      blocks.push({
+        kind: "quote",
+        title: t && quote.length > 1 ? t[1].trim() : null,
+        hero: !inBody,
+        runs: inlineRuns((t && quote.length > 1 ? quote.slice(1) : quote).join(" ")),
+      });
+    }
     para = [];
     quote = [];
   };
@@ -152,7 +216,10 @@ export function parseBlocks(markdown: string): Block[] {
     } else if (h) {
       flush();
       endList();
-      if (h[1].length > 1) inHeader = false;
+      if (h[1].length > 1) {
+        inHeader = false;
+        inBody = true;
+      }
       // "# **Title**" — headings are styled anyway, the bold markers are noise.
       blocks.push({ kind: "heading", level: h[1].length as 1 | 2 | 3, runs: [{ text: h[2].replace(/\*\*/g, "") }] });
     } else if (f) {
@@ -252,9 +319,34 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
       ),
     });
 
+  const ruled = { style: BorderStyle.SINGLE, size: 4, color: RULE };
+  const panel = (children: Paragraph[], topRule = true) =>
+    new Table({
+      width: { size: CONTENT_W, type: WidthType.DXA },
+      columnWidths: [CONTENT_W],
+      borders: { top: NONE, bottom: NONE, left: NONE, right: NONE, insideHorizontal: NONE, insideVertical: NONE },
+      rows: [
+        new TableRow({
+          cantSplit: true,
+          children: [
+            new TableCell({
+              width: { size: CONTENT_W, type: WidthType.DXA },
+              borders: { top: topRule ? ruled : NONE, bottom: ruled, left: NONE, right: NONE },
+              margins: { top: 240, bottom: 240, left: 0, right: 0 },
+              children,
+            }),
+          ],
+        }),
+      ],
+    });
+
+  let prev: Block["kind"] | null = null;
   for (const b of dropLeadingTitle(parseBlocks(markdown), meta.title)) {
+    const last: Block["kind"] | null = prev;
+    prev = b.kind;
     if (b.kind === "rule") {
       // Sections already carry the gold rule; a second line adds nothing.
+      prev = last;
       continue;
     } else if (b.kind === "fields") {
       body.push(glance(b.rows), new Paragraph({ spacing: { after: 80 } }));
@@ -286,6 +378,30 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
           spacing: { after: 80, line: 300 },
         })
       );
+    } else if (b.kind === "quote" && (b.hero || b.title)) {
+      // Ruled panel, as the briefing's opening hook and "How you lead" box.
+      const inner: Paragraph[] = [];
+      if (b.title) {
+        inner.push(
+          new Paragraph({
+            children: b.hero
+              ? [new TextRun({ text: b.title, font: "Georgia", size: 56, color: GOLD })]
+              : [new TextRun({ text: b.title, font: "Georgia", size: 26, color: NAVY })],
+            spacing: { after: b.hero ? 60 : 80 },
+          })
+        );
+      }
+      inner.push(
+        new Paragraph({
+          children: b.hero
+            ? b.runs.map((r) => new TextRun({ text: r.text, font: "Georgia", italics: true, bold: r.bold, color: BODY, size: 26 }))
+            : runs(b.runs, BODY, 22, NAVY),
+          spacing: { line: b.hero ? 320 : 300 },
+        })
+      );
+      // Straight after the glance table, the table's last rule closes the panel's top.
+      if (last === "fields") body.pop();
+      body.push(panel(inner, last !== "fields"), new Paragraph({ spacing: { after: 80 } }));
     } else if (b.kind === "quote") {
       body.push(
         new Paragraph({
@@ -304,6 +420,12 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
   const headerLeft = png
     ? new ImageRun({ type: "png", data: png, transformation: { width: 104, height: Math.round(104 * LOGO_RATIO) }, altText: { name: "Susan Pike & Partners", description: "Susan Pike & Partners logo", title: "Susan Pike & Partners" } })
     : new TextRun({ text: "SUSAN PIKE & PARTNERS", bold: true, color: NAVY, size: 18 });
+
+  // Client logo fits a 147×40 px box (COREX in the briefing is 110×31).
+  const cl = meta.clientLogo;
+  const headerRight = cl
+    ? new ImageRun({ type: cl.type, data: cl.data, transformation: fit(cl, 147, 40), altText: { name: meta.company, description: `${meta.company} logo`, title: meta.company } })
+    : new TextRun({ text: meta.company, font: "Georgia", size: 24, color: NAVY });
 
   const doc = new Document({
     creator: "Susan Pike & Partners",
@@ -347,7 +469,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
                 tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
                 border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: RULE, space: 8 } },
                 spacing: { after: 160 },
-                children: [headerLeft, new TextRun({ text: `\t${meta.company}`, font: "Georgia", size: 24, color: NAVY })],
+                children: [headerLeft, new TextRun({ children: [new Tab()] }), headerRight],
               }),
             ],
           }),
@@ -358,7 +480,8 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
               new Paragraph({
                 tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
                 children: [
-                  new TextRun({ text: `${footerText(meta)}\t`, color: GREY, size: 16 }),
+                  new TextRun({ text: footerText(meta), color: GREY, size: 16 }),
+                  new TextRun({ children: [new Tab()] }),
                   new TextRun({ children: [PageNumber.CURRENT], color: GREY, size: 16 }),
                 ],
               }),
@@ -388,9 +511,17 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
     bold: await pdf.embedFont(StandardFonts.HelveticaBold),
     italic: await pdf.embedFont(StandardFonts.HelveticaOblique),
     display: await pdf.embedFont(StandardFonts.TimesRoman),
+    displayItalic: await pdf.embedFont(StandardFonts.TimesRomanItalic),
   };
   const png = logo();
   const logoImg: PDFImage | null = png ? await pdf.embedPng(png) : null;
+  const cl = meta.clientLogo;
+  let clientImg: PDFImage | null = null;
+  try {
+    if (cl) clientImg = cl.type === "png" ? await pdf.embedPng(cl.data) : await pdf.embedJpg(cl.data);
+  } catch {
+    clientImg = null; // an unusual PNG/JPEG variant → the company name instead
+  }
 
   // Standard fonts carry WinAnsi only. Anything outside it (Hebrew, ₪, emoji)
   // would throw mid-render — fold accents, replace the rest.
@@ -432,12 +563,12 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
     Array.from(s).reduce((n, c) => n + font.widthOfTextAtSize(c, size), 0);
 
   /** Wraps styled runs into lines and draws them; moves y. Returns the lines drawn. */
-  function drawRuns(rs: Run[], size: number, opts: { indent?: number; width?: number; lead?: number; color?: string; bold?: string } = {}) {
+  function drawRuns(rs: Run[], size: number, opts: { indent?: number; width?: number; lead?: number; color?: string; bold?: string; font?: PDFFont } = {}) {
     const { indent = 0, lead = 1.45, color = BODY } = opts;
     const words: Word[] = [];
     for (const r of rs) {
       for (const part of safe(r.text).split(/(\s+)/)) {
-        if (part) words.push({ text: part, font: fontFor(r), color: hex(r.bold ? opts.bold ?? color : color) });
+        if (part) words.push({ text: part, font: opts.font ?? fontFor(r), color: hex(r.bold ? opts.bold ?? color : color) });
       }
     }
     const lineH = size * lead;
@@ -516,8 +647,11 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
   drawHeading(meta.title, 30);
   y -= 16;
 
+  let prev: Block["kind"] | null = null;
   for (const b of dropLeadingTitle(parseBlocks(markdown), meta.title)) {
     if (b.kind === "rule") continue;
+    const last: Block["kind"] | null = prev;
+    prev = b.kind;
     if (b.kind === "fields") {
       drawGlance(b.rows);
     } else if (b.kind === "heading") {
@@ -542,6 +676,34 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
       }
       drawRuns(b.runs, 11, { indent: 22 });
       y -= 3;
+    } else if (b.kind === "quote" && (b.hero || b.title)) {
+      // Ruled panel: opening hook (gold display line + italic standfirst) or a titled box.
+      if (last === "fields") {
+        y += 14; // share the table's closing rule
+      } else {
+        y -= 6;
+        ensure(80);
+        page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: hex(RULE) });
+      }
+      y -= 14;
+      if (b.title) {
+        if (b.hero) {
+          const t = safe(b.title);
+          page.drawText(t, { x: M, y: y - 26, size: 28, font: fonts.display, color: hex(GOLD) });
+          y -= 26 * 1.35;
+        } else {
+          drawHeading(b.title, 13);
+          y -= 2;
+        }
+      }
+      if (b.hero) {
+        drawRuns(b.runs.map((r) => ({ ...r, italic: true })), 13, { lead: 1.4, font: fonts.displayItalic });
+      } else {
+        drawRuns(b.runs, 11, { bold: NAVY });
+      }
+      y -= 10;
+      page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: hex(RULE) });
+      y -= 16;
     } else if (b.kind === "quote") {
       y -= 6;
       ensure(11 * 1.45);
@@ -567,8 +729,13 @@ export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buf
     const top = H - 28;
     if (logoImg) p.drawImage(logoImg, { x: M, y: top - logoH, width: logoW, height: logoH });
     else p.drawText("SUSAN PIKE & PARTNERS", { x: M, y: top - 12, size: 9, font: fonts.bold, color: hex(NAVY) });
-    const cSize = 12;
-    p.drawText(company, { x: W - M - fonts.display.widthOfTextAtSize(company, cSize), y: top - logoH + 2, size: cSize, font: fonts.display, color: hex(NAVY) });
+    if (clientImg && cl) {
+      const sz = fit(cl, 110, 30);
+      p.drawImage(clientImg, { x: W - M - sz.width, y: top - logoH, width: sz.width, height: sz.height });
+    } else {
+      const cSize = 12;
+      p.drawText(company, { x: W - M - fonts.display.widthOfTextAtSize(company, cSize), y: top - logoH + 2, size: cSize, font: fonts.display, color: hex(NAVY) });
+    }
     p.drawLine({ start: { x: M, y: top - logoH - 8 }, end: { x: W - M, y: top - logoH - 8 }, thickness: 0.5, color: hex(RULE) });
 
     const num = String(i + 1);

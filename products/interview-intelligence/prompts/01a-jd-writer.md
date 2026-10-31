@@ -1,8 +1,8 @@
 ---
 agent: job-description
 title: JD writer (Exec10X Executive Role Description)
-version: 1.0
-source: Susan's template "EXEC10 EX JD" (input/EXEC10 EX JD.md, 2026-10-29); PRD v4 §3.2
+version: 1.1
+source: Susan's template "EXEC10 EX JD" (input/EXEC10 EX JD.md, 2026-10-29); PRD v4 §3.2. v1.1 (2026-10-31) adds the opening hook, the "How you lead" panel, the optional key-target callout and honest note, after Susan's reference briefing (examples/COREX_Head_of_Georgia_Briefing.docx)
 model: JD_WRITER in src/shared/models.ts
 loaded-by: src/orchestrator/job-description-orchestrator.ts (streamJobDescriptionDraft)
 notes: >
@@ -63,6 +63,11 @@ Write in the language of the briefing.
 
 ---
 
+> **[Opening hook: 2–5 words, ending with a full stop]**
+> [One or two sentences, at most 45 words: the essence of this mandate and why it is compelling now.]
+
+*Instruction: Write the hook for this role and company only. It names the core of the mandate in the candidate's terms ("Own the market.", "Build the platform.", "Lead the turnaround."), never a generic slogan, never the role title. The sentences beneath give the situation and the ask, drawn from the same facts as The Opportunity, without repeating its wording. Both lines start with `> `; the first is bold and stands alone on its line.*
+
 ## 1. The Opportunity
 
 *Instruction: Write one compelling paragraph of 3–5 sentences explaining why this appointment matters now. Describe the company's current position, strategic ambition, principal challenge or opportunity, and the impact expected from the incoming executive.*
@@ -102,6 +107,8 @@ Writing guidance:
 
 Writing guidance: Describe observable outcomes, not activities. Success measures must connect directly to the mandate and the company's strategic priorities. Adjust the time horizons when the role requires a different pace.
 
+Optional key target: if the hiring manager gave one headline, publishable target (a growth rate, a milestone date), close the section with it as a callout on one line: `> **By [horizon]:** [target].` Only from the briefing, never inferred. No target given → no callout.
+
 ## 5. What You Bring
 
 *Instruction: Describe the experience, achievements and leadership characteristics most relevant to success in this specific role and organisational context. Focus on demonstrated impact and transferable capabilities rather than conventional career requirements.*
@@ -110,6 +117,11 @@ Writing guidance: Describe observable outcomes, not activities. Success measures
 4–5 essential requirements: proven success delivering specific outcomes; experience navigating the relevant complexity; demonstrated ability to lead the relevant teams, functions or geographies; strong expertise in essential domains; experience with the relevant stakeholders, governance or ownership environments, where essential.
 
 ### Leadership Approach
+*Format: write this as a panel, not under a heading of its own. Replace the `### Leadership Approach` line with:*
+
+> **How you lead**
+> [the paragraph]
+
 *Instruction: Write one integrated paragraph using the Exec10X Contextual Leadership Profile. Describe the combination of behaviours, capabilities, motivations and leadership characteristics likely to enable success in this organisation.* Describe how an effective leader in this context approaches decisions, ambiguity, collaboration, accountability, change and business performance.
 
 Writing guidance: Not a generic competency checklist or a description of an ideal personality. A coherent leadership profile grounded in the actual organisational context. Allow for different leadership styles that can achieve the required outcomes.
@@ -118,6 +130,14 @@ Writing guidance: Not a generic competency checklist or a description of an idea
 Up to 2–3 genuinely valuable but non-essential qualifications or experiences.
 
 Writing guidance: Avoid arbitrary years of experience, unnecessarily restrictive industry requirements, prestige-based qualifications and generic phrases such as "excellent communicator" or "visionary leader" unless made specific and meaningful.
+
+### An honest note (optional)
+*Instruction: Only when the briefing or the company context shows a defining condition a strong candidate should know before applying (a founder-led company professionalising, a turnaround, processes still being built), add after Additional Experience:*
+
+> **An honest note on the environment.**
+> [Two or three candid, respectful sentences on that condition and what success therefore takes.]
+
+*It must be publishable: something the company says itself or would readily confirm, at the level of the environment, never a person, a conflict or anything from an `internal` answer. When in doubt, leave it out.*
 
 ## 6. About [Company Name]
 
@@ -135,6 +155,7 @@ Writing guidance: Avoid arbitrary years of experience, unnecessarily restrictive
 - The experience requirements focus on evidence of impact and transferable achievements.
 - The leadership approach reflects the contextual leadership profile, without reducing contextual fit to personality similarity or a behavioural checklist.
 - The company description is factual, concise and does not repeat previous sections.
+- The opening hook is specific to this mandate and the "How you lead" panel replaces the Leadership Approach heading; any honest note or key-target callout is publishable and supported by the briefing.
 - No unverified facts, invented targets, assumed cultural characteristics or unsupported claims.
 
 ## Writing standards
@@ -142,6 +163,7 @@ Writing guidance: Avoid arbitrary years of experience, unnecessarily restrictive
 - **Tone:** senior, sophisticated, confident, direct and engaging.
 - **Style:** clear business language, short paragraphs, specific outcomes and strong action verbs.
 - **Avoid:** corporate clichés, inflated claims, generic leadership adjectives, unnecessary jargon, repetitive statements and excessive bullet points.
-- **Consistency:** the six sections, in this order, for every appointment.
+- **Consistency:** the opening hook, then the six sections, in this order, for every appointment.
+- **Format marks:** `> ` lines only for the opening hook, the "How you lead" panel, the honest note and the key-target callout. Nowhere else.
 - **Inclusive and gender-neutral** throughout.
 - **Final output:** only the polished, candidate-facing document. No instructions, internal notes or unsupported statements; `[To confirm: …]` only where essential information is truly missing.

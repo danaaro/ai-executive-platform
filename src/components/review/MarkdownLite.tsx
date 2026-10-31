@@ -7,14 +7,19 @@ import * as React from "react";
  * through React as text, so a document cannot carry markup or scripts.
  *
  * Supports what the agents write: #/##/### headings, - or * bullets, numbered
- * lists, **bold**, *italic*, horizontal rules, paragraphs. Anything else is
- * shown as plain text.
+ * lists, **bold**, *italic*, horizontal rules, paragraphs, and > quotes in
+ * the three shapes the JD writer uses (same rules as src/shared/jd-export.ts):
+ * "> **Title**" on its own first line is a ruled panel — the opening hook when
+ * it comes before the first section — otherwise a gold-bar callout. Anything
+ * else is shown as plain text.
  */
 export function MarkdownLite({ text }: { text: string }) {
   const blocks: React.ReactNode[] = [];
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   let para: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
+  let quote: string[] = [];
+  let inBody = false; // after the first ## section
 
   const flushPara = () => {
     if (para.length) {
@@ -25,6 +30,34 @@ export function MarkdownLite({ text }: { text: string }) {
       );
       para = [];
     }
+  };
+  const flushQuote = () => {
+    if (!quote.length) return;
+    const t = /^\*\*([^*]+)\*\*$/.exec(quote[0]);
+    const title = t && quote.length > 1 ? t[1].trim() : null;
+    const body = (title ? quote.slice(1) : quote).join(" ");
+    if (title || !inBody) {
+      blocks.push(
+        <div key={blocks.length} className="space-y-2 border-y border-line py-5">
+          {title &&
+            (inBody ? (
+              <p className="font-display text-lg text-ink">{title}</p>
+            ) : (
+              <p className="font-display text-3xl text-accent">{title}</p>
+            ))}
+          <p className={inBody ? "leading-relaxed text-muted" : "font-display text-lg italic leading-relaxed text-muted"}>
+            {inline(body)}
+          </p>
+        </div>
+      );
+    } else {
+      blocks.push(
+        <p key={blocks.length} className="border-l-2 border-accent pl-4 leading-relaxed text-muted">
+          {inline(body)}
+        </p>
+      );
+    }
+    quote = [];
   };
   const flushList = () => {
     if (list) {
@@ -52,10 +85,16 @@ export function MarkdownLite({ text }: { text: string }) {
     const h = /^(#{1,3})\s+(.*)$/.exec(line);
     const bullet = /^\s*[-*•]\s+(.*)$/.exec(line);
     const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+    const q = /^\s*>\s?(.*)$/.exec(line);
 
+    if (!q) flushQuote();
     if (!line.trim()) {
       flushPara();
       flushList();
+    } else if (q) {
+      flushPara();
+      flushList();
+      if (q[1].trim()) quote.push(q[1].trim());
     } else if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
       flushPara();
       flushList();
@@ -64,6 +103,7 @@ export function MarkdownLite({ text }: { text: string }) {
       flushPara();
       flushList();
       const level = h[1].length;
+      if (level > 1) inBody = true;
       const cls =
         level === 1
           ? "font-display text-4xl font-normal text-ink"
@@ -90,6 +130,7 @@ export function MarkdownLite({ text }: { text: string }) {
   }
   flushPara();
   flushList();
+  flushQuote();
 
   return <div className="space-y-4">{blocks}</div>;
 }
