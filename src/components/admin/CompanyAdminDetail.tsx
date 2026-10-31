@@ -21,7 +21,8 @@ import {
  * detail" layout and nothing else — company name, "Start new role" (opens a
  * role for the customer, spending one of its credits) and the roles, each
  * opening the admin role view (Dana 2026-10-19: roles only). `account`:
- * credits, Company Intel and documents, people, credit history.
+ * company details (name + profile), credits, Company Intel and documents,
+ * people, credit history.
  * Every visit is written to the admin activity log.
  */
 
@@ -52,11 +53,7 @@ export function CompanyAdminDetail({
   companyId: string;
   view: "roles" | "account";
 }) {
-  const [info, setInfo] = useState<{
-    name: string;
-    clerkOrgId: string;
-    intelCompanyId: string | null;
-  } | null>(null);
+  const [info, setInfo] = useState<CompanyInfo | null>(null);
   const [roles, setRoles] = useState<Role[] | null>(null);
   const [credits, setCredits] = useState<Company | null>(null);
   const [ledger, setLedger] = useState<Entry[] | null>(null);
@@ -154,7 +151,7 @@ export function CompanyAdminDetail({
                 href={`/internal/companies/${companyId}/account`}
                 className="btn btn-ghost"
               >
-                Account
+                Company &amp; account
               </Link>
               {info && credits && (
                 <NewPositionDialog
@@ -232,6 +229,14 @@ export function CompanyAdminDetail({
 
         {view === "account" && (
           <>
+            {info && (
+              <CompanyDetails
+                companyId={companyId}
+                info={info}
+                onSaved={() => void load({ withCompany: true })}
+              />
+            )}
+
             {credits && (
               <CreditsForm
                 company={credits}
@@ -251,6 +256,101 @@ export function CompanyAdminDetail({
         )}
       </main>
     </>
+  );
+}
+
+type CompanyInfo = {
+  name: string;
+  clerkOrgId: string;
+  intelCompanyId: string | null;
+  about: string | null;
+  values: string | null;
+  cultureNotes: string | null;
+};
+
+/**
+ * The company's details, editable any time after creation (Dana 2026-10-31):
+ * name, and the profile the JD agent reads on every role.
+ */
+function CompanyDetails({
+  companyId,
+  info,
+  onSaved,
+}: {
+  companyId: string;
+  info: CompanyInfo;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(info.name);
+  const [about, setAbout] = useState(info.about ?? "");
+  const [values, setValues] = useState(info.values ?? "");
+  const [cultureNotes, setCultureNotes] = useState(info.cultureNotes ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: "ok" | "danger"; text: string } | null>(null);
+
+  const dirty =
+    name.trim() !== info.name ||
+    about.trim() !== (info.about ?? "") ||
+    values.trim() !== (info.values ?? "") ||
+    cultureNotes.trim() !== (info.cultureNotes ?? "");
+  const valid = name.trim().length >= 2 && name.trim().length <= 120;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      const r = await fetch(`/api/admin/companies/${companyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, about, values, cultureNotes }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Could not save");
+      setMessage({ tone: "ok", text: "Saved." });
+      onSaved();
+    } catch (err) {
+      setMessage({ tone: "danger", text: err instanceof Error ? err.message : "Could not save" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const area = (label: string, value: string, set: (v: string) => void, hint: string) => (
+    <label className="block space-y-2">
+      <span className="label-mono">{label} (optional)</span>
+      <textarea className="field min-h-28" value={value} onChange={(e) => set(e.target.value)} maxLength={8000} />
+      <span className="block text-xs text-faint">{hint}</span>
+    </label>
+  );
+
+  return (
+    <form onSubmit={submit} className="card-surface mb-6 p-6">
+      <p className="label-mono mb-2">Company details</p>
+      <p className="text-sm text-muted">
+        Read by the agent in every job description briefing for this company.
+      </p>
+      <div className="mt-5 space-y-4">
+        <label className="block space-y-2">
+          <span className="label-mono">
+            Company name <span className="text-accent" aria-hidden>*</span>
+          </span>
+          <input className="field" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={120} />
+        </label>
+        {area("About the company", about, setAbout, "What the business does, markets, scale, ownership.")}
+        {area("Values / leadership behaviours", values, setValues, "The company's stated values and how leaders are expected to behave.")}
+        {area("Culture notes", cultureNotes, setCultureNotes, "How the company works day to day.")}
+      </div>
+      {message && (
+        <Alert tone={message.tone === "danger" ? "danger" : undefined} className="mt-4">
+          {message.text}
+        </Alert>
+      )}
+      <p className="mt-4 text-xs text-faint">* Required · every change is written to the admin activity log.</p>
+      <button className="btn btn-gold mt-3" disabled={busy || !valid || !dirty}>
+        {busy ? "Saving…" : "Save details"}
+      </button>
+    </form>
   );
 }
 

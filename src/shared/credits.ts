@@ -213,6 +213,9 @@ export async function companyForAdmin(companyId: string) {
       name: tables.companies.name,
       clerkOrgId: tables.companies.clerkOrgId,
       intelCompanyId: tables.companies.intelCompanyId,
+      about: tables.companies.about,
+      values: tables.companies.values,
+      cultureNotes: tables.companies.cultureNotes,
       createdAt: tables.companies.createdAt,
     })
     .from(tables.companies)

@@ -8,6 +8,7 @@ import {
   Header,
   ImageRun,
   LevelFormat,
+  LineRuleType,
   Packer,
   PageNumber,
   Paragraph,
@@ -49,11 +50,53 @@ export type ExportMeta = {
   roleId: string;
   version: number;
   status: "draft" | "approved";
-  /** Only ever a logo supplied for THIS client; none is looked up. Absent → the client's name. */
+  /** The client's logo for the header's right side; the client's name stands in when absent. */
   clientLogo?: ClientLogo | null;
 };
 
 export type ClientLogo = { data: Buffer; type: "png" | "jpg"; width: number; height: number };
+
+/** Pixel size from the file header: PNG IHDR, or the JPEG start-of-frame marker. */
+function imageInfo(buf: Buffer): Omit<ClientLogo, "data"> | null {
+  if (buf.length > 24 && buf.readUInt32BE(0) === 0x89504e47) {
+    return { type: "png", width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < buf.length && buf[i] === 0xff) {
+      const marker = buf[i + 1];
+      const len = buf.readUInt16BE(i + 2);
+      if (marker >= 0xc0 && marker <= 0xc3) {
+        return { type: "jpg", height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+      }
+      i += 2 + len;
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetches the client's logo for the export header. The URL is the one
+ * company-logo.ts found on the company's own site (Company Intel). PNG and
+ * JPEG only: SVG and ICO can't be embedded by both libraries, and Google's
+ * favicon fallback is too small to print. Anything unusable → null, and the
+ * header shows the company name instead; a download never fails on a logo.
+ */
+export async function loadClientLogo(url: string | null | undefined): Promise<ClientLogo | null> {
+  if (!url || !/^https:\/\//i.test(url) || /google\.com\/s2\/favicons/i.test(url)) return null;
+  try {
+    const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const data = Buffer.from(await res.arrayBuffer());
+    if (data.length > 3_000_000) return null;
+    const info = imageInfo(data);
+    // A square icon under 64px is a favicon, not a logo.
+    if (!info || !info.width || !info.height || Math.max(info.width, info.height) < 64) return null;
+    return { data, ...info };
+  } catch {
+    return null;
+  }
+}
 
 /** Scales a logo into a box, keeping its proportions. */
 function fit(l: { width: number; height: number }, maxW: number, maxH: number) {
@@ -252,18 +295,18 @@ const NONE = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
 export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Buffer> {
   meta = { ...meta, company: clientName(markdown, meta.company) };
   const runs = (rs: Run[], color = BODY, size = 22, boldColor = color) =>
-    rs.map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic, color: r.bold ? boldColor : color, size }));
+    rs.map((r) => new TextRun({ font: "Calibri", text: r.text, bold: r.bold, italics: r.italic, color: r.bold ? boldColor : color, size }));
 
   const body: (Paragraph | Table)[] = [
     new Paragraph({
-      children: [new TextRun({ text: kicker(meta), color: GREY, size: 18, bold: true })],
-      spacing: { after: 80 },
+      children: [new TextRun({ font: "Calibri", text: kicker(meta), color: GREY, size: 18, bold: true })],
+      spacing: { lineRule: LineRuleType.AUTO, after: 80 },
     }),
     new Paragraph({
       children: [new TextRun({ text: meta.title, font: "Georgia", size: 60, color: NAVY })],
-      spacing: { after: 60 },
+      spacing: { lineRule: LineRuleType.AUTO, after: 60 },
     }),
-    new Paragraph({ spacing: { after: 280 } }),
+    new Paragraph({ spacing: { lineRule: LineRuleType.AUTO, after: 280 } }),
   ];
 
   const glance = (rows: { label: string; value: string }[]) =>
@@ -280,7 +323,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
                 width: { size: 2600, type: WidthType.DXA },
                 borders: { top: { style: BorderStyle.SINGLE, size: 4, color: RULE }, bottom: { style: BorderStyle.SINGLE, size: 4, color: RULE }, left: NONE, right: NONE },
                 margins: { top: 120, bottom: 120, left: 0, right: 160 },
-                children: [new Paragraph({ children: [new TextRun({ text: r.label.toUpperCase(), bold: true, color: GREY, size: 18 })] })],
+                children: [new Paragraph({ children: [new TextRun({ font: "Calibri", text: r.label.toUpperCase(), bold: true, color: GREY, size: 18 })] })],
               }),
               new TableCell({
                 width: { size: CONTENT_W - 2600, type: WidthType.DXA },
@@ -323,13 +366,13 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
       prev = last;
       continue;
     } else if (b.kind === "fields") {
-      body.push(glance(b.rows), new Paragraph({ spacing: { after: 80 } }));
+      body.push(glance(b.rows), new Paragraph({ spacing: { lineRule: LineRuleType.AUTO, after: 80 } }));
     } else if (b.kind === "heading") {
       if (b.level === 3) {
         body.push(
           new Paragraph({
             children: [new TextRun({ text: headingText(b), font: "Georgia", size: 24, color: NAVY })],
-            spacing: { before: 280, after: 100 },
+            spacing: { lineRule: LineRuleType.AUTO, before: 280, after: 100 },
             keepNext: true,
           })
         );
@@ -338,7 +381,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
           new Paragraph({
             children: [new TextRun({ text: headingText(b), font: "Georgia", size: 32, color: NAVY })],
             border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: GOLD, space: 8 } },
-            spacing: { before: 360, after: 140 },
+            spacing: { lineRule: LineRuleType.AUTO, before: 360, after: 140 },
             keepNext: true,
           })
         );
@@ -349,7 +392,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
           children: runs(b.runs),
           // A fresh instance per list, so each numbered list restarts at 1.
           numbering: { reference: b.ordered ? "jd-numbers" : "jd-bullets", level: 0, instance: b.list },
-          spacing: { after: 80, line: 300 },
+          spacing: { lineRule: LineRuleType.AUTO, after: 80, line: 300 },
         })
       );
     } else if (b.kind === "quote" && (b.hero || b.title)) {
@@ -361,7 +404,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
             children: b.hero
               ? [new TextRun({ text: b.title, font: "Georgia", size: 56, color: GOLD })]
               : [new TextRun({ text: b.title, font: "Georgia", size: 26, color: NAVY })],
-            spacing: { after: b.hero ? 60 : 80 },
+            spacing: { lineRule: LineRuleType.AUTO, after: b.hero ? 60 : 80 },
           })
         );
       }
@@ -370,30 +413,30 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
           children: b.hero
             ? b.runs.map((r) => new TextRun({ text: r.text, font: "Georgia", italics: true, bold: r.bold, color: BODY, size: 26 }))
             : runs(b.runs, BODY, 22, NAVY),
-          spacing: { line: b.hero ? 320 : 300 },
+          spacing: { lineRule: LineRuleType.AUTO, line: b.hero ? 320 : 300 },
         })
       );
       // Straight after the glance table, the table's last rule closes the panel's top.
       if (last === "fields") body.pop();
-      body.push(panel(inner, last !== "fields"), new Paragraph({ spacing: { after: 80 } }));
+      body.push(panel(inner, last !== "fields"), new Paragraph({ spacing: { lineRule: LineRuleType.AUTO, after: 80 } }));
     } else if (b.kind === "quote") {
       body.push(
         new Paragraph({
           children: runs(b.runs, BODY, 22, NAVY),
           border: { left: { style: BorderStyle.SINGLE, size: 12, color: GOLD, space: 10 } },
           indent: { left: 200 },
-          spacing: { before: 120, after: 160, line: 300 },
+          spacing: { lineRule: LineRuleType.AUTO, before: 120, after: 160, line: 300 },
         })
       );
     } else {
-      body.push(new Paragraph({ children: runs(b.runs, BODY, 22, NAVY), spacing: { after: 140, line: 300 } }));
+      body.push(new Paragraph({ children: runs(b.runs, BODY, 22, NAVY), spacing: { lineRule: LineRuleType.AUTO, after: 140, line: 300 } }));
     }
   }
 
   const png = logo();
   const headerLeft = png
     ? new ImageRun({ type: "png", data: png, transformation: { width: 104, height: Math.round(104 * LOGO_RATIO) }, altText: { name: "Susan Pike & Partners", description: "Susan Pike & Partners logo", title: "Susan Pike & Partners" } })
-    : new TextRun({ text: "SUSAN PIKE & PARTNERS", bold: true, color: NAVY, size: 18 });
+    : new TextRun({ font: "Calibri", text: "SUSAN PIKE & PARTNERS", bold: true, color: NAVY, size: 18 });
 
   // Client logo fits a 147×40 px box (COREX in the briefing is 110×31).
   const cl = meta.clientLogo;
@@ -404,7 +447,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
   const doc = new Document({
     creator: "Susan Pike & Partners",
     title: `${meta.title} — Job description`,
-    styles: { default: { document: { run: { font: "Calibri", size: 22, color: BODY } } } },
+    styles: { default: { document: { run: { font: "Calibri", size: 22, color: BODY }, paragraph: { spacing: { line: 276, lineRule: LineRuleType.AUTO } } } } },
     numbering: {
       config: [
         {
@@ -415,7 +458,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
               format: LevelFormat.BULLET,
               text: "–",
               alignment: AlignmentType.LEFT,
-              style: { paragraph: { indent: { left: 440, hanging: 300 } }, run: { bold: true, color: GOLD } },
+              style: { paragraph: { indent: { left: 440, hanging: 300 } }, run: { font: "Calibri", bold: true, color: GOLD } },
             },
           ],
         },
@@ -442,7 +485,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
               new Paragraph({
                 tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
                 border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: RULE, space: 8 } },
-                spacing: { after: 160 },
+                spacing: { lineRule: LineRuleType.AUTO, after: 160 },
                 children: [headerLeft, new TextRun({ children: [new Tab()] }), headerRight],
               }),
             ],
@@ -454,9 +497,9 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
               new Paragraph({
                 tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
                 children: [
-                  new TextRun({ text: footerText(meta), color: GREY, size: 16 }),
+                  new TextRun({ font: "Calibri", text: footerText(meta), color: GREY, size: 16 }),
                   new TextRun({ children: [new Tab()] }),
-                  new TextRun({ children: [PageNumber.CURRENT], color: GREY, size: 16 }),
+                  new TextRun({ font: "Calibri", children: [PageNumber.CURRENT], color: GREY, size: 16 }),
                 ],
               }),
             ],
