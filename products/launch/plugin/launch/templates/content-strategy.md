@@ -10,6 +10,9 @@ Who I want to reach on LinkedIn:
 2.
 3.
 
+## Voices I admire (3–5, for inspiration, never copied)
+-
+
 ## Rhythm
 - Posts per week: 2
 - Preferred days: Tue, Thu

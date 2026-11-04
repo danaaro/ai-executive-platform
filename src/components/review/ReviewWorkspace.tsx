@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileDown, ShieldCheck, Sparkles } from "lucide-react";
+import { CheckCircle2, Pencil, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { MarkdownLite } from "./MarkdownLite";
+import { DownloadMenu } from "./DownloadMenu";
+import { parseJson } from "@/lib/api";
 import { cleanDeliverable } from "@/shared/clean-deliverable";
 import { pendingTurnKey } from "@/components/intake/InterviewWorkspace";
 import { relativeTime } from "@/lib/utils";
@@ -21,7 +23,27 @@ import type { ProjectDetail } from "@/components/board/stage-types";
  * Same approval and request-changes calls as before. A revision request is
  * recorded in the oversight trail, then handed to the interview page, which
  * sends it to the agent as the next turn.
+ *
+ * Direct editing (Dana, 2026-11-01): "Edit" opens the document section by
+ * section; saving stores a new draft version, which is then approved. After
+ * approval, "Make changes" does the same from the approved text, so every
+ * approved version stays as it was and the next one gets its own approval.
  */
+
+type Section = { heading: string | null; body: string };
+
+/** Splits the Markdown at its "## " headings; the part before the first one is the header. */
+function splitSections(md: string): Section[] {
+  const out: Section[] = [{ heading: null, body: "" }];
+  for (const line of md.split("\n")) {
+    const h = /^##\s+(.*)$/.exec(line);
+    if (h) out.push({ heading: h[1].trim(), body: "" });
+    else out[out.length - 1].body += (out[out.length - 1].body ? "\n" : "") + line;
+  }
+  return out.map((x) => ({ ...x, body: x.body.trim() })).filter((x) => x.heading !== null || x.body);
+}
+const joinSections = (secs: Section[]) =>
+  secs.map((x) => (x.heading !== null ? `## ${x.heading.trim()}\n\n${x.body.trim()}` : x.body.trim())).join("\n\n") + "\n";
 
 type Artifact = {
   content: string;
@@ -54,6 +76,7 @@ export function ReviewWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [revise, setRevise] = useState("");
+  const [sections, setSections] = useState<Section[] | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -112,6 +135,33 @@ export function ReviewWorkspace({
   }
 
   const approved = artifact?.status === "approved";
+  const editing = sections !== null;
+
+  async function saveEdits() {
+    if (!sections || !artifact) return;
+    const content = joinSections(sections);
+    if (content.trim() === cleanDeliverable(artifact.content).trim()) {
+      setSections(null);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await parseJson<{ id: string }>(
+        await fetch("/api/agents/job-description/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content, projectId, label: "Job description (edited)" }),
+        })
+      );
+      onChanged();
+      router.replace(`/projects/${projectId}/review?artifact=${r.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save your changes");
+      setBusy(false);
+    }
+  }
+  const startEditing = () => artifact && setSections(splitSections(cleanDeliverable(artifact.content)));
 
   return (
     <>
@@ -141,7 +191,34 @@ export function ReviewWorkspace({
             </p>
           )}
           <div className="mt-8 text-[15px]">
-            {artifact ? (
+            {editing ? (
+              <div className="space-y-6">
+                <p className="text-xs text-faint">
+                  Edit any section. Keep &quot;- &quot; at the start of a bullet line, and **text** for bold. Saving creates a new version; the current one stays as it is.
+                </p>
+                {sections!.map((sec, i) => (
+                  <div key={i} className="card-surface p-4">
+                    {sec.heading !== null ? (
+                      <input
+                        className="field mb-2 font-display text-lg"
+                        value={sec.heading}
+                        aria-label="Section heading"
+                        onChange={(e) => setSections((x) => x!.map((y, j) => (j === i ? { ...y, heading: e.target.value } : y)))}
+                      />
+                    ) : (
+                      <p className="label-mono mb-2">Header</p>
+                    )}
+                    <textarea
+                      className="field font-mono text-[13px] leading-relaxed"
+                      style={{ minHeight: `${Math.min(40, Math.max(4, sec.body.split("\n").length + 1)) * 1.6}em` }}
+                      value={sec.body}
+                      aria-label={sec.heading ?? "Header"}
+                      onChange={(e) => setSections((x) => x!.map((y, j) => (j === i ? { ...y, body: e.target.value } : y)))}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : artifact ? (
               <MarkdownLite text={cleanDeliverable(artifact.content)} />
             ) : error ? null : (
               <div className="space-y-3">
@@ -176,21 +253,42 @@ export function ReviewWorkspace({
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           {error && <Alert tone="danger">{error}</Alert>}
 
-          {approved ? (
+          {editing ? (
+            <div className="card-surface p-6">
+              <p className="label-mono mb-3">Editing</p>
+              <p className="text-sm text-muted">Your changes are saved as v{(data.stages.find((s) => s.slug === "job-description")?.latest?.version ?? artifact?.version ?? 0) + 1}, a new draft. Then approve it.</p>
+              <button className="btn btn-gold gold-glow mt-5 w-full" onClick={saveEdits} disabled={busy}>
+                <Save className="size-4" /> {busy ? "Saving…" : "Save as new version"}
+              </button>
+              <button className="btn btn-ghost mt-2 w-full" onClick={() => setSections(null)} disabled={busy}>
+                Cancel
+              </button>
+            </div>
+          ) : approved ? (
             <div className="card-surface p-6 text-center">
               <CheckCircle2 className="mx-auto size-10 text-success" />
               <h3 className="mt-3 font-display text-2xl font-normal text-ink">Approved</h3>
-              <p className="mt-2 text-sm text-muted">This job description is final. A change creates a new version.</p>
-              <Link href={`/projects/${projectId}`} className="btn btn-ghost mt-5 w-full">
+              <p className="mt-2 text-sm text-muted">This version is locked. Changes are saved as a new version, which you approve again.</p>
+              {data.canWrite && (
+                <button className="btn btn-gold mt-5 w-full" onClick={startEditing}>
+                  <Pencil className="size-4" /> Make changes
+                </button>
+              )}
+              <Link href={`/projects/${projectId}`} className="btn btn-ghost mt-2 w-full">
                 Back to role
               </Link>
             </div>
           ) : (
             <div className="card-surface p-6">
               <p className="label-mono mb-3">Your decision</p>
-              <p className="text-sm text-muted">Read it through, ask the agent to revise, or approve.</p>
+              <p className="text-sm text-muted">Read it through, edit it yourself or ask the agent to revise, then approve.</p>
+              {data.canWrite && (
+                <button className="btn btn-ghost mt-5 w-full" onClick={startEditing} disabled={busy || !artifact}>
+                  <Pencil className="size-4" /> Edit
+                </button>
+              )}
               <button
-                className="btn btn-gold gold-glow mt-5 w-full"
+                className="btn btn-gold gold-glow mt-2 w-full"
                 onClick={approve}
                 disabled={busy || !artifact || !data.canWrite}
               >
@@ -200,27 +298,14 @@ export function ReviewWorkspace({
             </div>
           )}
 
-          <div className="card-surface p-6">
-            <p className="label-mono mb-3">Download</p>
-            {/* Dana 2026-10-29: downloads open at 80% readiness, i.e. as soon as a job description exists, not on approval. */}
-            {artifact ? (
-              <>
-                <a className="btn btn-ghost w-full" href={`/api/artifacts/${artifactId}/download?format=docx`} download>
-                  <FileDown className="size-4" /> Word document
-                </a>
-                <a className="btn btn-ghost mt-2 w-full" href={`/api/artifacts/${artifactId}/download?format=pdf`} download>
-                  <FileDown className="size-4" /> PDF
-                </a>
-              </>
-            ) : (
-              <Skeleton className="h-20 w-full" />
-            )}
-            <p className="mt-3 text-xs text-faint">
-              This version{artifact ? ` (v${artifact.version}, ${approved ? "approved" : "draft"})` : ""}, with the Role ID in the footer.
-            </p>
-          </div>
+          {artifact && !editing && (
+            <DownloadMenu
+              artifactId={artifactId}
+              note={`This version (v${artifact.version}, ${approved ? "approved" : "draft"}), with the Role ID in the footer.`}
+            />
+          )}
 
-          {!approved && data.canWrite && (
+          {!approved && !editing && data.canWrite && (
             <div className="card-surface p-6">
               <p className="label-mono mb-3">Ask the agent</p>
               <textarea

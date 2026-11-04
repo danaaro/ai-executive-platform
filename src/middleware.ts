@@ -58,6 +58,12 @@ export default clerkMiddleware(async (auth, req) => {
   // dance — that mechanism depends on the browser having already loaded Clerk's
   // script and is not observable/testable with a plain HTTP client.
   await auth.protect({ unauthenticatedUrl: new URL("/sign-in", req.url).toString() });
+
+  // The page's own path, for layouts that send a super admin through
+  // /api/admin/enter and back (src/shared/enter-company.ts).
+  const forwarded = new Headers(req.headers);
+  forwarded.set("x-pathname", req.nextUrl.pathname + req.nextUrl.search);
+  return NextResponse.next({ request: { headers: forwarded } });
 });
 
 export const config = {

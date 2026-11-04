@@ -47,8 +47,10 @@ export default function ProjectsPage() {
         setNoCompany(Boolean(d.noCompany));
         setCompanyName(d.companyName ?? null);
         setCredits(typeof d.credits === "number" ? d.credits : null);
-        setOwned(d.owned ?? []);
-        setShared(d.shared ?? []);
+        // Archived roles are hidden here; Exec10X admins restore them (Dana 2026-11-01).
+        const live = (list: Project[] = []) => list.filter((p) => p.status !== "archived");
+        setOwned(live(d.owned));
+        setShared(live(d.shared));
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : "Could not load your roles");

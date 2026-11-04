@@ -35,7 +35,8 @@
     "secure:tenancy": "tsx scripts/secure-tenancy.ts",
     "test:tenancy": "tsx scripts/test-tenant-isolation.ts",
     "rehearse:tenancy": "tsx scripts/rehearse-tenancy.ts",
-    "test:e2e-jd": "tsx scripts/test-jd-e2e.ts"
+    "test:e2e-jd": "tsx scripts/test-jd-e2e.ts",
+    "test:interview-kit": "tsx scripts/test-interview-kit.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
@@ -43,6 +44,7 @@
     "@elevenlabs/react": "^1.10.0",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-slot": "^1.3.3",
+    "ajv": "^8.17.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "docx": "^9.5.1",
@@ -56,6 +58,7 @@
     "postgres": "^3.4.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.35.5",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

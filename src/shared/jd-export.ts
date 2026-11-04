@@ -36,7 +36,8 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFP
  *
  * Both libraries are pure JavaScript on purpose. pdf-parse's native canvas
  * dependency is what broke PDF upload on Vercel ("DOMMatrix is not defined");
- * nothing here may need a native module. The logo PNG is the one file read
+ * the one native module, sharp (SVG logos → PNG), is loaded lazily and may
+ * fail without breaking a download. The logo PNG is the one file read
  * from disk, and it is in outputFileTracingIncludes (next.config.mjs).
  *
  * Input is the same Markdown subset MarkdownLite renders: #/##/### headings,
@@ -52,6 +53,10 @@ export type ExportMeta = {
   status: "draft" | "approved";
   /** The client's logo for the header's right side; the client's name stands in when absent. */
   clientLogo?: ClientLogo | null;
+  /** Document kind for the kicker and file name; default "Job description". */
+  docLabel?: string;
+  /** Documents without an approval step (the interview kit) print no Draft/Approved state. */
+  noState?: boolean;
 };
 
 export type ClientLogo = { data: Buffer; type: "png" | "jpg"; width: number; height: number };
@@ -76,19 +81,41 @@ function imageInfo(buf: Buffer): Omit<ClientLogo, "data"> | null {
 }
 
 /**
+ * SVG, WebP or GIF → PNG, so the real logo from Company Intel prints (Dana,
+ * 2026-11-01: COREX's logo is an SVG and the header showed its name instead).
+ * sharp is native, so it is loaded lazily and any failure falls back to the
+ * name — a download never fails on a logo.
+ */
+async function toPng(data: Buffer): Promise<Buffer | null> {
+  try {
+    const sharp = (await import("sharp")).default;
+    return await sharp(data, { density: 300 }).resize({ height: 240, fit: "inside", withoutEnlargement: false }).png().toBuffer();
+  } catch {
+    return null;
+  }
+}
+
+const isSvg = (data: Buffer, type: string) => /svg/i.test(type) || /^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg/i.test(data.subarray(0, 2000).toString("utf-8"));
+
+/**
  * Fetches the client's logo for the export header. The URL is the one
  * company-logo.ts found on the company's own site (Company Intel). PNG and
- * JPEG only: SVG and ICO can't be embedded by both libraries, and Google's
- * favicon fallback is too small to print. Anything unusable → null, and the
- * header shows the company name instead; a download never fails on a logo.
+ * JPEG are embedded as they are; SVG, WebP and GIF are converted to PNG.
+ * Google's favicon fallback is too small to print. Anything unusable → null,
+ * and the header shows the company name instead; a download never fails on a logo.
  */
 export async function loadClientLogo(url: string | null | undefined): Promise<ClientLogo | null> {
   if (!url || !/^https:\/\//i.test(url) || /google\.com\/s2\/favicons/i.test(url)) return null;
   try {
     const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(4000) });
     if (!res.ok) return null;
-    const data = Buffer.from(await res.arrayBuffer());
+    let data: Buffer = Buffer.from(await res.arrayBuffer());
     if (data.length > 3_000_000) return null;
+    if (!imageInfo(data) && (isSvg(data, res.headers.get("content-type") ?? "") || /image\/(webp|gif)/i.test(res.headers.get("content-type") ?? ""))) {
+      const png = await toPng(data);
+      if (!png) return null;
+      data = png;
+    }
     const info = imageInfo(data);
     // A square icon under 64px is a favicon, not a logo.
     if (!info || !info.width || !info.height || Math.max(info.width, info.height) < 64) return null;
@@ -99,7 +126,7 @@ export async function loadClientLogo(url: string | null | undefined): Promise<Cl
 }
 
 /** Scales a logo into a box, keeping its proportions. */
-function fit(l: { width: number; height: number }, maxW: number, maxH: number) {
+export function fit(l: { width: number; height: number }, maxW: number, maxH: number) {
   const k = Math.min(maxW / l.width, maxH / l.height);
   return { width: Math.round(l.width * k), height: Math.round(l.height * k) };
 }
@@ -109,24 +136,26 @@ export function roleId(projectId: string): string {
   return `R-${projectId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
 
-export function exportFilename(meta: ExportMeta, ext: "docx" | "pdf"): string {
+export function exportFilename(meta: ExportMeta, ext: string): string {
   const slug = meta.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "role";
-  return `${slug}-job-description-v${meta.version}.${ext}`;
+  const kind = (meta.docLabel ?? "Job description").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return `${slug}-${kind}-v${meta.version}.${ext}`;
 }
 
-function footerText(meta: ExportMeta): string {
-  const state = meta.status === "approved" ? "Approved" : "Draft";
-  return `${meta.company}  ·  ${meta.title}  ·  Confidential  ·  Role ID ${meta.roleId}  ·  v${meta.version} ${state}`;
+export function footerText(meta: ExportMeta): string {
+  const state = meta.noState ? "" : meta.status === "approved" ? " Approved" : " Draft";
+  return `${meta.company}  ·  ${meta.title}  ·  Confidential  ·  Role ID ${meta.roleId}  ·  v${meta.version}${state}`;
 }
 
-function kicker(meta: ExportMeta): string {
-  return meta.status === "approved" ? "JOB DESCRIPTION · CONFIDENTIAL" : "JOB DESCRIPTION · DRAFT";
+export function kicker(meta: ExportMeta): string {
+  const kind = (meta.docLabel ?? "Job description").toUpperCase();
+  return meta.noState || meta.status === "approved" ? `${kind} · CONFIDENTIAL` : `${kind} · DRAFT`;
 }
 
 const LOGO_PATH = path.join(process.cwd(), "src/shared/assets/spp-logo.png");
 let logoCache: Buffer | null | undefined;
 /** Susan Pike & Partners logo (600×303). Missing file → text fallback, never a failed download. */
-function logo(): Buffer | null {
+export function logo(): Buffer | null {
   if (logoCache === undefined) {
     try {
       logoCache = fs.readFileSync(LOGO_PATH);
@@ -136,7 +165,7 @@ function logo(): Buffer | null {
   }
   return logoCache;
 }
-const LOGO_RATIO = 303 / 600;
+export const LOGO_RATIO = 303 / 600;
 
 /* ---------------- Markdown → blocks ---------------------------------------- */
 
@@ -446,7 +475,7 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
 
   const doc = new Document({
     creator: "Susan Pike & Partners",
-    title: `${meta.title} — Job description`,
+    title: `${meta.title} — ${meta.docLabel ?? "Job description"}`,
     styles: { default: { document: { run: { font: "Calibri", size: 22, color: BODY }, paragraph: { spacing: { line: 276, lineRule: LineRuleType.AUTO } } } } },
     numbering: {
       config: [
@@ -512,6 +541,111 @@ export async function renderDocx(markdown: string, meta: ExportMeta): Promise<Bu
   return Packer.toBuffer(doc);
 }
 
+/* ---------------- HTML + plain text (Dana, 2026-11-01: more download formats) */
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const htmlRuns = (rs: Run[]) => rs.map((r) => (r.bold ? `<b>${esc(r.text)}</b>` : r.italic ? `<i>${esc(r.text)}</i>` : esc(r.text))).join("");
+
+/** Inline styles only, so the layout survives a paste into Google Docs, Gmail or Outlook. */
+export const HTML_STYLE = {
+  body: "font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#3D3D3D;line-height:1.45;max-width:780px;margin:32px auto;padding:0 16px;",
+  h1: "font-family:Georgia,serif;font-weight:normal;font-size:28pt;color:#0D1B3B;margin:4px 0 8px;",
+  h2: "font-family:Georgia,serif;font-weight:normal;font-size:16pt;color:#0D1B3B;border-bottom:1px solid #BA9A5A;padding-bottom:4px;margin:24px 0 10px;",
+  h3: "font-family:Georgia,serif;font-weight:normal;font-size:12.5pt;color:#0D1B3B;margin:18px 0 6px;",
+  kicker: "font-size:9pt;font-weight:bold;color:#6B6B6B;letter-spacing:.08em;margin:0;",
+  table: "border-collapse:collapse;width:100%;margin:8px 0 14px;",
+  th: "border:1px solid #D4D4D4;background:#F3EBDA;color:#0D1B3B;font-size:9pt;text-align:left;padding:6px 8px;vertical-align:top;",
+  td: "border:1px solid #D4D4D4;font-size:10pt;padding:6px 8px;vertical-align:top;",
+  quote: "border-left:3px solid #BA9A5A;margin:10px 0;padding:4px 12px;",
+  footer: "margin-top:32px;border-top:1px solid #D4D4D4;padding-top:8px;font-size:8pt;color:#6B6B6B;",
+};
+
+const dataUri = (buf: Buffer, type: string) => `data:${type};base64,${buf.toString("base64")}`;
+
+/** The header row (both logos), title and kicker, shared by the JD and the kit. */
+export function htmlHead(meta: ExportMeta): string {
+  const png = logo();
+  const left = png ? `<img src="${dataUri(png, "image/png")}" alt="Susan Pike &amp; Partners" width="104" height="${Math.round(104 * LOGO_RATIO)}">` : "<b>SUSAN PIKE &amp; PARTNERS</b>";
+  const cl = meta.clientLogo;
+  const size = cl ? fit(cl, 147, 40) : null;
+  const right = cl && size ? `<img src="${dataUri(cl.data, cl.type === "png" ? "image/png" : "image/jpeg")}" alt="${esc(meta.company)}" width="${size.width}" height="${size.height}">` : `<span style="font-family:Georgia,serif;font-size:12pt;color:#0D1B3B;">${esc(meta.company)}</span>`;
+  return `<table style="width:100%;border-collapse:collapse;border-bottom:1px solid #D4D4D4;margin-bottom:24px;"><tr><td style="padding:0 0 8px;">${left}</td><td style="padding:0 0 8px;text-align:right;">${right}</td></tr></table>
+<p style="${HTML_STYLE.kicker}">${esc(kicker(meta))}</p>
+<h1 style="${HTML_STYLE.h1}">${esc(meta.title)}</h1>`;
+}
+
+export function htmlDocument(meta: ExportMeta, body: string): string {
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(meta.title)} — ${esc(meta.docLabel ?? "Job description")}</title></head>
+<body style="${HTML_STYLE.body}">
+${htmlHead(meta)}
+${body}
+<p style="${HTML_STYLE.footer}">${esc(footerText(meta))}</p>
+</body></html>`;
+}
+
+/** Markdown → HTML body with the export's look (lists grouped, header fields as a table). */
+export function markdownToHtmlBody(markdown: string, title: string): string {
+  const out: string[] = [];
+  let open: { list: number; tag: "ul" | "ol" } | null = null;
+  const close = () => {
+    if (open) out.push(`</${open.tag}>`);
+    open = null;
+  };
+  for (const b of dropLeadingTitle(parseBlocks(markdown), title)) {
+    if (b.kind !== "item") close();
+    if (b.kind === "heading") {
+      const tag = b.level === 3 ? "h3" : "h2";
+      out.push(`<${tag} style="${HTML_STYLE[tag]}">${esc(headingText(b))}</${tag}>`);
+    } else if (b.kind === "para") out.push(`<p>${htmlRuns(b.runs)}</p>`);
+    else if (b.kind === "quote") out.push(`<blockquote style="${HTML_STYLE.quote}">${b.title ? `<p style="margin:0 0 4px;"><b>${esc(b.title)}</b></p>` : ""}<p style="margin:0;">${htmlRuns(b.runs)}</p></blockquote>`);
+    else if (b.kind === "fields") {
+      out.push(`<table style="${HTML_STYLE.table}">${b.rows.map((r) => `<tr><th style="${HTML_STYLE.th}width:30%;">${esc(r.label)}</th><td style="${HTML_STYLE.td}">${htmlRuns(inlineRuns(r.value))}</td></tr>`).join("")}</table>`);
+    } else if (b.kind === "rule") out.push("<hr>");
+    else {
+      const tag = b.ordered ? "ol" : "ul";
+      const cur = open as { list: number; tag: "ul" | "ol" } | null;
+      if (!cur || cur.list !== b.list || cur.tag !== tag) {
+        close();
+        out.push(`<${tag}>`);
+        open = { list: b.list, tag };
+      }
+      out.push(`<li>${htmlRuns(b.runs)}</li>`);
+    }
+  }
+  close();
+  return out.join("\n");
+}
+
+export function renderHtml(markdown: string, meta: ExportMeta): string {
+  meta = { ...meta, company: clientName(markdown, meta.company) };
+  return htmlDocument(meta, markdownToHtmlBody(markdown, meta.title));
+}
+
+/**
+ * Plain text in the style Susan's prompts use for ATS fields (Ashby, Workday,
+ * LinkedIn): UPPERCASE headings, "• " bullets, no Markdown symbols.
+ */
+export function renderText(markdown: string, meta: ExportMeta): string {
+  meta = { ...meta, company: clientName(markdown, meta.company) };
+  const plain = (rs: Run[]) => rs.map((r) => r.text).join("");
+  const lines: string[] = [meta.title.toUpperCase(), meta.company, ""];
+  let prev: Block["kind"] | null = null;
+  for (const b of dropLeadingTitle(parseBlocks(markdown), meta.title)) {
+    if (b.kind === "heading") lines.push("", headingText(b).toUpperCase());
+    else if (b.kind === "item") lines.push(`${b.ordered ? `${b.n}.` : "•"} ${plain(b.runs)}`);
+    else if (b.kind === "fields") lines.push(...b.rows.map((r) => `${r.label}: ${r.value.replace(/\*\*/g, "")}`), "");
+    else if (b.kind === "rule") lines.push("");
+    else {
+      if (prev === "item") lines.push("");
+      lines.push(...(b.kind === "quote" && b.title ? [b.title] : []), plain(b.runs), "");
+    }
+    prev = b.kind;
+  }
+  lines.push("", footerText(meta));
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+}
+
 /* ---------------- PDF ------------------------------------------------------ */
 
 const hex = (h: string) => rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255);
@@ -519,7 +653,7 @@ const hex = (h: string) => rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.sli
 export async function renderPdf(markdown: string, meta: ExportMeta): Promise<Buffer> {
   meta = { ...meta, company: clientName(markdown, meta.company) };
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`${meta.title} — Job description`);
+  pdf.setTitle(`${meta.title} — ${meta.docLabel ?? "Job description"}`);
   pdf.setAuthor("Susan Pike & Partners");
   pdf.setCreator("Exec10X");
 

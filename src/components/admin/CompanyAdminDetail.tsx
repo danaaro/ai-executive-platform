@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { NewPositionDialog } from "@/components/project/NewPositionDialog";
@@ -192,11 +192,17 @@ export function CompanyAdminDetail({
                 themselves.
               </div>
             ) : (
-              roles.map((r) => (
+              [...roles]
+                // Archived roles last, under their own heading (Dana 2026-11-01).
+                .sort((a, b) => Number(a.status === "archived") - Number(b.status === "archived"))
+                .map((r, i, all) => (
+                <Fragment key={r.id}>
+                {r.status === "archived" && all[i - 1]?.status !== "archived" && (
+                  <p className="label-mono pt-6">Archived roles</p>
+                )}
                 <Link
-                  key={r.id}
-                  href={`/internal/companies/${companyId}/roles/${r.id}`}
-                  className="card-surface flex flex-wrap items-center gap-x-6 gap-y-2 p-5 transition hover:border-accent/50"
+                  href={`/projects/${r.id}`}
+                  className={`card-surface flex flex-wrap items-center gap-x-6 gap-y-2 p-5 transition hover:border-accent/50 ${r.status === "archived" ? "opacity-60" : ""}`}
                 >
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate font-display text-xl font-normal text-ink">
@@ -218,10 +224,11 @@ export function CompanyAdminDetail({
                   <span
                     className={`label-mono w-28 text-right ${stageClass[r.stage]}`}
                   >
-                    {r.stage}
+                    {r.status === "archived" ? "Archived" : r.stage}
                   </span>
                   <ArrowUpRight className="size-4 text-faint" />
                 </Link>
+                </Fragment>
               ))
             )}
           </div>

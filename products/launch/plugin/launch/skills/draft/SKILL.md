@@ -22,7 +22,7 @@ If the audience or point is genuinely unclear, ask **one** short question. Other
 
 Follow post-craft.md for shape, flags and output format. Write it in their voice per `voice.md`. If the profile is `provisional`, say so in a few words after the draft ("Voice still provisional; your edits will sharpen it").
 
-Update the tracker: Status = `Awaiting approval`, Hook, Draft, Sources.
+Update the tracker: Status = `Awaiting approval`, Hook, Draft, Sources, Share driver.
 
 ## After the draft
 

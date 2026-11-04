@@ -10,12 +10,13 @@ import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { ArrowUpRight, ClipboardList, FileText, Lock } from "lucide-react";
 import type { ProjectDetail, Stage } from "@/components/board/stage-types";
+import { RoleAdminControls } from "@/components/project/RoleAdminControls";
 
 /**
  * Role page — the hub for one role, in the Exec10X/Lovable layout: the role's
  * locked facts, then the two steps of the customer journey as boxes:
  * Job Description (Step 1 — opens the briefing or the review) and the
- * Interview kit (Step 2 — placeholder until it is built; unlocks on approval).
+ * Interview kit (Step 2 — opens once a job description has been generated, K1).
  * The older agent stages are hidden for now (Dana, 2026-10-17).
  */
 export default function BoardPage() {
@@ -136,9 +137,21 @@ function Board() {
           </div>
         </div>
 
+        {data.viewerRole === "admin" && (
+          <RoleAdminControls
+            projectId={params.id}
+            role={{ ...data.project, salaryMin: data.project.salaryMin ?? null, salaryMax: data.project.salaryMax ?? null, salaryCurrency: data.project.salaryCurrency ?? null, showSalaryOnJd: data.project.showSalaryOnJd ?? false }}
+            onChanged={load}
+          />
+        )}
+
         <div className="grid gap-4 md:grid-cols-2">
           {jd && <JobDescriptionBox projectId={params.id} stage={jd} />}
-          <InterviewKitBox unlocked={jd?.status === "done"} />
+          <InterviewKitBox
+            projectId={params.id}
+            unlocked={Boolean(jd?.latest)}
+            kits={data.kitVersion ?? 0}
+          />
         </div>
       </main>
     </>
@@ -187,24 +200,33 @@ function JobDescriptionBox({ projectId, stage }: { projectId: string; stage: Sta
   );
 }
 
-function InterviewKitBox({ unlocked }: { unlocked: boolean }) {
+function InterviewKitBox({ projectId, unlocked, kits }: { projectId: string; unlocked: boolean; kits: number }) {
   return (
-    <div className="card-surface flex flex-col p-7 opacity-80">
+    <div className={`card-surface flex flex-col p-7 ${unlocked ? "" : "opacity-80"}`}>
       <div className="flex items-start justify-between">
-        <div className="flex size-12 items-center justify-center rounded-full bg-elevated text-faint">
+        <div className={`flex size-12 items-center justify-center rounded-full bg-elevated ${unlocked ? "text-accent" : "text-faint"}`}>
           <ClipboardList className="size-5" />
         </div>
-        <span className="label-mono">Coming next</span>
+        <span className={`label-mono ${kits ? "text-ink" : unlocked ? "text-accent" : ""}`}>
+          {kits ? `Kit ready · v${kits}` : unlocked ? "Ready to build" : "Locked"}
+        </span>
       </div>
       <p className="label-mono mt-6">Step 2</p>
       <h2 className="mt-1 font-display text-2xl font-normal text-ink">Interview kit</h2>
       <p className="mt-2 text-sm text-muted">
-        Built from the approved job description: the interview plan, questions and the confidential recruiter brief.
+        How we assess, the recruiter screen and the interview guide: questions and a rubric for every area, built from the job description you choose.
       </p>
       <div className="mt-6">
-        <span className="btn btn-ghost pointer-events-none opacity-60">
-          <Lock className="size-4" /> {unlocked ? "Coming soon" : "Unlocks when the job description is approved"}
-        </span>
+        {unlocked ? (
+          <Link href={`/projects/${projectId}/kit`} className="btn btn-gold">
+            {kits ? "Open interview kit" : "Build the interview kit"}
+            <ArrowUpRight className="size-4" />
+          </Link>
+        ) : (
+          <span className="btn btn-ghost pointer-events-none opacity-60">
+            <Lock className="size-4" /> Opens once the job description is generated
+          </span>
+        )}
       </div>
     </div>
   );

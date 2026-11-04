@@ -13,6 +13,8 @@ import {
   inviteToCompany,
 } from "@/shared/current-user";
 import { deriveStages } from "@/orchestrator/stages";
+import { logAdminAction } from "@/shared/credits";
+import { applyTitleToDocuments } from "@/shared/role-rename";
 
 /**
  * Board (#1b) — everything one hiring position needs in a single fetch:
@@ -88,6 +90,8 @@ export const GET = tenantRoute(async function GET(
     viewerRole: role,
     canWrite: canWrite(role),
     canAdminister: canAdminister(role),
+    // Step 2: newest interview kit version (0 = none yet).
+    kitVersion: artifactRows.filter((r) => r.agentSlug === "interview-kit").reduce((m, r) => Math.max(m, r.version), 0),
     stages,
     conversations: conversationRows,
     members: memberRows.map((m) => ({
@@ -100,9 +104,18 @@ export const GET = tenantRoute(async function GET(
 });
 
 /**
- * Status changes (`open / draft / filled / archived` chips on #4b). The title
- * is locked once opened (ADR-011). Owner or admin only — an editor may work inside a position but
- * not redefine or close it.
+ * Status changes (`open / draft / filled / archived` chips on #4b), and
+ * corrections to the locked role facts.
+ *
+ * - Status: owner or super admin; archiving and restoring an archived role
+ *   are super admins only (Dana 2026-11-01). Archiving never refunds the
+ *   credit: super admins adjust credits by hand on the company account page.
+ * - Title, salary range, currency and "show salary": locked once the role is
+ *   opened (ADR-011: a different role needs a new credit), EXCEPT for super
+ *   admins, who correct mistakes such as a misspelt title (Dana 2026-11-01).
+ *   Every correction is logged with the old and new values. With
+ *   `applyTitleToDocuments`, the newest JD and kit get a new version carrying
+ *   the new title (src/shared/role-rename.ts).
  */
 export const PATCH = tenantRoute(async function PATCH(
   req: NextRequest,
@@ -121,24 +134,85 @@ export const PATCH = tenantRoute(async function PATCH(
       { status: 403 }
     );
   }
+  const superAdmin = user.role === "admin";
 
   const body = await req.json().catch(() => ({}));
-  const update: { status?: "open" | "draft" | "filled" | "archived"; updatedAt: Date } =
-    { updatedAt: new Date() };
+  const [current] = await db()
+    .select({
+      title: tables.projects.title,
+      status: tables.projects.status,
+      salaryMin: tables.projects.salaryMin,
+      salaryMax: tables.projects.salaryMax,
+      salaryCurrency: tables.projects.salaryCurrency,
+      showSalaryOnJd: tables.projects.showSalaryOnJd,
+    })
+    .from(tables.projects)
+    .where(eq(tables.projects.id, id))
+    .limit(1);
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const update: {
+    status?: "open" | "draft" | "filled" | "archived";
+    title?: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    salaryCurrency?: string;
+    showSalaryOnJd?: boolean;
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
 
   if (body.status !== undefined) {
     if (!["open", "draft", "filled", "archived"].includes(body.status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
+    const touchesArchive = body.status === "archived" || current.status === "archived";
+    if (touchesArchive && !superAdmin && body.status !== current.status) {
+      return NextResponse.json({ error: "Only Exec10X admins can archive or restore a role" }, { status: 403 });
+    }
     update.status = body.status;
   }
-  // ADR-011: title and salary range are locked once the role is opened —
-  // a different role needs a new credit.
-  if (body.title !== undefined || body.salaryMin !== undefined || body.salaryMax !== undefined || body.salaryCurrency !== undefined) {
-    return NextResponse.json(
-      { error: "The role title and salary range are locked once the role is opened." },
-      { status: 400 }
-    );
+
+  const locked = ["title", "salaryMin", "salaryMax", "salaryCurrency", "showSalaryOnJd"].filter((k) => body[k] !== undefined);
+  if (locked.length > 0) {
+    if (!superAdmin) {
+      return NextResponse.json(
+        { error: "The role title and salary range are locked once the role is opened. Ask Exec10X to correct them." },
+        { status: 400 }
+      );
+    }
+    if (body.title !== undefined) {
+      const title = typeof body.title === "string" ? body.title.replace(/\s+/g, " ").trim() : "";
+      if (title.length < 2 || title.length > 200) {
+        return NextResponse.json({ error: "The title must be 2 to 200 characters" }, { status: 400 });
+      }
+      update.title = title;
+    }
+    const money = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 100_000_000 ? (v as number) : null);
+    if (body.salaryMin !== undefined) {
+      const v = money(body.salaryMin);
+      if (v === null) return NextResponse.json({ error: "Invalid minimum salary" }, { status: 400 });
+      update.salaryMin = v;
+    }
+    if (body.salaryMax !== undefined) {
+      const v = money(body.salaryMax);
+      if (v === null) return NextResponse.json({ error: "Invalid maximum salary" }, { status: 400 });
+      update.salaryMax = v;
+    }
+    const min = update.salaryMin ?? current.salaryMin;
+    const max = update.salaryMax ?? current.salaryMax;
+    if (min !== null && max !== null && min > max) {
+      return NextResponse.json({ error: "The minimum salary is above the maximum" }, { status: 400 });
+    }
+    if (body.salaryCurrency !== undefined) {
+      if (typeof body.salaryCurrency !== "string" || !/^[A-Za-z]{3}$/.test(body.salaryCurrency)) {
+        return NextResponse.json({ error: "Currency must be a 3-letter code" }, { status: 400 });
+      }
+      update.salaryCurrency = body.salaryCurrency.toUpperCase();
+    }
+    if (body.showSalaryOnJd !== undefined) {
+      if (typeof body.showSalaryOnJd !== "boolean") return NextResponse.json({ error: "Invalid value" }, { status: 400 });
+      update.showSalaryOnJd = body.showSalaryOnJd;
+    }
   }
 
   const [row] = await db()
@@ -151,7 +225,29 @@ export const PATCH = tenantRoute(async function PATCH(
       status: tables.projects.status,
     });
 
-  return NextResponse.json({ project: row });
+  let documents: Awaited<ReturnType<typeof applyTitleToDocuments>> | null = null;
+  if (update.title && update.title !== current.title && body.applyTitleToDocuments === true) {
+    documents = await applyTitleToDocuments(id, current.title, update.title, user);
+  }
+
+  if (superAdmin && (locked.length > 0 || update.status === "archived" || current.status === "archived")) {
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    for (const k of [...locked, ...(update.status ? ["status"] : [])]) {
+      const from = current[k as keyof typeof current];
+      const to = update[k as keyof typeof update];
+      if (from !== to) changes[k] = { from, to };
+    }
+    if (Object.keys(changes).length > 0) {
+      await logAdminAction({
+        adminUserId: user.id,
+        action: update.status === "archived" && current.status !== "archived" ? "role.archive" : "role.edit",
+        companyId: user.companyId,
+        details: { projectId: id, changes, reason: typeof body.reason === "string" ? body.reason.slice(0, 500) : null, documents },
+      });
+    }
+  }
+
+  return NextResponse.json({ project: row, documents });
 });
 
 /** Invite a collaborator to an existing position. Owner or admin only. */

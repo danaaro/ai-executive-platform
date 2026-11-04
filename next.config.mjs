@@ -7,7 +7,7 @@ const nextConfig = {
   // traced files, so these must be included explicitly or every agent route
   // 500s in production with ENOENT.
   outputFileTracingIncludes: {
-    "/api/**": ["./products/**/*.md", "./prompts/**/*.md", "./src/components/company-intel/exec10x/*.html", "./src/shared/assets/*.png"],
+    "/api/**": ["./products/**/*.md", "./products/**/prompts/**/*.json", "./prompts/**/*.md", "./src/components/company-intel/exec10x/*.html", "./src/shared/assets/*.png"],
   },
   // pdf-parse v2 wraps pdfjs-dist, which webpack cannot bundle: it mutates
   // globals and loads its worker dynamically, so the bundled copy threw

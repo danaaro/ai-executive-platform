@@ -18,6 +18,8 @@ export const MODELS = {
   STEP_AGENTS: "claude-sonnet-5-5",
   /** Writing the candidate-facing JD from the answers + company context. Once per role (+ revisions): quality matters most here. */
   JD_WRITER: "claude-opus-5-5",
+  /** Interview kit, both parts (Susan's Hiring Toolkit PRD §7.4: highest-value output, quality over speed). */
+  KIT_WRITER: "claude-opus-5-5",
   /** Progress meter fallback (section coverage from a transcript). High volume, simple judgment. */
   METER: "claude-haiku-5-5",
   /** Reserved: a model check for security flags, if keyword rules + the agent's own replies ever miss too much (today: no model). */

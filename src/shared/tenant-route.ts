@@ -1,5 +1,6 @@
 import { withTenant } from "@/db";
 import { dbEnabled, requireUser } from "@/shared/current-user";
+import { logActingWrite } from "@/shared/acting-audit";
 
 /**
  * Runs a whole (short, non-streaming) route handler inside the signed-in
@@ -17,6 +18,7 @@ export function tenantRoute<A extends unknown[]>(
   return async (...args: A) => {
     if (!dbEnabled()) return handler(...args);
     const user = await requireUser();
+    if (args[0] instanceof Request) await logActingWrite(user, args[0]);
     return withTenant(user?.companyId ?? null, () => handler(...args));
   };
 }

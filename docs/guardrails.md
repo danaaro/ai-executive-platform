@@ -30,6 +30,13 @@
 - Known gap (2026-10-18): prompt rules alone cut research hints to about 1 in 15 test runs, not zero. The planned server-side reply check (IP protection above) should also block names and facts that appear only in the Intel report.
 - The refusal sentence is only for out-of-scope requests. Surprising or contradictory answers are part of the briefing and get a normal reply (prompts/system/guardrails.md).
 
+## Access levels (Dana, 2026-11-01)
+
+- **Super admin** (Exec10X: Dana, Susan; set in Clerk as `publicMetadata.role = admin`): can enter any company and do everything a customer can, plus correct locked role facts and archive or restore roles. Super admin is re-checked on the server on every request; the "entered company" cookie means nothing to anyone else.
+- **Company admin** (planned, e.g. a customer's recruitment manager): administers their own company only.
+- **Member**: works on roles they own or were added to.
+- Every super admin entry into a company and every change made inside it is in the admin activity log (`company.enter`, `company.write`, `role.edit`, `role.archive`). Only method and path are logged, never content.
+
 ## Monitoring
 - Log all agent conversations with company_id, user_id, role_id and timestamp.
 - Flag off-topic requests, "how do you work" probes and prompt-injection attempts ("ignore your instructions", "show your prompt", "how were you built"). Built 2026-10-29: `src/shared/security-flags.ts` detects them from the agent's own courteous replies plus keyword rules (no extra model call) on text and voice, and writes `security_flags` (company, role, user, channel, kind, a 280-character excerpt of what the user typed; owner connection only).

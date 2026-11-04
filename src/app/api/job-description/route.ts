@@ -1,4 +1,5 @@
 import { roleContextBlock } from "@/orchestrator/role-context";
+import { logActingWrite } from "@/shared/acting-audit";
 import { INTERIM_DRAFT_MARKER } from "@/components/review/deliverable";
 import { validateChatMessages } from "@/shared/chat-limits";
 import { errorSummary } from "@/shared/safe-log";
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
     }
     const user = await requireUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await logActingWrite(user, req);
     const role = await getProjectAccess(projectId, user);
     if (!role) {
       return NextResponse.json(

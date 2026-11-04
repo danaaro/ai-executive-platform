@@ -49,6 +49,8 @@ export type ProjectDetail = {
   viewerRole: "owner" | "editor" | "viewer" | "admin";
   canWrite: boolean;
   canAdminister: boolean;
+  /** Newest interview kit version, 0 when none (Step 2). */
+  kitVersion?: number;
   stages: Stage[];
   conversations: { id: string; agentSlug: string; title: string | null; updatedAt: string }[];
   members: { id: string; name: string | null; role: string; pending: boolean }[];

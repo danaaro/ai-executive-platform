@@ -10,13 +10,14 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/rules.md`, then `content-strategy.md` and 
 ## Steps
 
 1. **What's already there.** Count open items: drafts awaiting approval, approved but not posted, ideas with dates this week. If the week is already covered, say so, list them, and offer to draft the next one. Stop there.
-2. **What works (the feedback loop).** If the Stats tab has 3 or more posts, look at which pillars, hooks and days did best, plus the "What works" notes in `content-strategy.md`. Lean this week's picks toward that, and say so in one line ("Your story-led posts get about 2× the reactions, so both picks open with a moment").
-3. **Research (at most 3 web searches).** Look for the last 2–3 weeks of news in their industry, their company and their pillars. If ideas come from "me" (the user) only, skip research and ask for their 1–2 ideas instead.
+2. **What works (the feedback loop).** If the Stats tab has 3 or more posts, look at which pillars, hooks, share drivers and days did best (rank by reposts and saves first, then comments, then reactions), plus the "What works" notes in `content-strategy.md`. Lean this week's picks toward that, and say so in one line ("Your story-led posts get about 2× the reactions, so both picks open with a moment").
+3. **Research (at most 3 web searches).** Look for the last 2–3 weeks of news in their industry, their company and their pillars. If `content-strategy.md` lists voices they admire, one search may look at what those people recently published publicly, for angles and hook patterns only: learn, adapt, never copy. Only read public pages; never scrape LinkedIn. If ideas come from "me" (the user) only, skip research and ask for their 1–2 ideas instead.
 4. **Keep an idea bank of about 10.** Unused `Idea` rows without a date are the bank. Top it up to about 10 from the research, without duplicates, and drop stale news ideas older than 4 weeks (Status = Dropped).
 5. **Pick this week's posts from the bank to match the frequency** (for example 2 posts → 2 picks plus 1 spare). For each:
    - **Day and date** (spread through the week; default Tue and Thu morning)
    - **Topic** and pillar
    - **Angle:** one line on why *they* in particular should say this
+   - **Share driver:** solution (useful), shock (surprising) or opinion (a clear stand). Mix them across the week.
    - **Source:** a link and date if researched, or "from your context"
 6. Ask: "Keep these? Swap any? (I have N more ideas in the bank.)" Then give the kept ones a Planned date in the Pipeline.
 7. Offer to draft the first one now.
@@ -27,6 +28,6 @@ The first time this runs, offer once: "Want me to do this every Monday morning?"
 
 ## Gradual profiling
 
-If one missing fact would clearly improve the ideas (for example, upcoming moments such as a launch or a conference), ask that **one** question at the end and save the answer.
+If one missing fact would clearly improve the ideas (for example, upcoming moments such as a launch or a conference, or 3–5 voices they admire on LinkedIn), ask that **one** question at the end and save the answer.
 
 End with the status line and the commands footer.

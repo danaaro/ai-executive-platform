@@ -1,4 +1,5 @@
 import { validateChatMessages } from "@/shared/chat-limits";
+import { logActingWrite } from "@/shared/acting-audit";
 import { errorSummary } from "@/shared/safe-log";
 import { withTenant } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
@@ -68,6 +69,7 @@ export async function POST(
     }
     const user = await requireUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await logActingWrite(user, req);
     preflightCompanyId = user.companyId;
     const role = await getProjectAccess(projectId, user);
     if (!role) {

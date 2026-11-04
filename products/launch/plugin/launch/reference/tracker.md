@@ -20,7 +20,8 @@ Header in row 1, frozen. One row per post.
 | J | Posted date | date | You, when the user says it's posted |
 | K | Post URL | link | User |
 | L | Sources | links used for research | You |
-| M | Notes | anything else | Either |
+| M | Share driver | Solution / Shock / Opinion | You |
+| N | Notes | anything else | Either |
 
 Status changes only on the user's word: "approve" → Approved; "I posted it" → Posted. Never infer Posted from a date passing.
 
@@ -35,9 +36,12 @@ Status changes only on the user's word: "approve" → Approved; "I posted it" �
 | E | Reactions |
 | F | Comments |
 | G | Reposts |
-| H | Engagement rate (formula: `=(E+F+G)/D`, as %) |
-| I | Logged on |
-| J | Source (Pasted / Read in Chrome) |
+| H | Saves |
+| I | Engagement rate (formula: `=(E+F+G+H)/D`, as %) |
+| J | Logged on |
+| K | Source (Pasted / Read in Chrome) |
+
+"What works" is ranked by reposts and saves first, then comments, then reactions. Shares and saves show real value; reactions are cheap.
 
 Add a bar chart of Impressions by post next to the table, and refresh it when rows are added. If chart creation fails, skip it silently; the numbers matter more.
 

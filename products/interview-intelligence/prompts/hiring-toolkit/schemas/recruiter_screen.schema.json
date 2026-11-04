@@ -1,0 +1,127 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Recruiter Screen",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "intro",
+  "running_order",
+  "areas",
+  "do_not_ask"
+ ],
+ "properties": {
+  "intro": {
+   "type": "string"
+  },
+  "running_order": {
+   "type": "array",
+   "minItems": 4,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "minutes",
+     "what"
+    ],
+    "properties": {
+     "minutes": {
+      "type": "string",
+      "pattern": "^[0-9]{1,2}-[0-9]{1,2}$"
+     },
+     "what": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "areas": {
+   "type": "array",
+   "minItems": 8,
+   "maxItems": 9,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "name",
+     "checks",
+     "questions",
+     "rubric"
+    ],
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "checks": {
+      "type": "string"
+     },
+     "questions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "q",
+        "probes"
+       ],
+       "properties": {
+        "q": {
+         "type": "string",
+         "minLength": 10
+        },
+        "probes": {
+         "type": "array",
+         "minItems": 2,
+         "maxItems": 3,
+         "items": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     },
+     "rubric": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "level",
+        "text"
+       ],
+       "properties": {
+        "level": {
+         "type": "string",
+         "enum": [
+          "High",
+          "Medium",
+          "Low",
+          "Top 5%",
+          "Top 20%",
+          "Top 50%",
+          "Below",
+          "Aligned",
+          "Unclear",
+          "Risk",
+          "Met",
+          "Not met"
+         ]
+        },
+        "text": {
+         "type": "string",
+         "minLength": 20
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "do_not_ask": {
+   "type": "string"
+  }
+ }
+}

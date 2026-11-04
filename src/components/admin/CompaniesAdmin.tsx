@@ -118,9 +118,11 @@ export function CompaniesAdmin() {
                 </div>
               ))
             : companies.map((c) => (
-                <Link
+                // A plain link, never a prefetched <Link>: opening a company
+                // switches the admin into it (/api/admin/enter), on click only.
+                <a
                   key={c.id}
-                  href={`/internal/companies/${c.id}`}
+                  href={`/api/admin/enter?company=${c.id}&next=${encodeURIComponent(`/internal/companies/${c.id}`)}`}
                   className={`card-surface group p-6 transition hover:border-accent/50 ${
                     created?.companyId === c.id ? "border-accent ring-1 ring-accent/40" : ""
                   }`}
@@ -147,7 +149,7 @@ export function CompaniesAdmin() {
                       {c.intelAttached ? "Intel attached" : "No Intel"}
                     </p>
                   </div>
-                </Link>
+                </a>
               ))}
         </div>
         {companies?.length === 0 && !adding && <p className="text-muted">No companies yet.</p>}

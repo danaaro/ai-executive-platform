@@ -1,14 +1,16 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireAdmin } from "@/shared/current-user";
-import { AdminRoleView } from "@/components/admin/AdminRoleView";
 
-/** Admin read-only view of one customer role. Admins only; others get 404. */
+/**
+ * Old address of the read-only admin role view. Super admins now work in the
+ * real role page, inside the company (Dana 2026-11-01); the company layout
+ * above has already moved them into it.
+ */
 export const dynamic = "force-dynamic";
 
 export default async function AdminRolePage({ params }: { params: Promise<{ id: string; roleId: string }> }) {
   const user = await requireAdmin();
   if (!user) notFound();
-  const { id, roleId } = await params;
-  // Own company: the admin is also a customer user there and can work the role in the app.
-  return <AdminRoleView companyId={id} roleId={roleId} ownCompany={user.companyId === id} />;
+  const { roleId } = await params;
+  redirect(`/projects/${roleId}`);
 }

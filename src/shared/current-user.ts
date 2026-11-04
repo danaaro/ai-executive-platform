@@ -1,6 +1,6 @@
 import { errorSummary } from "@/shared/safe-log";
 import { auth, clerkClient } from "@clerk/nextjs/server";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { and, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
 import { db, adminDb, withTenant, tables } from "@/db";
 
@@ -14,9 +14,12 @@ import { db, adminDb, withTenant, tables } from "@/db";
  * Tenancy (ADR-010): every user acts inside ONE customer company — the Clerk
  * Organization active in their session, resolved on the server to our
  * `companies` row. The company is never read from the request. Nothing of
- * another company is visible, admins included: platform admin (Dana, Susan)
- * is admin *within* their own company here; cross-company admin views get
- * their own audited path in the admin back office.
+ * another company is visible to customers. Super admins (Dana, Susan;
+ * Dana 2026-11-01) can work inside ANY company: entering one in the admin
+ * back office sets ACTING_COMPANY_COOKIE, and for a super admin — re-checked
+ * on every request — that company replaces the session's. Everything below
+ * (row-level security, getProjectAccess) then applies unchanged, scoped to
+ * that one company. The cookie means nothing for anyone else.
  *
  * Authorization: company first, then per-project membership (ADR-008), NOT
  * `createdBy`. `getProjectAccess()` is the single choke point — every route
@@ -30,7 +33,33 @@ export type CurrentUser = {
   email: string | null;
   /** The customer company of this session, or null = sees no customer data. */
   companyId: string | null;
+  /** Set only while a super admin works inside another company: their own company. */
+  homeCompanyId?: string | null;
 };
+
+/** The company a super admin has entered in the back office (see header note). */
+export const ACTING_COMPANY_COOKIE = "exec10x_acting_company";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function actingCompanyCookie(): Promise<string | null> {
+  try {
+    const v = (await cookies()).get(ACTING_COMPANY_COOKIE)?.value ?? "";
+    return UUID.test(v) ? v : null;
+  } catch {
+    return null; // outside a request (scripts)
+  }
+}
+
+/** A super admin inside an entered company works as that company; anyone else is unchanged. */
+async function withActingCompany(user: CurrentUser, acting: string | null): Promise<CurrentUser> {
+  if (user.role !== "admin" || !acting || acting === user.companyId) return user;
+  const [row] = await adminDb()
+    .select({ id: tables.companies.id })
+    .from(tables.companies)
+    .where(eq(tables.companies.id, acting))
+    .limit(1);
+  return row ? { ...user, companyId: row.id, homeCompanyId: user.companyId } : user;
+}
 export type ProjectRole = "owner" | "editor" | "viewer" | "admin";
 
 const cache = new Map<string, { user: CurrentUser; at: number }>();
@@ -47,16 +76,18 @@ export async function requireUser(): Promise<CurrentUser | null> {
   const { userId, orgId } = await auth();
   if (!userId) return null;
 
-  // Keyed by organization too: switching company in the session must never
-  // serve the previous company from cache.
-  const key = `${userId}:${orgId ?? ""}`;
+  const acting = await actingCompanyCookie();
+  // Keyed by organization and entered company too: switching company must
+  // never serve the previous company from cache.
+  const key = `${userId}:${orgId ?? ""}:${acting ?? ""}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.user;
 
   // Fast path: one database read — our synced copy, plus the session
   // organization's company when the session names one.
-  const fresh = await fromRecentSync(userId, orgId ?? null);
-  if (fresh) {
+  const synced = await fromRecentSync(userId, orgId ?? null);
+  if (synced) {
+    const fresh = await withActingCompany(synced, acting);
     cache.set(key, { user: fresh, at: Date.now() });
     return fresh;
   }
@@ -85,7 +116,7 @@ export async function requireUser(): Promise<CurrentUser | null> {
   // cache miss.
   if (email && companyId) await claimPendingInvites(userId, email, companyId);
 
-  const user: CurrentUser = { id: userId, role, email, companyId };
+  const user = await withActingCompany({ id: userId, role, email, companyId }, acting);
   cache.set(key, { user, at: Date.now() });
   return user;
 }
@@ -344,7 +375,8 @@ async function projectAccessInScope(projectId: string, user: CurrentUser): Promi
   if (!project) return null;
 
   // ADR-010: another company's project does not exist for this user — same
-  // answer as a missing one, so ids cannot be probed. Admins included.
+  // answer as a missing one, so ids cannot be probed. A super admin reaches
+  // it by entering that company first (ACTING_COMPANY_COOKIE).
   if (!user.companyId || project.companyId !== user.companyId) return null;
 
   if (user.role === "admin") return "admin";

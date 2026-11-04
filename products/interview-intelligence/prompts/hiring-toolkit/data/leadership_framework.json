@@ -1,0 +1,450 @@
+{
+ "name": "Executive Leadership & Future Readiness Framework",
+ "version": "2026-10-31",
+ "recommended": "5 core competencies plus 2-3 role-specific ones (7-8 in total)",
+ "clusters": [
+  {
+   "name": "Lead the Future",
+   "description": "Vision and foresight: seeing what is coming and positioning the organization ahead of it."
+  },
+  {
+   "name": "Lead the Business",
+   "description": "Transformation and AI: changing how the business works and delivering value from it."
+  },
+  {
+   "name": "Lead People & the Organization",
+   "description": "People and organization: building the teams, culture and relationships the future requires."
+  },
+  {
+   "name": "Lead Self",
+   "description": "Self-leadership: the foundation for leading others through constant change."
+  }
+ ],
+ "scale": {
+  "Limited": "Limited or inconsistent evidence. Behaviors appear only when prompted; impact is mostly personal.",
+  "Borderline": "Some evidence. Applies the competency in familiar situations; impact is visible within their own team.",
+  "Solid": "Consistent evidence. Applies it reliably and proactively; measurable impact across their function.",
+  "Outstanding": "Strong, sustained evidence. Shapes how others work; impact across the enterprise or industry; others learn from them.",
+  "N/A": "Insufficient evidence. Not enough evidence to rate. Name what is missing."
+ },
+ "calibration": {
+  "N-1 executive": {
+   "scope": "Their function or business unit",
+   "level3": "Executes and scales the C-level agenda in their area",
+   "evidence": "Function KPIs, team metrics, initiatives delivered"
+  },
+  "C-level": {
+   "scope": "The whole enterprise and its ecosystem",
+   "level3": "Sets direction, investment priorities and culture for the organization",
+   "evidence": "Enterprise KPIs, board and investor feedback, market position"
+  }
+ },
+ "competencies": [
+  {
+   "no": 1,
+   "name": "Strategic Foresight & Scenario Thinking",
+   "cluster": "Lead the Future",
+   "core": false,
+   "definition": "Anticipates disruption from technology, markets, regulation and geopolitics, and turns it into strategic options.",
+   "areas": [
+    "scanning for weak signals",
+    "building scenarios",
+    "translating trends into concrete choices",
+    "long-term versus short-term balance"
+   ],
+   "evidence": "one scenario or foresight exercise that shaped a strategic decision, investment or risk response.",
+   "rubric": {
+    "Limited": "Focuses on the current year; reacts to change after it happens.",
+    "Borderline": "Follows major trends; occasionally discusses their impact but rarely acts on them.",
+    "Solid": "Regularly scans trends, builds 2–3 scenarios for their area and adjusts plans and investments accordingly.",
+    "Outstanding": "Shapes enterprise strategy through foresight; spots disruptions early and positions the company ahead of competitors."
+   },
+   "questions": [
+    "Which trend will most change your industry in the next 3–5 years, and what have you done about it already?",
+    "Tell me about a time you acted on an early signal before others did."
+   ]
+  },
+  {
+   "no": 2,
+   "name": "Thought Leadership & External Voice",
+   "cluster": "Lead the Future",
+   "core": false,
+   "definition": "Shapes the conversation in their industry and positions the company as a forward-thinking leader.",
+   "areas": [
+    "a clear, distinctive point of view",
+    "external visibility (conferences, LinkedIn, media, industry bodies)",
+    "bringing outside insights back into the organization",
+    "credibility with peers"
+   ],
+   "evidence": "a defined thought-leadership agenda plus 2–4 external contributions (keynote, article, panel, podcast) with reach or engagement data.",
+   "rubric": {
+    "Limited": "Little external presence; no clear point of view beyond their role.",
+    "Borderline": "Occasional external activity, mostly reactive or generic content.",
+    "Solid": "A clear point of view on the future of their domain; contributes externally several times a year; brings insights back to the team.",
+    "Outstanding": "A recognized industry voice; sets the agenda in their field; attracts talent, clients and partners to the company."
+   },
+   "questions": [
+    "What do you believe about the future of your field that most peers don't?",
+    "How has your external voice created value for your organization?"
+   ]
+  },
+  {
+   "no": 3,
+   "name": "Customer & Value Obsession",
+   "cluster": "Lead the Future",
+   "core": false,
+   "definition": "Anchors decisions in customer value and future market needs.",
+   "areas": [
+    "depth of customer insight",
+    "outside-in thinking",
+    "designing new value propositions",
+    "steering with customer metrics"
+   ],
+   "evidence": "improvement in customer KPIs (NPS, retention, time-to-value) or a new offer shaped by customer insight.",
+   "rubric": {
+    "Limited": "Decisions are driven by internal priorities; limited direct customer contact.",
+    "Borderline": "Considers customer feedback when it is presented; customer metrics are tracked but rarely drive action.",
+    "Solid": "Spends regular time with customers; uses customer data and AI insights to shape priorities; improves customer KPIs.",
+    "Outstanding": "Anticipates needs customers have not expressed; creates new value propositions or business models; builds a customer-first culture."
+   },
+   "questions": [
+    "When did you last change a major decision because of customer insight?",
+    "How do you anticipate needs customers can't yet articulate?"
+   ]
+  },
+  {
+   "no": 4,
+   "name": "Sustainability & Purpose-Led Leadership",
+   "cluster": "Lead the Future",
+   "core": false,
+   "definition": "Integrates long-term environmental, social and governance value into strategy and execution.",
+   "areas": [
+    "ESG and CSRD-related targets for their scope",
+    "long-term societal impact of decisions",
+    "connecting the team to the company's purpose"
+   ],
+   "evidence": "ESG targets met for their scope plus one sustainability-driven business improvement.",
+   "rubric": {
+    "Limited": "Treats sustainability as a compliance topic owned by others.",
+    "Borderline": "Meets required ESG targets; purpose is mentioned but not linked to daily decisions.",
+    "Solid": "Embeds ESG targets in plans; finds business value in sustainability; team understands how their work links to purpose.",
+    "Outstanding": "Makes sustainability a competitive advantage; shapes the enterprise ESG strategy; recognized externally for purpose-led leadership."
+   },
+   "questions": [
+    "Give an example where sustainability created business value, not only cost.",
+    "How do you connect your team to the company's purpose?"
+   ]
+  },
+  {
+   "no": 5,
+   "name": "AI Fluency & Agentic Ways of Working",
+   "cluster": "Lead the Business",
+   "core": true,
+   "definition": "Leads by example and creates the conditions for the team to use AI confidently and responsibly.",
+   "areas": [
+    "own use of AI in executive work (decision prep, analysis, board communication)",
+    "sponsoring team adoption and upskilling",
+    "responsible-use guardrails",
+    "understanding what AI agents can and cannot do"
+   ],
+   "evidence": "one recurring AI or agentic use case in their own work plus measurable team adoption (e.g., % of team actively using approved tools, upskilling completed).",
+   "rubric": {
+    "Limited": "Rarely uses AI personally; delegates AI topics to IT or specialists.",
+    "Borderline": "Uses AI for occasional tasks; supports team adoption when asked.",
+    "Solid": "Uses AI and agents routinely in their own work; actively drives team adoption and upskilling; sets clear guardrails.",
+    "Outstanding": "Visible AI champion; shapes enterprise AI ambition; their area is a benchmark for adoption that others copy."
+   },
+   "questions": [
+    "Walk me through how you personally used AI in your work this week.",
+    "How have you increased AI adoption in your team, and how do you measure it?"
+   ]
+  },
+  {
+   "no": 6,
+   "name": "AI-Driven Problem Solving & Workflow Redesign",
+   "cluster": "Lead the Business",
+   "core": true,
+   "definition": "Redesigns workflows and the operating model of their function to create business value with AI.",
+   "areas": [
+    "selecting high-value use cases tied to C-level priorities",
+    "reallocating budget, people and capacity",
+    "cross-functional orchestration",
+    "tracking ROI and scaling or stopping pilots"
+   ],
+   "evidence": "one function-level AI initiative with measurable business impact (cost, cycle time, quality, revenue or customer), reported to the C-level sponsor, with a documented scale-or-stop decision.",
+   "rubric": {
+    "Limited": "AI is used to automate isolated tasks; no link to business outcomes.",
+    "Borderline": "Runs AI pilots, but few reach scale or show measured ROI.",
+    "Solid": "Redesigns end-to-end workflows with AI; delivers measurable impact; scales what works and stops what doesn't.",
+    "Outstanding": "Reinvents the operating or business model with AI; creates new sources of value; sets the enterprise playbook."
+   },
+   "questions": [
+    "Describe a workflow you redesigned with AI. What was the before and after in numbers?",
+    "Tell me about an AI pilot you stopped, and why."
+   ]
+  },
+  {
+   "no": 7,
+   "name": "Transformation & Change Leadership",
+   "cluster": "Lead the Business",
+   "core": false,
+   "definition": "Leads people through continuous change and ambiguity while sustaining performance.",
+   "areas": [
+    "a clear change narrative",
+    "managing resistance",
+    "pacing change to the organization's capacity",
+    "maintaining engagement and results during change"
+   ],
+   "evidence": "a transformation milestone delivered, with engagement or adoption metrics held or improved.",
+   "rubric": {
+    "Limited": "Implements change top-down; resistance and drops in performance are common.",
+    "Borderline": "Communicates change but struggles to sustain momentum or engagement.",
+    "Solid": "Builds a compelling case for change; involves people early; delivers milestones while keeping engagement stable.",
+    "Outstanding": "Makes the organization change-ready as a permanent capability; leads enterprise-wide transformations successfully."
+   },
+   "questions": [
+    "Tell me about the hardest transformation you led. What resistance did you face and how did you handle it?",
+    "How do you know when the organization is at its change capacity?"
+   ]
+  },
+  {
+   "no": 8,
+   "name": "Decisive Judgment Under Uncertainty",
+   "cluster": "Lead the Business",
+   "core": false,
+   "definition": "Makes timely, sound decisions with incomplete information, combining data, AI insight and experience.",
+   "areas": [
+    "speed and quality of decisions",
+    "use of data and AI to inform judgment",
+    "calculated risk-taking",
+    "willingness to course-correct"
+   ],
+   "evidence": "key decisions documented with their rationale plus at least one example of a fast pivot or a decision to stop something.",
+   "rubric": {
+    "Limited": "Delays decisions waiting for certainty, or decides on intuition alone.",
+    "Borderline": "Makes sound decisions in familiar situations; hesitates under ambiguity.",
+    "Solid": "Decides at the right speed with incomplete data; uses data and AI well; adjusts quickly when facts change.",
+    "Outstanding": "Trusted for high-stakes calls; builds a decision culture of speed, accountability and learning across the organization."
+   },
+   "questions": [
+    "Describe a major decision you made with incomplete information. What did you do when it turned out partly wrong?"
+   ]
+  },
+  {
+   "no": 9,
+   "name": "Digital, Cyber & Business Resilience",
+   "cluster": "Lead the Business",
+   "core": false,
+   "definition": "Keeps the business robust against shocks: cyber, supply chain, geopolitical and technological.",
+   "areas": [
+    "cyber awareness at leadership level",
+    "continuity planning",
+    "treating risk as a strategic topic",
+    "crisis leadership"
+   ],
+   "evidence": "a resilience or crisis plan tested (simulation or tabletop exercise), with gaps closed.",
+   "rubric": {
+    "Limited": "Sees resilience and cyber as IT or risk topics; no continuity plan for their area.",
+    "Borderline": "Has plans on paper but they are rarely tested.",
+    "Solid": "Tests plans regularly; understands key cyber and operational risks; leads calmly through incidents.",
+    "Outstanding": "Builds resilience into strategy and design; turns crises into opportunities; sets the enterprise standard."
+   },
+   "questions": [
+    "Tell me about a crisis you led through.",
+    "What would you do in the first 24 hours of a major cyber incident affecting your area?"
+   ]
+  },
+  {
+   "no": 10,
+   "name": "Ecosystem & Partnership Orchestration",
+   "cluster": "Lead the Business",
+   "core": false,
+   "definition": "Creates value beyond the organization's own boundaries through partners, startups, academia and platforms.",
+   "areas": [
+    "building strategic partnerships",
+    "co-innovation",
+    "using external capabilities instead of building everything in-house",
+    "managing partner value"
+   ],
+   "evidence": "one partnership or co-innovation initiative launched or scaled, with defined value.",
+   "rubric": {
+    "Limited": "Works mainly inside the organization; partners are treated as suppliers.",
+    "Borderline": "Manages existing partnerships; limited co-innovation.",
+    "Solid": "Actively builds partnerships that create measurable value; uses the ecosystem to accelerate innovation.",
+    "Outstanding": "Orchestrates an ecosystem that creates a competitive advantage; the company is a partner of choice."
+   },
+   "questions": [
+    "Which partnership created the most value in your career, and how did you build it?",
+    "When do you choose to partner rather than build?"
+   ]
+  },
+  {
+   "no": 11,
+   "name": "People Leadership & Talent Multiplication",
+   "cluster": "Lead People & the Organization",
+   "core": true,
+   "definition": "Inspires, empowers and grows leaders, making the team stronger than the sum of its parts.",
+   "areas": [
+    "setting direction and purpose",
+    "delegating and empowering",
+    "coaching",
+    "psychological safety",
+    "retaining top talent",
+    "developing successors"
+   ],
+   "evidence": "team engagement score, regretted attrition, ready-now successors for key roles, and at least one leader promoted or grown.",
+   "rubric": {
+    "Limited": "Directs and controls; team depends on them for decisions; high regretted attrition.",
+    "Borderline": "Supports the team and gives feedback, but delegates little; succession is thin.",
+    "Solid": "Sets clear direction, empowers and coaches; strong engagement; ready successors for key roles.",
+    "Outstanding": "Known as a builder of leaders; their people are promoted across the company; attracts top talent."
+   },
+   "questions": [
+    "Name two leaders you developed. Where are they now, and what was your role?",
+    "How do you create psychological safety in a high-performance team?"
+   ]
+  },
+  {
+   "no": 12,
+   "name": "Culture & Inclusive Leadership",
+   "cluster": "Lead People & the Organization",
+   "core": false,
+   "definition": "Builds an inclusive, high-trust, high-performance culture fit for constant change.",
+   "areas": [
+    "role-modeling company values",
+    "giving diverse perspectives a real voice",
+    "recognition",
+    "addressing behaviors that undermine the culture"
+   ],
+   "evidence": "inclusion and culture pulse results plus one concrete culture initiative led personally.",
+   "rubric": {
+    "Limited": "Culture is not a priority; tolerates behaviors that conflict with the values.",
+    "Borderline": "Supports culture and inclusion initiatives but rarely leads them.",
+    "Solid": "Role-models the values; actively seeks diverse views; addresses poor behavior promptly; culture scores improve.",
+    "Outstanding": "Shapes the enterprise culture; their area is a benchmark for inclusion and trust."
+   },
+   "questions": [
+    "Tell me about a time you challenged a behavior that conflicted with your values.",
+    "How do you make sure quieter or different voices shape your decisions?"
+   ]
+  },
+  {
+   "no": 13,
+   "name": "Human + AI Workforce Design",
+   "cluster": "Lead People & the Organization",
+   "core": false,
+   "definition": "Shapes the future workforce: roles, skills and human–AI collaboration.",
+   "areas": [
+    "mapping AI's impact on roles",
+    "reskilling plans",
+    "strategic workforce planning for future capabilities",
+    "redesigning roles around human–AI collaboration"
+   ],
+   "evidence": "a future-skills plan for their organization, with reskilling progress and at least one role redesigned.",
+   "rubric": {
+    "Limited": "Plans headcount on today's roles; no view of how AI changes the work.",
+    "Borderline": "Aware of AI's impact on roles; reskilling is ad hoc.",
+    "Solid": "Has mapped AI's impact on roles; runs a reskilling plan; redesigns roles for human–AI collaboration.",
+    "Outstanding": "Defines the enterprise future-of-work strategy; transitions people responsibly and at scale."
+   },
+   "questions": [
+    "How will AI change the roles in your team over the next 2–3 years? What have you already done to prepare your people?"
+   ]
+  },
+  {
+   "no": 14,
+   "name": "Enterprise Mindset & Systems Thinking",
+   "cluster": "Lead People & the Organization",
+   "core": true,
+   "definition": "Optimizes for the whole company, not only their own function.",
+   "areas": [
+    "understanding interdependencies across the business",
+    "collaborating across silos",
+    "sharing resources",
+    "making trade-offs in the enterprise interest"
+   ],
+   "evidence": "one cross-functional initiative co-led, with shared outcomes and feedback from C-suite peers.",
+   "rubric": {
+    "Limited": "Protects their own area; decisions create problems elsewhere.",
+    "Borderline": "Collaborates with peers when needed; trade-offs mostly favor their own function.",
+    "Solid": "Considers enterprise impact in decisions; co-leads cross-functional work; shares resources when it helps the company.",
+    "Outstanding": "Acts as an enterprise leader first; breaks down silos; trusted by peers to represent the whole company."
+   },
+   "questions": [
+    "Tell me about a time you gave up something for your function to benefit the company.",
+    "How do you work with peers whose priorities conflict with yours?"
+   ]
+  },
+  {
+   "no": 15,
+   "name": "Stakeholder & Board Influence",
+   "cluster": "Lead People & the Organization",
+   "core": false,
+   "definition": "Builds trust and alignment with the board, investors, regulators, unions and partners.",
+   "areas": [
+    "executive presence",
+    "storytelling with data",
+    "negotiation",
+    "managing conflicting interests"
+   ],
+   "evidence": "key stakeholder outcomes achieved (approvals, alliances, agreements) plus feedback from the board or CEO.",
+   "rubric": {
+    "Limited": "Communicates mainly within their own area; struggles with senior or external audiences.",
+    "Borderline": "Presents clearly to senior audiences; influence depends on formal authority.",
+    "Solid": "Builds trust with the board and external stakeholders; secures approvals; handles conflicting interests well.",
+    "Outstanding": "A trusted voice with the board and key stakeholders; shapes decisions well beyond their formal role."
+   },
+   "questions": [
+    "Describe a time you won board or investor support for a difficult proposal.",
+    "How did you handle a stakeholder whose interests conflicted with yours?"
+   ]
+  },
+  {
+   "no": 16,
+   "name": "Trust, Ethics & Responsible AI Governance",
+   "cluster": "Lead People & the Organization",
+   "core": false,
+   "definition": "Keeps innovation safe, compliant and trusted by customers, employees and regulators.",
+   "areas": [
+    "applying the EU AI Act and data privacy rules (GDPR)",
+    "escalating risks",
+    "transparency and human oversight of AI decisions",
+    "ethical judgment"
+   ],
+   "evidence": "an AI and data risk review completed for their area, with no unmanaged critical risks.",
+   "rubric": {
+    "Limited": "Sees ethics and compliance as slowing things down; limited awareness of AI risks.",
+    "Borderline": "Follows the rules when reminded; reacts to issues after they occur.",
+    "Solid": "Builds guardrails in from the start; knows the key regulations; ensures human oversight; escalates risks early.",
+    "Outstanding": "Shapes enterprise AI governance; makes trust a competitive advantage; balances innovation and responsibility."
+   },
+   "questions": [
+    "Tell me about a time you stopped or changed an initiative for ethical or compliance reasons.",
+    "How do you make sure AI decisions in your area remain explainable and overseen by people?"
+   ]
+  },
+  {
+   "no": 17,
+   "name": "Self-Mastery & Continuous Growth",
+   "cluster": "Lead Self",
+   "core": true,
+   "definition": "Leads themselves well: self-aware, resilient and continuously improving.",
+   "areas": [
+    "seeking and acting on feedback",
+    "awareness of their own blind spots",
+    "continuous learning (AI, new business models)",
+    "managing energy and wellbeing",
+    "composure under pressure",
+    "humility and openness to challenge"
+   ],
+   "evidence": "a personal development plan with 2–3 goals achieved, 360° feedback showing visible progress, and one habit they changed or stopped.",
+   "rubric": {
+    "Limited": "Rarely seeks feedback; reacts defensively; little investment in their own learning; shows strain under pressure.",
+    "Borderline": "Accepts feedback and has a development plan, but follow-through is inconsistent.",
+    "Solid": "Actively seeks feedback and acts on it; learns continuously; manages energy well; stays composed under pressure.",
+    "Outstanding": "Models vulnerability and growth openly; reinvents their own leadership as the context changes; creates a learning culture around them."
+   },
+   "questions": []
+  }
+ ]
+}

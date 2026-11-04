@@ -16,6 +16,8 @@ Items deliberately kept out of the trial (v0.1). Started 2026-10-31.
 ## Reviewed: Eden's content-agent flow (2026-10-31)
 His flow: profile → connections (Metricool + Apify) → research (what works + 10 ideas) → writing (one idea, every network) → video (cuts, captions, motion) → publish and measure, with the numbers feeding back into research.
 - **Adopted in the trial:** the stats feed back into `/launch:plan-week`, and there's an idea bank of about 10.
-- **Metricool:** the preferred Phase 2 route to auto-posting, scheduling and automatic stats across networks, cleaner than n8n/Make. Kept out of the trial because it adds an account and setup time, and it posts on the user's behalf.
-- **Apify:** not planned. It scrapes LinkedIn (against LinkedIn's terms), needs an API key and paid usage, and breaks the "no external services" security story.
+- **Full guide read** (hub.brainai.co.il/ck-34e0ddf3). It runs as 5 skills in Claude Code / the Code tab, shipped as a zip copied into a folder (our plugin is easier for executives).
+- **Also adopted in v0.1:** a share driver per idea (solution / shock / opinion), a message card above each draft, stats ranked by reposts and saves first (Saves column added), and 3–5 voices they admire as research input (public pages only, never copied).
+- **Metricool:** connects as a Claude connector (Settings → Connectors, no code). Its free plan does **not** include LinkedIn, so it needs a paid plan for us. It schedules posts with approval first. Phase 2 as an optional connector, for scheduling plus automatic stats, cleaner than n8n/Make.
+- **Apify:** not planned. The guide confirms it's used for LinkedIn research because LinkedIn has no official data access, which is scraping against LinkedIn's terms. That's a brand risk for an executive.
 - **One idea → every network, and video:** Phase 2, together with more channels.

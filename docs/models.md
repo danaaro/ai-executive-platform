@@ -26,6 +26,7 @@
 | Progress meter fallback | `METER` | Haiku 5.5 | Section coverage from a transcript: simple, frequent. |
 | Security flags | — (no model) | — | Detected from the agent's own polite replies + keyword rules, at zero cost. `GUARD` (Haiku 5.5) is reserved if a model check is ever needed. |
 | Company Intel research | `INTEL_RESEARCH` | Sonnet 5 | Web search and reading at volume. |
+| **Interview kit** (recruiter screen + interviews, in parallel) | `KIT_WRITER` | **Opus 5.5**, effort medium | Susan's PRD 7.4: highest-value output. Effort medium keeps each part inside the 300 s limit (COREX: 142 s and 197 s). One repair call when the checks fail and under 130 s have passed. |
 | Company Intel cockpit writers (v3) | `INTEL_WRITER` | Sonnet 5.5 | Dana 2026-10-10: Opus was too slow for the 300s limit. |
 | Company Intel synthesis (v1/v2, legacy) | `INTEL_SYNTHESIS` | Opus 5.5 | Old report format only. |
 | Persona photos / logos | `INTEL_PHOTOS` | Sonnet 5 | Uses web tools Haiku lacks. |

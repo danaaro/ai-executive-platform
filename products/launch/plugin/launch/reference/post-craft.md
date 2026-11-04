@@ -31,7 +31,8 @@ For a sensitive post, also give **one alternative angle** with a one-line label 
 ## Output format
 
 1. Status line (see rules).
-2. One line on the angle you took and why.
+2. A 4-line message card, so they can fix the angle before reading the draft:
+   > **Idea:** … · **For:** … · **Why they'd share it:** solution / shock / opinion, in a few words · **Proof:** the real moment, fact or source behind it
 3. The draft in a plain code block, so it copies cleanly.
 4. Flags, if any.
 5. The learning-loop line.
