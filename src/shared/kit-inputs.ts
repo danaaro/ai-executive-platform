@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { adminDb, tables } from "@/db";
+import { adminDb, db as tenantDb, tables } from "@/db";
 import { cleanDeliverable } from "@/shared/clean-deliverable";
 import { clientName } from "@/shared/jd-export";
 import { questionBankIndex } from "@/orchestrator/job-description-orchestrator";
@@ -18,10 +18,11 @@ import {
  * from the role's own workspace; the browser only sends ids and choices, which
  * are re-checked here against the role and its company.
  *
- * Reads with the admin connection on purpose, like role-context.ts: every
- * caller has already established that the project belongs to the session's
- * company, and the Company Intel report lives in admin-only tables. The Intel
- * TEXT never leaves the server — the options only say whether one is attached.
+ * Must run inside withTenant(): every read goes through the tenant connection,
+ * so row-level security limits it to the session's company. The one exception
+ * is the Company Intel report, which lives in admin-only tables and is read
+ * with the admin connection (like role-context.ts). The Intel TEXT never
+ * leaves the server — the options only say whether one is attached.
  */
 
 export type KitOptions = {
@@ -40,7 +41,7 @@ const C_LEVEL = /\b(chief|ceo|cfo|coo|cto|cio|cmo|chro|cpo|cdo|president|managin
 export const guessRoleLevel = (title: string): RoleLevel => (C_LEVEL.test(title) ? "C-level" : "N-1 executive");
 
 async function roleRow(projectId: string) {
-  const [row] = await adminDb()
+  const [row] = await tenantDb()
     .select({
       title: tables.projects.title,
       companyId: tables.projects.companyId,
@@ -60,7 +61,7 @@ async function roleRow(projectId: string) {
 export async function kitOptions(projectId: string): Promise<KitOptions | null> {
   const role = await roleRow(projectId);
   if (!role) return null;
-  const db = adminDb();
+  const db = tenantDb();
   const [jds, docs, kits] = await Promise.all([
     db
       .select({ id: tables.artifacts.id, version: tables.artifacts.version, status: tables.artifacts.status, createdAt: tables.artifacts.createdAt })
@@ -131,7 +132,7 @@ async function intelReport(intelCompanyId: string): Promise<string> {
  * plain lines for the optional notes box (K3). Only ever added by the user.
  */
 export async function briefingNotes(projectId: string): Promise<string> {
-  const db = adminDb();
+  const db = tenantDb();
   const [conv] = await db
     .select({ id: tables.conversations.id })
     .from(tables.conversations)
@@ -163,7 +164,7 @@ export async function sanitizeInputs(
 
   const jdId = str(b.jdArtifactId, 64);
   const [jd] = jdId
-    ? await adminDb()
+    ? await tenantDb()
         .select({ id: tables.artifacts.id, version: tables.artifacts.version })
         .from(tables.artifacts)
         .where(and(eq(tables.artifacts.id, jdId), eq(tables.artifacts.projectId, projectId), eq(tables.artifacts.agentSlug, "job-description")))
@@ -173,7 +174,7 @@ export async function sanitizeInputs(
 
   const wanted = Array.isArray(b.documentIds) ? b.documentIds.filter((x): x is string => typeof x === "string").slice(0, 50) : [];
   const docs = wanted.length
-    ? await adminDb()
+    ? await tenantDb()
         .select({ id: tables.companyDocuments.id })
         .from(tables.companyDocuments)
         .where(and(inArray(tables.companyDocuments.id, wanted), eq(tables.companyDocuments.companyId, role.companyId), eq(tables.companyDocuments.visibleToCustomer, true)))
@@ -214,7 +215,7 @@ export async function sanitizeInputs(
 export async function assembleInputTexts(projectId: string, inputs: KitInputs): Promise<{ company: string; jd: string; intelligence: string; notes: string }> {
   const role = await roleRow(projectId);
   if (!role) throw new Error("Role not found");
-  const db = adminDb();
+  const db = tenantDb();
   const [jd] = await db
     .select({ content: tables.artifacts.content })
     .from(tables.artifacts)

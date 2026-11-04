@@ -62,7 +62,7 @@ async function run(label: string, args: string[], retries = 0): Promise<number> 
     new Promise<number | null>((resolve) => {
       const child = spawn("npx", args, {
         cwd: ROOT,
-        env: { ...process.env, DATABASE_URL: URL },
+        env: { ...process.env, DATABASE_URL: URL, DB_POOL_MAX: "1" },
         stdio: "inherit",
       });
       child.on("close", resolve);

@@ -181,9 +181,17 @@ export function ReviewWorkspace({
       />
       <main className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_300px]">
         <article className="min-w-0">
-          <p className="label-mono mb-3">
-            {artifact ? `Job description · ${approved ? "Approved" : "Draft"} v${artifact.version}` : "Job description"}
-          </p>
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <p className="label-mono">
+              {artifact ? `Job description · ${approved ? "Approved" : "Draft"} v${artifact.version}` : "Job description"}
+            </p>
+            {/* Editing sits on the document itself, not only in the side panel (Dana 2026-11-04: "not intuitive"). */}
+            {!editing && data.canWrite && artifact && (
+              <button className="btn btn-ghost border border-accent text-accent" onClick={startEditing} disabled={busy}>
+                <Pencil className="size-4" /> Edit text
+              </button>
+            )}
+          </div>
           <h1 className="font-display text-5xl font-normal text-ink">{data.project.title}</h1>
           {artifact && (
             <p className="mt-3 text-xs text-faint">
@@ -281,10 +289,10 @@ export function ReviewWorkspace({
           ) : (
             <div className="card-surface p-6">
               <p className="label-mono mb-3">Your decision</p>
-              <p className="text-sm text-muted">Read it through, edit it yourself or ask the agent to revise, then approve.</p>
+              <p className="text-sm text-muted">Read it through. Change the text yourself or ask the agent to revise, then approve.</p>
               {data.canWrite && (
-                <button className="btn btn-ghost mt-5 w-full" onClick={startEditing} disabled={busy || !artifact}>
-                  <Pencil className="size-4" /> Edit
+                <button className="btn btn-ghost mt-5 w-full border border-accent text-accent" onClick={startEditing} disabled={busy || !artifact}>
+                  <Pencil className="size-4" /> Edit the text
                 </button>
               )}
               <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
@@ -31,14 +31,23 @@ function Kit() {
   const [error, setError] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<KitResponse["inputs"] | null>(null);
 
+  // The page stays mounted across roles: a response counts only while its
+  // role is still the one on screen, and a role switch clears the old one.
+  const current = useRef(params.id);
+  current.current = params.id;
   const load = useCallback(async () => {
+    const forId = params.id;
     try {
-      setOptions(await parseJson<KitOptionsResponse>(await fetch(`/api/projects/${params.id}/interview-kit`)));
+      const next = await parseJson<KitOptionsResponse>(await fetch(`/api/projects/${forId}/interview-kit`));
+      if (current.current === forId) setOptions(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load the interview kit");
+      if (current.current === forId) setError(e instanceof Error ? e.message : "Could not load the interview kit");
     }
   }, [params.id]);
   useEffect(() => {
+    setOptions(null);
+    setError(null);
+    setPrefill(null);
     void load();
   }, [load]);
 
@@ -141,7 +150,7 @@ function Kit() {
         ) : (
           kitId && (
             <KitView
-              key={kitId}
+              key={`${params.id}:${kitId}`}
               projectId={params.id}
               kitId={kitId}
               autoRun={search.get("run") === "1"}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
-import { adminDb, tables } from "@/db";
+import { db, tables } from "@/db";
+import { tenantRoute } from "@/shared/tenant-route";
 import { dbEnabled, getUserNames } from "@/shared/current-user";
 import { kitAccess, loadKit } from "@/shared/kit-store";
 import { assembleInputTexts } from "@/shared/kit-inputs";
@@ -11,7 +12,7 @@ import { howWeAssess } from "@/orchestrator/interview-kit";
  * parts, the choices it was built from (uploaded documents by name only) and
  * whether a newer job description exists ("Built from JD v2 · v3 is available").
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string; kitId: string }> }) {
+export const GET = tenantRoute(async function GET(_req: Request, { params }: { params: Promise<{ id: string; kitId: string }> }) {
   if (!dbEnabled()) return NextResponse.json({ error: "No persistence" }, { status: 503 });
   const { id, kitId } = await params;
   const access = await kitAccess(id, false);
@@ -19,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const kit = await loadKit(id, kitId);
   if (!kit) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [latestJd] = await adminDb()
+  const [latestJd] = await db()
     .select({ version: tables.artifacts.version })
     .from(tables.artifacts)
     .where(and(eq(tables.artifacts.projectId, id), eq(tables.artifacts.agentSlug, "job-description")))
@@ -46,4 +47,4 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     latestJdVersion: latestJd?.version ?? null,
     canWrite: access.role !== "viewer",
   });
-}
+});

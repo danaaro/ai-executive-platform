@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Users } from "lucide-react";
@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/field";
 import { ArrowUpRight, ClipboardList, FileText, Lock } from "lucide-react";
-import type { ProjectDetail, Stage } from "@/components/board/stage-types";
+import type { Stage } from "@/components/board/stage-types";
+import { useProjectDetail } from "@/components/project/use-project-detail";
 import { RoleAdminControls } from "@/components/project/RoleAdminControls";
 
 /**
@@ -39,23 +40,7 @@ function Board() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [data, setData] = useState<ProjectDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${params.id}`);
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Could not load this role");
-      setData(d);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load this role");
-    }
-  }, [params.id]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data, error, reload: load } = useProjectDetail(params.id);
 
   // Older links opened the job description in a drawer (?stage=…).
   useEffect(() => {

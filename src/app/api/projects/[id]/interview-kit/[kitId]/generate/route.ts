@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withTenant } from "@/db";
 import { logActingWrite } from "@/shared/acting-audit";
 import { dbEnabled, requireUser } from "@/shared/current-user";
 import { agentStreamResponse } from "@/shared/agent-stream";
@@ -14,6 +15,9 @@ import { KIT_PARTS, type KitPart } from "@/shared/interview-kit-types";
  * function and its own 300 s budget. Streams the agent-stream protocol: the
  * text deltas drive the "Writing… n k characters" status; the part is stored
  * the moment it is finished, so one failed part never loses the other.
+ *
+ * Streaming, so no transaction stays open across the model call: each
+ * database step runs in its own withTenant() scope.
  */
 export const maxDuration = 300;
 
@@ -27,14 +31,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const part = body.part as KitPart;
   if (!KIT_PARTS.includes(part)) return NextResponse.json({ error: "Unknown part" }, { status: 400 });
 
-  const kit = await loadKit(id, kitId);
+  const companyId = access.user.companyId;
+  const kit = await withTenant(companyId, () => loadKit(id, kitId));
   if (!kit) return NextResponse.json({ error: "Kit not found" }, { status: 404 });
   // A finished part is never rewritten in place: regenerating makes a new version.
   if (kit.envelope.parts[part]) return NextResponse.json({ error: "This part is already written" }, { status: 409 });
 
   return agentStreamResponse(async (emit) => {
     const inputs = kit.envelope.inputs;
-    const texts = await assembleInputTexts(id, inputs);
+    const texts = await withTenant(companyId, () => assembleInputTexts(id, inputs));
     const system = assemblePrompt(part, {
       company: texts.company,
       language: inputs.language,
@@ -53,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       () => emit({ type: "reset" })
     );
     try {
-      await savePart(id, kitId, part, result);
+      await withTenant(companyId, () => savePart(id, kitId, part, result));
     } catch (err) {
       console.error("[interview-kit] save failed:", errorSummary(err));
       throw new Error("The part was written but could not be saved. Please try again.");

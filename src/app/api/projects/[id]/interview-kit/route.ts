@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { logActingWrite } from "@/shared/acting-audit";
-import { dbEnabled, requireUser } from "@/shared/current-user";
+import { dbEnabled } from "@/shared/current-user";
+import { tenantRoute } from "@/shared/tenant-route";
 import { briefingNotes, kitOptions, sanitizeInputs } from "@/shared/kit-inputs";
 import { createKitVersion, kitAccess, loadKit } from "@/shared/kit-store";
 import { evaluate, KIT_PROMPT_VERSION } from "@/orchestrator/interview-kit";
@@ -22,7 +22,7 @@ import { KIT_PARTS, type KitEnvelope, type KitPart, type PartResult } from "@/sh
  *          Generation itself runs in …/[kitId]/generate, one request per part.
  */
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const GET = tenantRoute(async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!dbEnabled()) return NextResponse.json({ error: "No persistence" }, { status: 503 });
   const { id } = await params;
   const access = await kitAccess(id, false);
@@ -34,14 +34,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const options = await kitOptions(id);
   if (!options) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ...options, canWrite: access.role !== "viewer" });
-}
+});
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const POST = tenantRoute(async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!dbEnabled()) return NextResponse.json({ error: "No persistence" }, { status: 503 });
   const { id } = await params;
   const access = await kitAccess(id, true);
   if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
-  await logActingWrite(await requireUser(), req);
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   try {
@@ -87,4 +86,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     console.error("[interview-kit] create failed:", errorSummary(err));
     return NextResponse.json({ error: "Could not create the interview kit" }, { status: 500 });
   }
-}
+});

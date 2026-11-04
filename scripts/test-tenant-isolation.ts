@@ -359,8 +359,9 @@ async function main() {
     const ex = Object.keys(exempt).find((k) => rel.startsWith(k));
     if (ex) continue;
     const src = fs.readFileSync(f, "utf-8");
-    const authed = /requireUser\(/.test(src);
-    const scoped = /getProjectAccess|getConversationAccess|accessibleProjectIds|user\.companyId/.test(src);
+    // kitAccess() (shared/kit-store.ts) is requireUser() + getProjectAccess().
+    const authed = /requireUser\(|kitAccess\(/.test(src);
+    const scoped = /getProjectAccess|getConversationAccess|accessibleProjectIds|user\.companyId|kitAccess\(/.test(src);
     // Database calls must run in a tenant scope: the whole route (tenantRoute),
     // or — for streaming routes — every persistence step (withTenant / helpers
     // that take the company explicitly).

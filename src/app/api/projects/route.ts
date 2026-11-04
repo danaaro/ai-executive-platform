@@ -1,6 +1,6 @@
 import { tenantRoute } from "@/shared/tenant-route";
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or, ne } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { requireUser, dbEnabled, getUserNames, inviteToCompany } from "@/shared/current-user";
 import { openRole } from "@/shared/open-role";
@@ -23,7 +23,9 @@ export const GET = tenantRoute(async function GET(_req: NextRequest) {
   if (!user.companyId) {
     return NextResponse.json({ isAdmin, noCompany: true, owned: [], shared: [] });
   }
-  const inCompany = eq(tables.projects.companyId, user.companyId);
+  // Archived roles never reach this list (spec §5 test 10); super admins see
+  // and restore them on the admin company page.
+  const inCompany = and(eq(tables.projects.companyId, user.companyId), ne(tables.projects.status, "archived"));
 
   // This user's membership rows, so each shared card can show the viewer's
   // own permission level without a second round trip.

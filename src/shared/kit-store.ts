@@ -1,5 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { adminDb, tables } from "@/db";
+import { db as tenantDb, tables } from "@/db";
 import { canWrite, getProjectAccess, requireUser, type CurrentUser, type ProjectRole } from "@/shared/current-user";
 import { KIT_MAX_VERSIONS, KIT_SLUG, type KitEnvelope, type KitPart, type PartResult } from "@/shared/interview-kit-types";
 
@@ -9,9 +9,9 @@ import { KIT_MAX_VERSIONS, KIT_SLUG, type KitEnvelope, type KitPart, type PartRe
  * The structured kit lives in `envelope`; `content` holds a short label only —
  * downloads render from the envelope.
  *
- * Uses the admin connection after `kitAccess()` has proven the project belongs
- * to the session's company (the same pattern as the JD routes); every query
- * is still filtered by project id.
+ * Everything below `kitAccess()` must run inside withTenant() (the routes use
+ * tenantRoute, or scope each step while streaming), so row-level security
+ * limits every query to the session's company on top of the project filter.
  */
 
 export async function kitAccess(projectId: string, write: boolean): Promise<{ user: CurrentUser; role: ProjectRole } | { error: string; status: number }> {
@@ -26,7 +26,7 @@ export async function kitAccess(projectId: string, write: boolean): Promise<{ us
 
 export async function loadKit(projectId: string, kitId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(kitId)) return null;
-  const [row] = await adminDb()
+  const [row] = await tenantDb()
     .select({
       id: tables.artifacts.id,
       version: tables.artifacts.version,
@@ -47,7 +47,7 @@ export async function createKitVersion(
   user: CurrentUser,
   envelope: KitEnvelope
 ): Promise<{ id: string; version: number } | { error: string }> {
-  const db = adminDb();
+  const db = tenantDb();
   const [project] = await db
     .select({ companyId: tables.projects.companyId })
     .from(tables.projects)
@@ -87,7 +87,7 @@ export async function createKitVersion(
  * written by two parallel requests — never overwrite each other.
  */
 export async function savePart(projectId: string, kitId: string, part: KitPart, result: PartResult): Promise<void> {
-  await adminDb()
+  await tenantDb()
     .update(tables.artifacts)
     .set({
       envelope: sql`jsonb_set(coalesce(${tables.artifacts.envelope}, '{}'::jsonb), ${`{parts,${part}}`}::text[], ${JSON.stringify(result)}::jsonb, true)`,

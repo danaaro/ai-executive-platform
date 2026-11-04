@@ -35,7 +35,9 @@ let _db: Db | null = null;
 function make() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
-  const client = postgres(url, { prepare: false, max: 5 });
+  // DB_POOL_MAX=1 for the throwaway PGlite database in tests: its socket
+  // server serves one connection at a time and resets the others.
+  const client = postgres(url, { prepare: false, max: Number(process.env.DB_POOL_MAX) || 5 });
   return drizzle(client, { schema });
 }
 

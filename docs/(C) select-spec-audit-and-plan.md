@@ -83,6 +83,7 @@ Original options, for the record:
 ## 5. Plan
 
 ### Stage 1a — Make what exists safe (no data model change) · ~1 day
+**Done 2026-11-04** (all except the JD edit deploy): tests 5, 9, 10 fixed; integrity check live (all 11 checks pass on the live database); `rehearse:tenancy` fully green. JD "Edit text" made visible.
 1. Stale-response guards on role page, `use-project-detail`, kit page options load (test 5).
 2. Kit routes under tenant scope / RLS; tenancy static check goes green (test 9).
 3. Server-side archived filter on role list (test 10).
