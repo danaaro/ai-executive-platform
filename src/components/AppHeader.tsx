@@ -5,6 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 
+const SUPER_USER_MENU = [
+  { href: "/internal/companies", label: "Companies" },
+  { href: "/internal/company-intel", label: "Company Intel" },
+  { href: "/internal/flags", label: "Flagged activity" },
+];
+
 /**
  * Persistent top bar: the Exec10X wordmark (UI review U1, 2026-10-17), set in
  * Newsreader like exec10x.ai and the Lovable mockup.
@@ -22,9 +28,6 @@ export function AppHeader({
   const isAdmin = user?.publicMetadata?.role === "admin";
   const pathname = usePathname();
   const trail = useAdminTrail(isAdmin, pathname);
-  // Inside a customer company in admin, "Roles" means THAT company's roles,
-  // not the admin's own company (Dana 2026-10-19).
-  const adminCompany = trail?.entered ? trail.company?.id ?? null : null;
   // Super admins always see where they are: Companies / company / role / section
   // (Dana 2026-11-01). Other pages keep their own breadcrumb.
   const inCompany = /^\/(projects\/[0-9a-f-]{36}|internal\/companies\/[0-9a-f-]{36})/i.test(pathname);
@@ -51,53 +54,20 @@ export function AppHeader({
 
         <div className="ml-auto flex items-center gap-3">
           {children}
+          {/* Menu (Dana 2026-11-06): super users (Dana, Susan) get the back
+              office; customers get no links, their home is their roles. */}
           {isAdmin &&
-            (adminCompany ? (
+            SUPER_USER_MENU.map((item) => (
               <Link
-                href={`/internal/companies/${adminCompany}`}
-                className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
+                key={item.href}
+                href={item.href}
+                className={`text-[13px] font-medium transition-colors hover:text-ink ${
+                  pathname.startsWith(item.href) ? "text-ink" : "text-muted"
+                }`}
               >
-                Roles
+                {item.label}
               </Link>
-            ) : (
-              // A plain link: a prefetched <Link> switched company on every page load (2026-11-02).
-              <a
-                href="/api/admin/enter?company=own&next=/projects"
-                className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
-              >
-                Our roles
-              </a>
             ))}
-          {isAdmin && (
-            <Link
-              href="/internal/companies"
-              className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
-            >
-              Companies
-            </Link>
-          )}
-          {isAdmin && (
-            <Link
-              href="/internal/company-intel"
-              className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
-            >
-              Company Intel
-            </Link>
-          )}
-          {isAdmin && (
-            <Link
-              href="/internal/flags"
-              className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
-            >
-              Flagged
-            </Link>
-          )}
-          <Link
-            href="/artifacts"
-            className="text-[13px] font-medium text-muted transition-colors hover:text-ink"
-          >
-            Artifacts
-          </Link>
           <UserButton />
         </div>
       </div>
