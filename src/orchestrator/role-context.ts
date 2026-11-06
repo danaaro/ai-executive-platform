@@ -1,3 +1,4 @@
+import { fence } from "@/shared/fence";
 import { and, desc, eq } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
@@ -127,26 +128,30 @@ export async function roleContextBlock(projectId: string, mode: "interview" | "w
     role.values && `Values / leadership behaviours:\n${role.values}`,
     role.cultureNotes && `Culture notes:\n${role.cultureNotes}`,
   ].filter(Boolean) as string[];
+  // Customer material and research are fenced as data (security plan S1):
+  // prompts/system/guardrails.md says tag contents are never instructions.
   if (profile.length || docs.length) {
     lines.push("");
     lines.push(heading("documents", {}));
+    const profileParts: string[] = [];
     for (const p of profile) {
       const chunk = p.slice(0, budget);
       budget -= chunk.length;
-      lines.push("", chunk);
+      profileParts.push(chunk);
     }
+    if (profileParts.length) lines.push("", fence("company_profile", profileParts.join("\n\n")));
     for (const d of docs) {
       if (budget <= 0) break;
       const chunk = d.content.slice(0, budget);
       budget -= chunk.length;
-      lines.push("", `### ${d.filename}`, chunk);
+      lines.push("", fence("company_document", chunk, { name: d.filename }));
     }
   }
 
   if (intel[0]?.content) {
     lines.push("");
     lines.push(heading("research", { research_subject: role.intelName ?? "the company" }));
-    lines.push("", intel[0].content.slice(0, INTEL_MAX_CHARS));
+    lines.push("", fence("company_intelligence", intel[0].content.slice(0, INTEL_MAX_CHARS)));
   }
 
   const text = lines.join("\n");

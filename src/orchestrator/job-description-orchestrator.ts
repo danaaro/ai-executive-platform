@@ -1,3 +1,4 @@
+import { fence } from "@/shared/fence";
 import { MODELS, THINKING_OFF } from "@/shared/models";
 import fs from "node:fs";
 import path from "node:path";
@@ -274,10 +275,10 @@ export async function streamJobDescriptionDraft(
     input.context || "# 1. Role facts\n(none supplied)",
     "",
     "# 4. Recorded answers",
-    input.answers || "(none recorded)",
+    input.answers ? fence("recorded_answers", input.answers) : "(none recorded)",
     "",
     "# 5. Briefing transcript",
-    input.transcript || "(empty)",
+    input.transcript ? fence("briefing_transcript", input.transcript) : "(empty)",
     "",
     "# 6. Request",
     input.request,

@@ -1,3 +1,4 @@
+import { neutralise } from "@/shared/fence";
 import fs from "node:fs";
 import path from "node:path";
 import Ajv2020 from "ajv/dist/2020";
@@ -146,15 +147,17 @@ export const INPUT_LIMITS = { jd: 60_000, intelligence: 80_000, notes: 10_000 };
 /** INPUT BLOCK A (PRD §7.1). */
 export function inputBlockA(opts: { roleAndLevel: string; jd: string; intelligence: string; notes: string }): string {
   return [
+    // Tag names inside the material are neutralised so a document cannot
+    // close its block early (security plan S1).
     "<job_description>",
-    `Role and level: ${opts.roleAndLevel.trim() || "[from the job description]"}`,
-    opts.jd.slice(0, INPUT_LIMITS.jd),
+    neutralise(`Role and level: ${opts.roleAndLevel.trim() || "[from the job description]"}`),
+    neutralise(opts.jd.slice(0, INPUT_LIMITS.jd)),
     "</job_description>",
     "<company_intelligence>",
-    (opts.intelligence.trim() || "None provided").slice(0, INPUT_LIMITS.intelligence),
+    neutralise((opts.intelligence.trim() || "None provided").slice(0, INPUT_LIMITS.intelligence)),
     "</company_intelligence>",
     "<notes>",
-    (opts.notes.trim() || "None").slice(0, INPUT_LIMITS.notes),
+    neutralise((opts.notes.trim() || "None").slice(0, INPUT_LIMITS.notes)),
     "</notes>",
   ].join("\n");
 }

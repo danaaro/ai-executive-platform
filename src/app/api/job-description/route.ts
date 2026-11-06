@@ -1,3 +1,4 @@
+import { fence } from "@/shared/fence";
 import { roleContextBlock } from "@/orchestrator/role-context";
 import { logActingWrite } from "@/shared/acting-audit";
 import { INTERIM_DRAFT_MARKER } from "@/components/review/deliverable";
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
         .join("\n\n");
       const request = last.includes(INTERIM_DRAFT_MARKER)
         ? "Write the first version of the role description."
-        : `${last}${latest ? `\n\nThe latest saved version, to revise:\n\n${latest}` : ""}`;
+        : `${last}${latest ? `\n\nThe latest saved version, to revise:\n\n${fence("current_job_description", latest)}` : ""}`;
       const draft = await streamJobDescriptionDraft(
         { context, answers, transcript, request },
         (text) => emit({ type: "delta", text }),

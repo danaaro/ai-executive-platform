@@ -38,7 +38,8 @@
     "test:e2e-jd": "tsx scripts/test-jd-e2e.ts",
     "test:interview-kit": "tsx scripts/test-interview-kit.ts",
     "check:integrity": "tsx scripts/check-integrity.ts",
-    "security:scan": "tsx scripts/security-scan.ts"
+    "security:scan": "tsx scripts/security-scan.ts",
+    "test:injection": "tsx scripts/test-prompt-injection.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
