@@ -104,5 +104,44 @@ def main():
     sys.exit(0)
 
 
+def scan_files(paths):
+    """--scan FILE...: prints 'path<TAB>kind' for files holding a secret. Never prints values."""
+    hits = 0
+    for path in paths:
+        base = os.path.basename(path)
+        if ENV_FILE.search(base) and not ENV_ALLOWED.search(base):
+            print(f"{path}\tenv file tracked")
+            hits += 1
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                found = find_secret(f.read())
+        except (UnicodeDecodeError, OSError):
+            continue
+        if found:
+            print(f"{path}\t{found}")
+            hits += 1
+    sys.exit(1 if hits else 0)
+
+
+def scan_history():
+    """--scan-history: reads `git log -p --format='commit %H'` on stdin; prints 'commit<TAB>kind' for added lines holding a secret."""
+    hits, commit = set(), ""
+    for line in sys.stdin:
+        if line.startswith("commit "):
+            commit = line.split()[1][:10]
+        elif line.startswith("+") and not line.startswith("+++"):
+            found = find_secret(line[1:])
+            if found and (commit, found) not in hits:
+                hits.add((commit, found))
+                print(f"{commit}\t{found}")
+    sys.exit(1 if hits else 0)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--scan":
+        scan_files(sys.argv[2:])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--scan-history":
+        scan_history()
+    else:
+        main()
