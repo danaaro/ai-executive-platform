@@ -98,12 +98,6 @@ export function AppHeader({
           >
             Artifacts
           </Link>
-          <Link
-            href="/agents"
-            className="hidden text-[13px] font-medium text-muted transition-colors hover:text-ink sm:inline"
-          >
-            Assistants
-          </Link>
           <UserButton />
         </div>
       </div>

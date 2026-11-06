@@ -25,7 +25,9 @@ export const POST = tenantRoute(async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const agent = getAgent(slug);
+  // Only the job description is saved this way (the generic agent chat was
+  // removed 2026-11-06; kits have their own routes).
+  const agent = slug === "job-description" ? getAgent(slug) : undefined;
   if (!agent) {
     return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
   }

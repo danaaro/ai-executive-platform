@@ -197,8 +197,9 @@ export function useIntakeSession({
       setLoading(true);
       setError(null);
 
-      const url =
-        agentSlug === "job-description" ? "/api/job-description" : `/api/agents/${agentSlug}`;
+      // The job description is the only chat agent (the generic agent chat
+      // was removed 2026-11-06: not part of the platform).
+      const url = "/api/job-description";
       // Inheritance applies only to the very first turn of an empty thread;
       // the server enforces that too, this just avoids a pointless lookup.
       const wantsInherit = inherit && !conversationIdRef.current && next.length === 1;

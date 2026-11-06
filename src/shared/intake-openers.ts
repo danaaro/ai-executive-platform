@@ -9,7 +9,7 @@
  * eval case. Four places, and they only work while all four agree.
  *
  * Until now each of those places had its own literal (agents/page.tsx,
- * StageDrawer.tsx, voice-llm/handler.ts, evals/cases/cases.json). Nothing
+ * voice-llm/handler.ts, evals/cases/cases.json). Nothing
  * enforced the agreement, and the intake resequencing is about to change how a
  * session opens — which is exactly the change that would have silently broken
  * one copy and left the meter, the transcript filter or the eval reading a turn

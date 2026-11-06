@@ -31,10 +31,7 @@ const isApiRoute = createRouteMatcher(["/api(.*)"]);
  * explicit opt-in flag that is absent from .env.local and set only inline by the
  * test script.
  */
-const isTestOpenRoute = createRouteMatcher([
-  "/api/job-description",
-  "/api/agents/(.*)",
-]);
+const isTestOpenRoute = createRouteMatcher(["/api/job-description"]);
 
 const testRoutesAllowed =
   process.env.NODE_ENV !== "production" && process.env.ALLOW_UNAUTHED_AGENT_ROUTES === "1";

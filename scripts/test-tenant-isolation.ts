@@ -12,6 +12,10 @@ import {
 } from "@/shared/current-user";
 import { recordIntakeAnswers } from "@/shared/intake-answers";
 import { adjustCredits, creditBalance, lockCompanyCredits, setCreditBalance } from "@/shared/credits";
+import { createKitVersion, loadKit, savePart } from "@/shared/kit-store";
+import { kitOptions, sanitizeInputs, briefingNotes } from "@/shared/kit-inputs";
+import { answersForWriter, latestJobDescription } from "@/shared/jd-writer-inputs";
+import { KIT_SLUG, type KitEnvelope } from "@/shared/interview-kit-types";
 
 /**
  * ADR-010 §10 — "verification is a test, not a promise".
@@ -337,6 +341,50 @@ async function main() {
     await deniedByDatabase(() => withTenant(A.companyId, () => db().select().from(tables.adminAudit).limit(1)))
   );
 
+  console.log("\n8b · Interview kit and JD writer with B's ids (security review 2026-11-06)");
+  // B gets a kit and a company document; A's side then tries every kit and
+  // writer read and write with B's ids, inside A's tenant scope.
+  const kitEnv = (jdId: string): KitEnvelope => ({
+    inputs: {
+      jdArtifactId: jdId, jdVersion: 1, roleAndLevel: "Role", useResearch: false, useProfile: false,
+      documentIds: [], extra: [], notes: "", roleLevel: "N-1 executive", competencies: [5], suggest: false, language: "English",
+    },
+    parts: {},
+    promptVersion: "test",
+    model: "test",
+  });
+  const [kitB] = await d
+    .insert(tables.artifacts)
+    .values({ companyId: B.companyId, projectId: B.projectId, agentSlug: KIT_SLUG, version: 1, label: "Kit B", content: "Kit B", envelope: kitEnv(B.artifactId), createdBy: B.member.id })
+    .returning({ id: tables.artifacts.id });
+  const [docB] = await d
+    .insert(tables.companyDocuments)
+    .values({ companyId: B.companyId, filename: "b-secret.txt", content: "B only", uploadedBy: B.member.id })
+    .returning({ id: tables.companyDocuments.id });
+  const asA = <T>(fn: () => Promise<T>) => retry(() => withTenant(A.companyId, fn));
+
+  check("A cannot load B's kit through B's role", (await asA(() => loadKit(B.projectId, kitB.id))) === null);
+  check("A cannot load B's kit through A's own role", (await asA(() => loadKit(A.projectId, kitB.id))) === null);
+  await asA(() => savePart(B.projectId, kitB.id, "screen", { status: "done", data: null, failures: [], warnings: [], truncated: false, repaired: false, ms: 0 }));
+  const [kitBAfter] = await d.select({ envelope: tables.artifacts.envelope }).from(tables.artifacts).where(eq(tables.artifacts.id, kitB.id));
+  check("A cannot write into B's kit", !(kitBAfter?.envelope as KitEnvelope).parts.screen);
+  const madeInB = await asA(() => createKitVersion(B.projectId, A.member, kitEnv(A.artifactId)));
+  check("A cannot create a kit version on B's role", "error" in madeInB);
+  check("A gets no kit options for B's role", (await asA(() => kitOptions(B.projectId))) === null);
+  const optsA = await asA(() => kitOptions(A.projectId));
+  check("A's kit options never list B's documents", !!optsA && optsA.documents.every((x) => x.id !== docB.id));
+  const smuggledJd = await asA(() => sanitizeInputs(A.projectId, { jdArtifactId: B.artifactId, competencies: [5] }));
+  check("A cannot build a kit from B's job description", !smuggledJd.ok);
+  const smuggledDoc = await asA(() => sanitizeInputs(A.projectId, { jdArtifactId: A.artifactId, competencies: [5], documentIds: [docB.id] }));
+  check("B's document is dropped from A's kit inputs", smuggledDoc.ok && !smuggledDoc.inputs.documentIds.includes(docB.id));
+  check("A gets no briefing notes from B's role", (await asA(() => briefingNotes(B.projectId))) === "");
+  check("JD writer: A reads none of B's answers via B's conversation id", (await asA(() => answersForWriter(B.conversationId, B.projectId))) === "");
+  check("JD writer: B's conversation id under A's role reads nothing", (await asA(() => answersForWriter(B.conversationId, A.projectId))) === "");
+  check("JD writer: A reads its own answers", (await asA(() => answersForWriter(A.conversationId, A.projectId))).includes("answer a"));
+  check("JD writer: A gets no JD text from B's role", (await asA(() => latestJobDescription(B.projectId))) === "");
+  const artB = await asA(() => db().select({ id: tables.artifacts.id }).from(tables.artifacts).where(eq(tables.artifacts.id, B.artifactId)));
+  check("A cannot read B's JD by id (download path)", artB.length === 0);
+
   console.log("\n9 · Every customer API route goes through the access layer");
   const apiRoot = path.join(process.cwd(), "src/app/api");
   const exempt: Record<string, string> = {
@@ -344,6 +392,10 @@ async function main() {
     admin: "admin-only back office — adminOr404 / requireAdmin (ADR-011)",
     "job-description/voice-llm": "ElevenLabs callback — authorized by bearer secret + signed conversation grant",
     "upload-parse": "text extraction only — no database access",
+  };
+  const ADMIN_DB_ALLOWED: Record<string, string> = {
+    "artifacts/[id]/download/route.ts": "client logo URL from the admin-only Intel tables, after the artifact's access check",
+    "job-description/voice-token/route.ts": "spoken opening line (title + company), after the project access check",
   };
   const files: string[] = [];
   const walk = (dir: string) => {
@@ -366,12 +418,17 @@ async function main() {
     // or — for streaming routes — every persistence step (withTenant / helpers
     // that take the company explicitly).
     const tenantScoped = /tenantRoute\(|withTenant\(|companyId: user\.companyId|scopeCompanyId/.test(src);
+    // The RLS-bypassing connection is allowed only where listed, with the
+    // reason (security review 2026-11-06: the old check missed H1/H2).
+    const usesAdminDb = /adminDb\(\)/.test(src);
+    const adminDbOk = !usesAdminDb || rel in ADMIN_DB_ALLOWED;
     check(
       `${rel}`,
-      authed && scoped && tenantScoped,
-      `${authed ? "" : "no requireUser "}${scoped ? "" : "no company/project check "}${tenantScoped ? "" : "no tenant scope"}`
+      authed && scoped && tenantScoped && adminDbOk,
+      `${authed ? "" : "no requireUser "}${scoped ? "" : "no company/project check "}${tenantScoped ? "" : "no tenant scope "}${adminDbOk ? "" : "uses adminDb() without an allowlist entry"}`
     );
   }
+  for (const [k, why] of Object.entries(ADMIN_DB_ALLOWED)) console.log(`  · ${k} — adminDb() allowed: ${why}`);
   for (const [k, why] of Object.entries(exempt)) console.log(`  · ${k} — exempt: ${why}`);
 
   console.log(failed ? `\n${failed} check(s) FAILED` : "\nAll isolation checks passed.");

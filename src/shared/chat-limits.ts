@@ -36,6 +36,11 @@ export function validateChatMessages(
     if ((role !== "user" && role !== "assistant") || typeof content !== "string") {
       return { ok: false, error: "Each message needs role 'user' or 'assistant' and text content." };
     }
+    // NUL bytes can't be stored in Postgres text; refusing them keeps a
+    // storage failure from being triggered on purpose (security review H2).
+    if (content.includes("\u0000")) {
+      return { ok: false, error: "A message contains an invalid character." };
+    }
     if (content.length > CHAT_LIMITS.maxMessageChars) {
       return { ok: false, error: `A message is too long (limit ${CHAT_LIMITS.maxMessageChars} characters).` };
     }

@@ -23,10 +23,21 @@ export type VoiceGrant = {
   sig: string;
 };
 
+/**
+ * The grant is signed with a key only this server knows, NOT the
+ * ELEVENLABS_CUSTOM_LLM_SECRET that ElevenLabs also holds: with that one,
+ * anyone holding it could sign a grant for any company's conversation
+ * (security review M5, 2026-11-06). Local development without the new key
+ * falls back to the old one with a warning; production refuses.
+ */
 function secret(): string {
-  const s = process.env.ELEVENLABS_CUSTOM_LLM_SECRET;
-  if (!s) throw new Error("ELEVENLABS_CUSTOM_LLM_SECRET is not set");
-  return s;
+  const s = process.env.VOICE_GRANT_SIGNING_KEY;
+  if (s) return s;
+  if (process.env.NODE_ENV !== "production" && process.env.ELEVENLABS_CUSTOM_LLM_SECRET) {
+    console.warn("[voice-grant] VOICE_GRANT_SIGNING_KEY not set; using the ElevenLabs secret (local development only)");
+    return process.env.ELEVENLABS_CUSTOM_LLM_SECRET;
+  }
+  throw new Error("VOICE_GRANT_SIGNING_KEY is not set");
 }
 
 function payload(conversationId: string, baseSeq: number, exp: number): string {
