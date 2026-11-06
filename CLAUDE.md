@@ -58,6 +58,35 @@ At the end of each session: update the relevant docs and add today's decisions t
 - Before working on the Company Intelligence tool → read docs/company-intel.md
 - If a task touches more than one area, read all relevant files first.
 
+## Definition of done
+A task is NOT finished until all of these are true:
+1. The app builds with no errors (npm run build).
+2. Type check and lint pass.
+3. You have opened the feature in the browser and clicked through it yourself.
+4. Any new screen follows the UI conventions below.
+5. For anything touching customer data: a test proves one tenant cannot see another tenant's data.
+If you cannot verify something, say so clearly. Never report "done" on unverified work.
+
+## UI conventions: hierarchy navigation
+Our data is a tree: Company > Role > Job Description > (levels below).
+
+- Every level has its own page and its own URL, e.g.
+  /companies/[companyId]/roles/[roleId]/jd/[jdId]
+  so the browser Back button, bookmarks and shared links all work.
+- Never show a deeper level only as a modal or by hiding/showing content on the same page.
+- Every page shows clickable breadcrumbs at the top:
+  Companies > Acme Ltd > VP Sales > Job Description
+- The page heading always states the level and the item name, e.g. "Role: VP Sales".
+- Each page lists its children clearly, with an obvious "Add" button.
+- Empty states explain what belongs here and how to add the first item.
+- After create/edit/delete, the user lands somewhere sensible and sees a confirmation.
+- Reuse one shared Breadcrumbs component and one page layout. Do not build new ones per page.
+
+## Working style
+- Use plan mode for anything bigger than a small fix. Agree the plan before coding.
+- Build in small steps and verify each one before moving on.
+- After finishing a feature, run the ux-reviewer subagent and fix what it finds.
+
 ## Before finishing any task
 - State whether the change touches security, auth, payments or data access.
 - After major features, run the security review below.
