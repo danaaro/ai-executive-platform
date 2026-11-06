@@ -1,0 +1,10 @@
+# Dependabot: security fixes only. Version-update PRs are off (limit 0);
+# security-update PRs still open once "Dependabot security updates" is on in
+# GitHub → Settings → Code security.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
