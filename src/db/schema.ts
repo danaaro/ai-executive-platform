@@ -191,7 +191,7 @@ export const securityFlags = pgTable(
     userId: text("user_id"),
     agentSlug: text("agent_slug").notNull(),
     channel: text("channel", { enum: ["text", "voice"] }).notNull(),
-    kind: text("kind", { enum: ["ip_probe", "off_topic", "injection"] }).notNull(),
+    kind: text("kind", { enum: ["ip_probe", "off_topic", "injection", "upload_injection"] }).notNull(),
     excerpt: text("excerpt").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

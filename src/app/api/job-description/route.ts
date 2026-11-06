@@ -21,7 +21,7 @@ import {
   canWrite,
 } from "@/shared/current-user";
 import { agentStreamResponse } from "@/shared/agent-stream";
-import { recordSecurityFlags } from "@/shared/security-flags";
+import { checkUploadedDocument, recordSecurityFlags } from "@/shared/security-flags";
 import {
   createIntakeBlockFilter,
   recordIntakeAnswers,
@@ -65,6 +65,26 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+  }
+
+  // A document attached in the chat arrives as "[Uploaded document: name]"
+  // + its text. Instructions aimed at AI tools: refused and flagged before
+  // the model sees it (Dana 2026-11-06).
+  // Any long message is treated as pasted material too, whatever its prefix
+  // (security review 2026-11-06).
+  const lastText = messages[messages.length - 1]?.content ?? "";
+  const attached = /^\s*\[Uploaded document: ([^\]]+)\]/.exec(lastText);
+  if ((attached || lastText.length > 2000) && dbEnabled() && projectId) {
+    const user = await requireUser();
+    const refused = await checkUploadedDocument({
+      companyId: user?.companyId ?? null,
+      projectId,
+      userId: user?.id ?? null,
+      source: "job-description",
+      filename: attached ? attached[1] : "pasted text",
+      text: attached ? lastText.slice(attached[0].length) : lastText,
+    });
+    if (refused) return NextResponse.json({ error: refused }, { status: 422 });
   }
 
   // Everything above is a fast pre-flight check and still answers with plain

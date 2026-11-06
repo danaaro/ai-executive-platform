@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbEnabled } from "@/shared/current-user";
 import { tenantRoute } from "@/shared/tenant-route";
+import { checkUploadedDocument } from "@/shared/security-flags";
 import { briefingNotes, kitOptions, sanitizeInputs } from "@/shared/kit-inputs";
 import { createKitVersion, kitAccess, loadKit } from "@/shared/kit-store";
 import { evaluate, KIT_PROMPT_VERSION } from "@/orchestrator/interview-kit";
@@ -77,6 +78,19 @@ export const POST = tenantRoute(async function POST(req: NextRequest, { params }
     } else {
       const checked = await sanitizeInputs(id, body.inputs);
       if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
+      // Documents added for this kit: instructions aimed at AI tools are
+      // refused and flagged (Dana 2026-11-06).
+      for (const doc of checked.inputs.extra) {
+        const refused = await checkUploadedDocument({
+          companyId: access.user.companyId,
+          projectId: id,
+          userId: access.user.id,
+          source: "interview-kit",
+          filename: doc.name || "added document",
+          text: doc.text,
+        });
+        if (refused) return NextResponse.json({ error: `${doc.name || "An added document"}: ${refused}` }, { status: 422 });
+      }
       envelope = { inputs: checked.inputs, parts: {}, promptVersion: KIT_PROMPT_VERSION, model: MODELS.KIT_WRITER };
     }
     const created = await createKitVersion(id, access.user, envelope);

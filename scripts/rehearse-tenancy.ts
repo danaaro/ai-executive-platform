@@ -131,6 +131,7 @@ async function main() {
     const t6 = await run("migrate:admin-audit --apply", ["tsx", "scripts/migrate-admin-audit.ts", "--apply"]);
     await run("migrate:user-sync --apply", ["tsx", "scripts/migrate-user-sync.ts", "--apply"]);
     await run("migrate:company-documents --apply", ["tsx", "scripts/migrate-company-documents.ts", "--apply"]);
+    await run("migrate:security-flags --apply", ["tsx", "scripts/migrate-security-flags.ts", "--apply"]);
     const t5 = await run("secure:tenancy --apply (with ledger + audit)", ["tsx", "scripts/secure-tenancy.ts", "--apply"]);
     console.log(`  · database work takes ${(t1 + t2 + t3 + t4 + t5 + t6).toFixed(1)}s in total`);
 

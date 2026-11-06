@@ -1,3 +1,4 @@
+import { checkUploadedDocument } from "@/shared/security-flags";
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { db, tables } from "@/db";
@@ -44,6 +45,9 @@ export const POST = tenantRoute(async function POST(req: NextRequest) {
   const content = String(body.content ?? "").trim();
   if (!filename || !content) return NextResponse.json({ error: "A document name and its text are required." }, { status: 400 });
   if (content.length > MAX_CHARS) return NextResponse.json({ error: "That document is too long (60,000 characters)." }, { status: 400 });
+  // Instructions aimed at AI tools: refused and flagged (Dana 2026-11-06).
+  const refused = await checkUploadedDocument({ companyId: user.companyId, projectId: null, userId: user.id, source: "company-documents", filename, text: content });
+  if (refused) return NextResponse.json({ error: refused }, { status: 422 });
 
   const [row] = await db()
     .insert(tables.companyDocuments)

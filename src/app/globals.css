@@ -86,7 +86,7 @@
   --chart-track: #efe9dd;
 
   /*
-   * Legacy aliases. The pre-Tailwind screens (/artifacts)
+   * Legacy aliases. The pre-Tailwind screens (none left)
    * style themselves with inline `React.CSSProperties` objects reading these
    * names. They are mapped onto the SPP tokens so the legacy chat keeps
    * working — and quietly picks up the new brand — until the board reaches

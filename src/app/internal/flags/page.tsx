@@ -15,6 +15,7 @@ const KIND_LABEL: Record<string, string> = {
   ip_probe: "Asked how it works",
   off_topic: "Off-topic",
   injection: "Prompt injection",
+  upload_injection: "Instructions for AI tools in an uploaded document",
 };
 
 export default async function FlagsPage() {

@@ -1,3 +1,5 @@
+import { requireUser } from "@/shared/current-user";
+import { checkUploadedDocument } from "@/shared/security-flags";
 import { errorSummary } from "@/shared/safe-log";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -94,6 +96,11 @@ export async function POST(req: NextRequest) {
         { status: 422 }
       );
     }
+
+    // Instructions aimed at AI tools: refused and flagged (Dana 2026-11-06).
+    const user = await requireUser().catch(() => null);
+    const refused = await checkUploadedDocument({ companyId: user?.companyId ?? null, projectId: null, userId: user?.id ?? null, source: "upload", filename: name, text });
+    if (refused) return NextResponse.json({ error: refused }, { status: 422 });
 
     return NextResponse.json({ name, text, truncated });
   } catch (err) {

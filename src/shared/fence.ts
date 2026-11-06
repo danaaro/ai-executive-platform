@@ -44,6 +44,14 @@ const NAMES = FENCE_TAGS.map((t) =>
 ).join("|");
 const OUR_TAGS = new RegExp(`${OPEN}(${GAP}/?${GAP})(?:${NAMES})(?![\\w-])`, "giu");
 
+/** Does the text contain one of our tags (or a look-alike)? */
+export function containsFenceTag(text: string): boolean {
+  OUR_TAGS.lastIndex = 0;
+  const found = OUR_TAGS.test(text);
+  OUR_TAGS.lastIndex = 0;
+  return found;
+}
+
 /** The content with every one of our tags neutralised ("<" becomes "‹"). */
 export function neutralise(content: string): string {
   return content.replace(OUR_TAGS, (m) => "‹" + m.replace(/^(?:<|\uFF1C|\uFE64|\u3008|\u2329|&lt;|&#0*60;|&#x0*3c;)/i, ""));
