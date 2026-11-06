@@ -1,3 +1,4 @@
+import { fence } from "@/shared/fence";
 import { MODELS } from "@/shared/models";
 import fs from "node:fs";
 import path from "node:path";
@@ -404,8 +405,9 @@ export async function draftResearchModule(opts: {
   // The package orchestrator's exact hand-off block (research-company.md §4),
   // followed by the inputs, laid out in Dana's source order (2026-09-26):
   // 1 official website → 2 our uploaded documents → 3 web search.
-  const doc = (f: { filename: string; content: string }) =>
-    `<document filename="${f.filename}">\n${f.content}\n</document>`;
+  // Fenced as data: website text and uploads are third-party material
+  // (security review 2026-11-06; rule in company-researcher.md).
+  const doc = (f: { filename: string; content: string }) => fence("document", f.content, { filename: f.filename });
   const site = inputs.filter((f) => f.filename.startsWith(SITE_INPUT_PREFIX));
   const uploads = inputs.filter((f) => !f.filename.startsWith(SITE_INPUT_PREFIX));
   const inputsBlock =

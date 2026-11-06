@@ -106,6 +106,32 @@ export async function roleContextBlock(projectId: string, mode: "interview" | "w
       : Promise.resolve([] as { content: string }[]),
   ]);
 
+  const text = formatRoleContext(role, docs, intel[0]?.content ?? "", mode);
+  cache.set(key, { text, at: Date.now() });
+  return text;
+}
+
+export type RoleContextRow = {
+  title: string;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  showSalaryOnJd: boolean;
+  hiringManagerEmail: string | null;
+  companyName: string;
+  about: string | null;
+  values: string | null;
+  cultureNotes: string | null;
+  intelName: string | null;
+};
+
+/** The context block's text, from rows already read (pure, so the injection test runs it). */
+export function formatRoleContext(
+  role: RoleContextRow,
+  docs: { filename: string; content: string }[],
+  intelReport: string,
+  mode: "interview" | "writer"
+): string {
   const heading = (name: "facts" | "documents" | "research", fill: Record<string, string>) =>
     mode === "writer" ? WRITER_LABELS[name] : label(name, fill);
   const lines: string[] = [];
@@ -148,15 +174,13 @@ export async function roleContextBlock(projectId: string, mode: "interview" | "w
     }
   }
 
-  if (intel[0]?.content) {
+  if (intelReport) {
     lines.push("");
     lines.push(heading("research", { research_subject: role.intelName ?? "the company" }));
-    lines.push("", fence("company_intelligence", intel[0].content.slice(0, INTEL_MAX_CHARS)));
+    lines.push("", fence("company_intelligence", intelReport.slice(0, INTEL_MAX_CHARS)));
   }
 
-  const text = lines.join("\n");
-  cache.set(key, { text, at: Date.now() });
-  return text;
+  return lines.join("\n");
 }
 
 /** Forget a project's cached context (e.g. after company documents change). */

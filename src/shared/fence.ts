@@ -22,6 +22,8 @@ export const FENCE_TAGS = [
   "candidate_cv",
   "interview_transcript",
   "uploaded_document",
+  // Company Intel research inputs (admin-only tool; third-party websites).
+  "document",
   // The interview kit's own tags (hiring-toolkit partials/safety.md).
   "cv",
   "transcript",
@@ -30,11 +32,21 @@ export const FENCE_TAGS = [
 ] as const;
 export type FenceTag = (typeof FENCE_TAGS)[number];
 
-const OUR_TAGS = new RegExp(`<(\\s*/?\\s*)(${FENCE_TAGS.join("|")})\\b`, "gi");
+// Look-alikes are matched only where they form one of our tags, so ordinary
+// text is never altered (security review 2026-11-06): "<" or a look-alike
+// bracket (full-width, small form, angle) or its HTML entity; invisible format
+// characters (zero-width spaces, joiners, direction marks) anywhere in the tag;
+// spaces or hyphens for "_" ("company-document").
+const GAP = "[\\s\\p{Cf}]*";
+const OPEN = "(?:<|\\uFF1C|\\uFE64|\\u3008|\\u2329|&lt;|&#0*60;|&#x0*3c;)";
+const NAMES = FENCE_TAGS.map((t) =>
+  [...t].map((c) => (c === "_" ? `[\\s\\p{Cf}_-]*` : `${c}\\p{Cf}*`)).join("")
+).join("|");
+const OUR_TAGS = new RegExp(`${OPEN}(${GAP}/?${GAP})(?:${NAMES})(?![\\w-])`, "giu");
 
-/** The content with every one of our tags neutralised. */
+/** The content with every one of our tags neutralised ("<" becomes "‹"). */
 export function neutralise(content: string): string {
-  return content.replace(OUR_TAGS, "‹$1$2");
+  return content.replace(OUR_TAGS, (m) => "‹" + m.replace(/^(?:<|\uFF1C|\uFE64|\u3008|\u2329|&lt;|&#0*60;|&#x0*3c;)/i, ""));
 }
 
 const attrValue = (v: string) => v.replace(/["<>\n\r]/g, " ").slice(0, 200);

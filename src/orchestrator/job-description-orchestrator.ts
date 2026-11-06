@@ -262,16 +262,9 @@ export function questionBankIndex(): Map<string, BankQuestion> {
   return index;
 }
 
-/**
- * Writes (or revises) the Exec10X role description. Streams, because a
- * 900-word document with thinking takes well over a minute.
- */
-export async function streamJobDescriptionDraft(
-  input: { context: string; answers: string; transcript: string; request: string },
-  onDelta: (text: string) => void,
-  onReset?: () => void
-): Promise<string> {
-  const user = [
+/** The writer's user message: role context, then fenced answers and transcript (security plan S1). */
+export function writerUserMessage(input: { context: string; answers: string; transcript: string; request: string }): string {
+  return [
     input.context || "# 1. Role facts\n(none supplied)",
     "",
     "# 4. Recorded answers",
@@ -283,6 +276,18 @@ export async function streamJobDescriptionDraft(
     "# 6. Request",
     input.request,
   ].join("\n");
+}
+
+/**
+ * Writes (or revises) the Exec10X role description. Streams, because a
+ * 900-word document with thinking takes well over a minute.
+ */
+export async function streamJobDescriptionDraft(
+  input: { context: string; answers: string; transcript: string; request: string },
+  onDelta: (text: string) => void,
+  onReset?: () => void
+): Promise<string> {
+  const user = writerUserMessage(input);
 
   const run = async (model: string) => {
     const stream = await getAnthropicClient().messages.create({
